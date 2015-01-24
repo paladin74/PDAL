@@ -60,6 +60,8 @@ PythonEnvironment::PythonEnvironment()
     PyImport_AppendInittab(const_cast<char*>("redirector"), redirector_init);
 
     Py_Initialize();
+char *path = Py_GetPath();
+std::cerr << "PYTHON module search path = " << path << "!\n";
 
     Invocation::numpy_init();
 
