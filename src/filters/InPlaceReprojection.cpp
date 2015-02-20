@@ -286,6 +286,32 @@ void InPlaceReprojection::ready(PointContext ctx)
             "," << *m_offset_y << std::endl;
     }
 
+    try
+    {
+        double x = m_dimX->getMinimum();
+        double y = m_dimY->getMinimum();
+        double z = m_dimZ->getMinimum();
+        reprojectOffsets(x, y, z);
+        log()->get(logDEBUG2) << "reprojected minimums x,y: " 
+            << x << "," << y << std::endl;
+        m_dimX->setMinimum(x);
+        m_dimY->setMinimum(y);
+        m_dimZ->setMinimum(z);
+
+        x = m_dimX->getMaximum();
+        y = m_dimY->getMaximum();
+        z = m_dimZ->getMaximum();
+        reprojectOffsets(x, y, z);
+        log()->get(logDEBUG2) << "reprojected maximums x,y: " 
+            << x << "," << y << std::endl;
+        m_dimX->setMaximum(x);
+        m_dimY->setMaximum(y);
+        m_dimZ->setMaximum(z);
+    } catch (pdal::pdal_error&)
+    {
+        log()->get(logDEBUG2) << "Unable to reproject min/max values.";
+    }
+
     m_dimX->setNumericScale(*m_scale_x);
     m_dimY->setNumericScale(*m_scale_y);
     m_dimZ->setNumericScale(*m_scale_z);

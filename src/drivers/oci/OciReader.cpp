@@ -71,10 +71,10 @@ void OciReader::processOptions(const Options& options)
         m_offsetX = boost::optional<double>(
             options.getValueOrThrow<double>("offset_x"));
     if (options.hasOption("offset_y"))
-        m_offsetX = boost::optional<double>(
+        m_offsetY = boost::optional<double>(
             options.getValueOrThrow<double>("offset_y"));
     if (options.hasOption("offset_z"))
-        m_offsetX = boost::optional<double>(
+        m_offsetZ = boost::optional<double>(
             options.getValueOrThrow<double>("offset_z"));
 
     if (options.hasOption("spatialreference"))
