@@ -315,7 +315,8 @@ static bool setSRSFromVLRs_geotiff(const std::vector<VariableLengthRecord>& vlrs
 
     const std::string wkt = geotiff.getWkt(false,false);
 
-    srs.setFromUserInput(wkt);
+    if (wkt.size())
+        srs.setFromUserInput(wkt);
 #else
     boost::ignore_unused_variable_warning(srs);
     boost::ignore_unused_variable_warning(vlrs);
