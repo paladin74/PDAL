@@ -262,20 +262,17 @@ void OciSeqIterator::normalize(PointBuffer& buffer, BlockPtr block,
     {
         double d;
         int32_t x,y,z;
-        x = buffer.getFieldAs<int32_t>(*m_dimX, i, false);
+        x = buffer.getFieldAs<double>(*m_dimX, i, false);
         d = x * block->xScale() + block->xOffset();
-        x = m_dimX->removeScaling(d);
-        buffer.setRawField(*m_dimX, i, &x);
+        buffer.setFieldUnscaled(*m_dimX, i, d);
 
-        y = buffer.getFieldAs<int32_t>(*m_dimY, i, false);
+        y = buffer.getFieldAs<double>(*m_dimY, i, false);
         d = y * block->yScale() + block->yOffset();
-        y = m_dimY->removeScaling(d);
-        buffer.setRawField(*m_dimY, i, &y);
+        buffer.setFieldUnscaled(*m_dimY, i, d);
 
-        z = buffer.getFieldAs<int32_t>(*m_dimZ, i, false);
+        z = buffer.getFieldAs<double>(*m_dimZ, i, false);
         d = z * block->zScale() + block->zOffset();
-        z = m_dimZ->removeScaling(d);
-        buffer.setRawField(*m_dimZ, i, &z);
+        buffer.setFieldUnscaled(*m_dimZ, i, d);
     }
 }
 
