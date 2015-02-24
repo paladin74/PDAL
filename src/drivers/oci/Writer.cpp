@@ -388,13 +388,13 @@ bool Writer::blockTableExists()
     statement->Define(szTable);
     statement->Execute();
 
-    log()->get(logDEBUG) << "checking ... " << szTable ;
+    log()->get(logDEBUG4) << "checking ... " << szTable ;
     do
     {
-        log()->get(logDEBUG) << ", " << szTable;
+        log()->get(logDEBUG4) << ", " << szTable;
         if (boost::iequals(szTable, m_blockTableName))
         {
-            log()->get(logDEBUG) << " -- '" << m_blockTableName <<
+            log()->get(logDEBUG4) << " -- '" << m_blockTableName <<
                 "' found." <<std::endl;
             return true;
         }
