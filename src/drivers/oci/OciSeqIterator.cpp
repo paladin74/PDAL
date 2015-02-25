@@ -255,15 +255,12 @@ void OciSeqIterator::normalize(PointBuffer& buffer, BlockPtr block,
         Utils::compare_distance(m_dimZ->getNumericScale(), block->zScale()) &&
         Utils::compare_distance(m_dimZ->getNumericOffset(), block->zOffset()))
     {
-        std::cerr << "*** Not normalizing - transforms match!\n";
         return;
     }
 
     // Get the value from the buffer unscaled.  Scale the value as specified
     // in the block (the clould's scaling) and then set the value back into
     // the buffer, taking the final scaling out.
-
-    std::cerr << "*** Normalizing block!\n";
 
     for (PointId i = begin; i < end; ++i)
     {
@@ -279,18 +276,6 @@ void OciSeqIterator::normalize(PointBuffer& buffer, BlockPtr block,
         z = buffer.getFieldAs<double>(*m_dimZ, i, false);
         z = z * block->zScale() + block->zOffset();
         buffer.setFieldUnscaled(*m_dimZ, i, z);
-
-if (i == begin)
-{
-    std::cerr << "Block scaled x/y/z = " << x << "/" << y << "/" << z << "!\n";
-
-x = buffer.getFieldAs<double>(*m_dimX, i);
-y = buffer.getFieldAs<double>(*m_dimY, i);
-x = buffer.getFieldAs<double>(*m_dimZ, i);
-
-    std::cerr << "Schema scaled x/y/z = " << x << "/" << y << "/" << z << "!\n";
-}
-
     }
 }
 
