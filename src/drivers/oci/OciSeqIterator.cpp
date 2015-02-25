@@ -96,7 +96,8 @@ point_count_t OciSeqIterator::readDimMajor(PointBuffer& buffer, BlockPtr block,
         PointId nextId = startId;
         // if the block doesn't have the dimension, don't
         // copy it
-        Dimension* source_d = block->schema->getDimensionPtr(m_dims[d]->getName());
+        Dimension* source_d =
+            block->schema->getDimensionPtr(m_dims[d]->getName());
         if (!source_d)
             continue;
 
@@ -135,17 +136,16 @@ point_count_t OciSeqIterator::readPointMajor(PointBuffer& buffer,
     {
         for (size_t d = 0; d < m_dims.size(); ++d)
         {
-            Dimension* source_d = block->schema->getDimensionPtr(m_dims[d]->getName());
+            Dimension* source_d =
+                block->schema->getDimensionPtr(m_dims[d]->getName());
             if (!source_d)
-            {
                 continue;
-            }
+
             char *pos = block->data() +
-                       ((block->numRead()+numRead) * block->schema->getByteSize()) +
-                        source_d->getByteOffset();
+                ((block->numRead()+numRead) * block->schema->getByteSize()) +
+                source_d->getByteOffset();
 
             buffer.setRawField(*m_dims[d], nextId, pos);
-            // pos += source_d->getByteSize();
         }
         numRemaining--;
         nextId++;
@@ -192,7 +192,8 @@ point_count_t OciSeqIterator::readImpl(PointBuffer& buffer, point_count_t count)
         if (!comp.empty())
         {
             m_block->m_isCompressed = boost::iequals(comp.value(), "lazperf");
-            m_block->m_compVersion =  m_block->m_metadata.findChild("version").value() ;
+            m_block->m_compVersion =
+                m_block->m_metadata.findChild("version").value();
         }
 
         if (m_block->m_isCompressed)
@@ -203,7 +204,10 @@ point_count_t OciSeqIterator::readImpl(PointBuffer& buffer, point_count_t count)
             OCICompressionStream compStream;
 
             compStream.buf = m_block->chunk;
-            std::vector<uint8_t> bytes = compression::Decompress<OCICompressionStream>(m_block->schema, compStream, m_block->num_points, compression::CompressionType::Lazperf);
+            std::vector<uint8_t> bytes =
+                compression::Decompress<OCICompressionStream>(m_block->schema,
+                compStream, m_block->num_points,
+                compression::CompressionType::Lazperf);
             m_block->chunk = bytes;
         }
 
@@ -251,6 +255,7 @@ void OciSeqIterator::normalize(PointBuffer& buffer, BlockPtr block,
         Utils::compare_distance(m_dimZ->getNumericScale(), block->zScale()) &&
         Utils::compare_distance(m_dimZ->getNumericOffset(), block->zOffset()))
     {
+        std::cerr << "*** Not normalizing - transforms match!\n";
         return;
     }
 
@@ -258,36 +263,47 @@ void OciSeqIterator::normalize(PointBuffer& buffer, BlockPtr block,
     // in the block (the clould's scaling) and then set the value back into
     // the buffer, taking the final scaling out.
 
+    std::cerr << "*** Normalizing block!\n";
+
     for (PointId i = begin; i < end; ++i)
     {
-        double d;
-        int32_t x,y,z;
+        double x,y,z;
         x = buffer.getFieldAs<double>(*m_dimX, i, false);
-        d = x * block->xScale() + block->xOffset();
-        buffer.setFieldUnscaled(*m_dimX, i, d);
+        x = x * block->xScale() + block->xOffset();
+        buffer.setFieldUnscaled(*m_dimX, i, x);
 
         y = buffer.getFieldAs<double>(*m_dimY, i, false);
-        d = y * block->yScale() + block->yOffset();
-        buffer.setFieldUnscaled(*m_dimY, i, d);
+        y = y * block->yScale() + block->yOffset();
+        buffer.setFieldUnscaled(*m_dimY, i, y);
 
         z = buffer.getFieldAs<double>(*m_dimZ, i, false);
-        d = z * block->zScale() + block->zOffset();
-        buffer.setFieldUnscaled(*m_dimZ, i, d);
+        z = z * block->zScale() + block->zOffset();
+        buffer.setFieldUnscaled(*m_dimZ, i, z);
+
+if (i == begin)
+{
+    std::cerr << "Block scaled x/y/z = " << x << "/" << y << "/" << z << "!\n";
+
+x = buffer.getFieldAs<double>(*m_dimX, i);
+y = buffer.getFieldAs<double>(*m_dimY, i);
+x = buffer.getFieldAs<double>(*m_dimZ, i);
+
+    std::cerr << "Schema scaled x/y/z = " << x << "/" << y << "/" << z << "!\n";
+}
+
     }
 }
 
 void OciSeqIterator::setpointids(PointBuffer& buffer, BlockPtr block,
     PointId begin, PointId end)
 {
-
-    Dimension const* point_source_field = buffer.getSchema().getDimensionPtr("PointSourceId");
+    Dimension const* point_source_field =
+        buffer.getSchema().getDimensionPtr("PointSourceId");
     if (point_source_field)
     {
         uint16_t t(block->obj_id);
         for (PointId i = begin; i < end; ++i)
-        {
             buffer.setField<uint16_t>(*point_source_field, i, t);
-        }
     }
 
 }

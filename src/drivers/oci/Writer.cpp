@@ -598,7 +598,7 @@ void Writer::createPCEntry(Schema const& buffer_schema)
     s_geom << "))";
 
     Schema schema(m_dims);
-    if (m_orientation == schema::DIMENSION_INTERLEAVED && m_doCompression == true)
+    if (m_orientation == schema::DIMENSION_INTERLEAVED && m_doCompression)
         throw pdal_error("Cannot compress DIMENSION_INTERLEAVED orientation!");
 
     schema.setOrientation(m_orientation);
@@ -994,28 +994,23 @@ void Writer::writeTile(PointBuffer const& buffer)
     OCICompressionStream compStream;
     if (m_doCompression)
     {
-        log()->get(logDEBUG4) << "compressing block " << outbufSize << std::endl;
+        log()->get(logDEBUG4) << "compressing block " << outbufSize <<
+            std::endl;
 
         size_t origSize(outbufSize);
         const char* start_pos = outbuf.get();
         const char* end_pos = start_pos + outbufSize;
 
-
-        compression::Compress<OCICompressionStream>(m_dims,
-                                                    m_pointSize,
-                                                    start_pos,
-                                                    end_pos,
-                                                    compStream,
-                                                    compression::CompressionType::Lazperf,
-                                                    0,
-                                                    buffer.size());
+        compression::Compress<OCICompressionStream>(m_dims, m_pointSize,
+            start_pos, end_pos, compStream,
+            compression::CompressionType::Lazperf, 0, buffer.size());
         outbufSize = compStream.buf.size();
 
         log()->get(logDEBUG4) << "compressed block " << outbufSize << std::endl;
         blobPtr = (char*)compStream.buf.data();
-        if (origSize && outbufSize==0)
-            throw pdal_error("Compression failed to return any bytes. Is it enabled?");
-
+        if (origSize && outbufSize == 0)
+            throw pdal_error("Compression failed to return any bytes. "
+                "Is it enabled?");
     }
     else
     {
@@ -1045,7 +1040,6 @@ void Writer::writeTile(PointBuffer const& buffer)
         srid = m_srid;
     statement->Bind(&srid);
     log()->get(logDEBUG4) << "OCI SRID " << srid << std::endl;
-
 
     // :7
     OCIArray* sdo_elem_info = 0;
@@ -1096,7 +1090,6 @@ void Writer::writeTile(PointBuffer const& buffer)
 
     m_connection->DestroyType(&sdo_elem_info);
     m_connection->DestroyType(&sdo_ordinates);
-//     m_compStream.buf.clear();
 }
 
 
@@ -1199,7 +1192,6 @@ void Writer::updatePCExtent()
     m_connection->Commit();
 }
 
-
-}
-}
-} // namespace pdal::driver::oci
+} // namespace oci
+} // namespace drivers
+} // namespace pdal
