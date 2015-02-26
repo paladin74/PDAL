@@ -35,7 +35,6 @@
 #include <stdint.h>
 #include <string>
 #include <vector>
-
 #include <pdal/Dimension.hpp>
 #include <pdal/Log.hpp>
 
@@ -116,7 +115,9 @@ struct BpfDimension
     std::string m_label;
     Dimension *m_dim;
 
-    BpfDimension() : m_offset(0.0), m_min(0.0), m_max(0.0), m_dim(NULL)
+    BpfDimension() : m_offset(0.0),
+        m_min((std::numeric_limits<double>::max)()),
+        m_max((std::numeric_limits<double>::min)()), m_dim(NULL)
     {}
 
     static bool read(ILeStream& stream, std::vector<BpfDimension>& dims,
