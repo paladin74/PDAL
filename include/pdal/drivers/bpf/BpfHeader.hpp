@@ -116,6 +116,9 @@ struct BpfDimension
     std::string m_label;
     Dimension *m_dim;
 
+    BpfDimension() : m_offset(0.0), m_min(0.0), m_max(0.0), m_dim(NULL)
+    {}
+
     static bool read(ILeStream& stream, std::vector<BpfDimension>& dims,
         size_t start);
     static bool write(OLeStream& stream, std::vector<BpfDimension>& dims);
