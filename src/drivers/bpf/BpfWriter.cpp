@@ -191,11 +191,12 @@ void BpfWriter::writePointMajor(const PointBuffer& data)
         for (blockId = 0; idx < data.size() && blockId < blockpoints;
             ++idx, ++blockId)
         {
-            for (auto & bpfDim : m_dims)
+            for (auto& bpfDim : m_dims)
             {
                 float f = data.getFieldAs<float>(*bpfDim.m_dim, idx, false);
-                bpfDim.m_min = std::min(bpfDim.m_min, f + bpfDim.m_offset);
-                bpfDim.m_max = std::max(bpfDim.m_max, f + bpfDim.m_offset);
+                double d = data.getFieldAs<double>(*bpfDim.m_dim, idx);
+                bpfDim.m_min = std::min(bpfDim.m_min, d);
+                bpfDim.m_max = std::max(bpfDim.m_max, d);
                 m_stream << f;
             }
         }
