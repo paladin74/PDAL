@@ -152,6 +152,7 @@ public:
     static Options getDefaultOptions();
 
 private:
+    virtual void buildSchema(Schema *schema);
     virtual void processOptions(const Options& options);
     virtual PointBufferSet run(PointBufferPtr buffer);
 
@@ -167,6 +168,8 @@ private:
     void emit(ChipRefList& wide, PointId widemin, PointId widemax,
         ChipRefList& narrow, PointId narrowmin, PointId narrowmax);
 
+    Dimension *m_dimX;
+    Dimension *m_dimY;
     PointId m_threshold;
     PointBufferPtr m_inbuf;
     PointBufferSet m_buffers;

@@ -94,6 +94,12 @@ Options Chipper::getDefaultOptions()
     return options;
 }
 
+void Chipper::buildSchema(Schema *schema)
+{
+    m_dimX = schema->getDimensionPtr("X");
+    m_dimY = schema->getDimensionPtr("Y");
+}
+
 
 PointBufferSet Chipper::run(PointBufferPtr buffer)
 {
@@ -116,21 +122,17 @@ void Chipper::load(PointBuffer& buffer, ChipRefList& xvec, ChipRefList& yvec,
     yvec.reserve(buffer.size());
     spare.resize(buffer.size());
 
-    Schema const& schema = buffer.getSchema();
-    Dimension const& dimX = schema.getDimension("X");
-    Dimension const& dimY = schema.getDimension("Y");
-
     for (PointId i = 0; i < buffer.size(); ++i)
     {
         ChipPtRef xref;
 
-        xref.m_pos = buffer.getFieldAs<double>(dimX, i);
+        xref.m_pos = buffer.getFieldAs<double>(*m_dimX, i);
         xref.m_ptindex = i;
         xvec.push_back(xref);
 
         ChipPtRef yref;
 
-        yref.m_pos = buffer.getFieldAs<double>(dimY, i);
+        yref.m_pos = buffer.getFieldAs<double>(*m_dimY, i);
         yref.m_ptindex = i;
         yvec.push_back(yref);
     }
