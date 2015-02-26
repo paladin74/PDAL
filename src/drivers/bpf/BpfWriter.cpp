@@ -193,10 +193,11 @@ void BpfWriter::writePointMajor(const PointBuffer& data)
         {
             for (auto& bpfDim : m_dims)
             {
-                float f = data.getFieldAs<float>(*bpfDim.m_dim, idx, false);
                 double d = data.getFieldAs<double>(*bpfDim.m_dim, idx);
                 bpfDim.m_min = std::min(bpfDim.m_min, d);
                 bpfDim.m_max = std::max(bpfDim.m_max, d);
+
+                float f = data.getFieldAs<float>(*bpfDim.m_dim, idx, false);
                 m_stream << f;
             }
         }
@@ -220,9 +221,11 @@ void BpfWriter::writeDimMajor(const PointBuffer& data)
             compressor.startBlock();
         for (PointId idx = 0; idx < data.size(); ++idx)
         {
+            double d = data.getFieldAs<double>(*bpfDim.m_dim, idx);
+            bpfDim.m_min = std::min(bpfDim.m_min, d);
+            bpfDim.m_max = std::max(bpfDim.m_max, d);
+
             float f = data.getFieldAs<float>(*bpfDim.m_dim, idx, false);
-            bpfDim.m_min = std::min(bpfDim.m_min, f + bpfDim.m_offset);
-            bpfDim.m_max = std::max(bpfDim.m_max, f + bpfDim.m_offset);
             m_stream << f;
         }
         if (m_header.m_compression)
@@ -255,14 +258,13 @@ void BpfWriter::writeByteMajor(const PointBuffer& data)
         {
             for (PointId idx = 0; idx < data.size(); ++idx)
             {
-                uu.f = data.getFieldAs<float>(*bpfDim.m_dim, idx, false);
                 if (b == 0)
                 {
-                    bpfDim.m_min = std::min(bpfDim.m_min,
-                        uu.f + bpfDim.m_offset);
-                    bpfDim.m_max = std::max(bpfDim.m_max,
-                        uu.f + bpfDim.m_offset);
+                    double d = data.getFieldAs<double>(*bpfDim.m_dim, idx);
+                    bpfDim.m_min = std::min(bpfDim.m_min, d);
+                    bpfDim.m_max = std::max(bpfDim.m_max, d);
                 }
+                uu.f = data.getFieldAs<float>(*bpfDim.m_dim, idx, false);
                 uint8_t u8 = (uint8_t)(uu.u32 >> (b * CHAR_BIT));
                 m_stream << u8;
             }
