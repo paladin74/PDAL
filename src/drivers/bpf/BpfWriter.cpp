@@ -78,6 +78,10 @@ void BpfWriter::processOptions(const Options& options)
         m_header.m_pointFormat = BpfFormat::ByteMajor;
     else
         m_header.m_pointFormat = BpfFormat::DimMajor;
+    if (options.hasOption("identity_mueller"))
+        m_writeIdentity_xform = options.getValueOrThrow<bool>("identity_mueller");
+    else
+        m_writeIdentity_xform = false;
     if (options.hasOption("coord_id"))
     {
         m_header.m_coordType = BpfCoordType::UTM;
@@ -127,19 +131,23 @@ void BpfWriter::loadBpfDimensions(PointContext ctx)
     if (!dim)
         throw pdal_error("Couldn't find required X dimension for BPF output.");
     addDimension(dim);
-    m_header.m_xform.m_vals[0]= dim->getNumericScale();
+    if (!m_writeIdentity_xform)
+        m_header.m_xform.m_vals[0]= dim->getNumericScale();
 
     dim = m_schema->getDimensionPtr("Y");
     if (!dim)
         throw pdal_error("Couldn't find required Y dimension for BPF output.");
     addDimension(dim);
-    m_header.m_xform.m_vals[5] = dim->getNumericScale();
+
+    if (!m_writeIdentity_xform)
+        m_header.m_xform.m_vals[5] = dim->getNumericScale();
 
     dim = m_schema->getDimensionPtr("Z");
     if (!dim)
         throw pdal_error("Couldn't find required Z dimension for BPF output.");
     addDimension(dim);
-    m_header.m_xform.m_vals[10] = dim->getNumericScale();
+    if (!m_writeIdentity_xform)
+        m_header.m_xform.m_vals[10] = dim->getNumericScale();
 
     size_t numDims = m_schema->numDimensions();
     for (size_t d = 0; d < numDims; ++d)

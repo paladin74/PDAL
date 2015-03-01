@@ -64,6 +64,7 @@ private:
     Schema *m_schema;
     std::string m_filename;
     BpfDimensionList m_dims;
+    bool m_writeIdentity_xform;
 
     virtual void processOptions(const Options& options);
     virtual void ready(PointContext ctx);
