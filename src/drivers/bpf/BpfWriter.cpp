@@ -78,10 +78,6 @@ void BpfWriter::processOptions(const Options& options)
         m_header.m_pointFormat = BpfFormat::ByteMajor;
     else
         m_header.m_pointFormat = BpfFormat::DimMajor;
-    if (options.hasOption("identity_mueller"))
-        m_writeIdentity_xform = options.getValueOrThrow<bool>("identity_mueller");
-    else
-        m_writeIdentity_xform = false;
     if (options.hasOption("coord_id"))
     {
         m_header.m_coordType = BpfCoordType::UTM;
@@ -127,27 +123,32 @@ void BpfWriter::loadBpfDimensions(PointContext ctx)
         m_dims.push_back(dim);
     };
 
+    auto addBaseDimension = [this](Dimension *d, double& scaleDest)
+    {
+        BpfDimension dim;
+        dim.m_label = d->getName();
+        // Offsets in BPF are applied before scaling, so we have to back
+        // out the scaling from the offset.
+        dim.m_offset = d->getNumericOffset() / d->getNumericScale();
+        scaleDest = d->getNumericScale();
+        dim.m_dim = d;
+        m_dims.push_back(dim);
+    };
+
     dim = m_schema->getDimensionPtr("X");
     if (!dim)
         throw pdal_error("Couldn't find required X dimension for BPF output.");
-    addDimension(dim);
-    if (!m_writeIdentity_xform)
-        m_header.m_xform.m_vals[0]= dim->getNumericScale();
+    addBaseDimension(dim, m_header.m_xform.m_vals[0]);
 
     dim = m_schema->getDimensionPtr("Y");
     if (!dim)
         throw pdal_error("Couldn't find required Y dimension for BPF output.");
-    addDimension(dim);
-
-    if (!m_writeIdentity_xform)
-        m_header.m_xform.m_vals[5] = dim->getNumericScale();
+    addBaseDimension(dim, m_header.m_xform.m_vals[5]);
 
     dim = m_schema->getDimensionPtr("Z");
     if (!dim)
         throw pdal_error("Couldn't find required Z dimension for BPF output.");
-    addDimension(dim);
-    if (!m_writeIdentity_xform)
-        m_header.m_xform.m_vals[10] = dim->getNumericScale();
+    addBaseDimension(dim, m_header.m_xform.m_vals[10]);
 
     size_t numDims = m_schema->numDimensions();
     for (size_t d = 0; d < numDims; ++d)

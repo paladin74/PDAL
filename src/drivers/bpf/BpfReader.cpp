@@ -99,11 +99,22 @@ void BpfReader::buildSchema(Schema *schema)
 {
     for (size_t i = 0; i < m_dims.size(); ++i)
     {
+        double scale = 1.0;
+
         BpfDimension& dim = m_dims[i];
         Dimension pd(dim.m_label, dimension::Float, sizeof(float));
         pd.setMinimum(dim.m_min);
         pd.setMaximum(dim.m_max);
-        pd.setNumericOffset(dim.m_offset);
+        if (dim.m_label == "X")
+            scale = m_header.m_xform.m_vals[0];
+        if (dim.m_label == "Y")
+            scale = m_header.m_xform.m_vals[5];
+        if (dim.m_label == "Z")
+            scale = m_header.m_xform.m_vals[10];
+        // BPF scales offsets as well as values, but it only applies for X,
+        // Y and Z.
+        pd.setNumericOffset(dim.m_offset * scale);
+        pd.setNumericScale(scale);
         pd.setNamespace("bpf");
         dim.m_dim = schema->appendDimension(pd);
     }
