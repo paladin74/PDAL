@@ -53,12 +53,6 @@ class PDAL_DLL Scaling: public Filter
         std::string scale;
         std::string offset;
         uint32_t size;
-    };
-
-    struct DimPair
-    {
-        DimPair(Dimension *fromA, Dimension *toA) : from(fromA), to(toA)
-            {}
         Dimension *from;
         Dimension *to;
     };
@@ -73,11 +67,11 @@ public:
 
 private:
     bool m_markIgnored;
-    std::vector<DimPair> m_dims;
     std::vector<Scaler> m_scalers;
 
     virtual void processOptions(const Options& options);
     virtual void buildSchema(Schema *schema);
+    virtual void ready(PointContext ctx);
     virtual void filter(PointBuffer& buf);
 
     // Not implemented

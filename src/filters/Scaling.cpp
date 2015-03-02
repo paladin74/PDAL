@@ -103,26 +103,47 @@ void Scaling::buildSchema(Schema *schema)
     // Create a map with the uuid of the new dimension that maps to the old
     // dimension to be scaled
 
-    for (auto si = m_scalers.begin(); si != m_scalers.end(); ++si)
+    for (auto si = m_scalers.begin(); si != m_scalers.end(); )
     {
         Scaler& s = *si;
         Dimension *fromDim = schema->getDimensionPtr(s.name);
+        // If the entry refers to a dimension that doesn't exist, delete
+        // the entry.
         if (!fromDim)
+        {
+            si = m_scalers.erase(si);
             continue;
+        }
         Dimension dim(*fromDim);
         dim.setInterpretation(stringToType(s.type));
         dim.setByteSize(s.size);
-        if (s.scale.size())
-            dim.setNumericScale(boost::lexical_cast<double>(s.scale));
-        if (s.offset.size())
-            dim.setNumericOffset(boost::lexical_cast<double>(s.offset));
         dim.createUUID();
         dim.setNamespace(getName());
         dim.setParent(fromDim->getUUID());
         Dimension *toDim = schema->appendDimension(dim);
         if (m_markIgnored)
             fromDim->setIgnored();
-        m_dims.push_back(DimPair(fromDim, toDim));
+        s.from = fromDim;
+        s.to = toDim;
+        ++si;
+    }
+}
+
+
+void Scaling::ready(PointContext ctx)
+{
+    // Populate the scale and offset.
+    for (auto si = m_scalers.begin(); si != m_scalers.end(); ++si)
+    {
+        Scaler& s = *si;
+        if (s.scale.size())
+            s.to->setNumericScale(boost::lexical_cast<double>(s.scale));
+        else
+            s.to->setNumericScale(s.from->getNumericScale());
+        if (s.offset.size())
+            s.to->setNumericOffset(boost::lexical_cast<double>(s.offset));
+        else
+            s.to->setNumericOffset(s.from->getNumericOffset());
     }
 }
 
@@ -131,11 +152,11 @@ void Scaling::filter(PointBuffer& buf)
 {
     for (PointId idx = 0; idx < buf.size(); ++idx)
     {
-        for (auto di = m_dims.begin(); di != m_dims.end(); ++di)
+        for (auto si = m_scalers.begin(); si != m_scalers.end(); ++si)
         {
-            DimPair& dimPair = *di;
-            double d = buf.getFieldAs<double>(*dimPair.from, idx);
-            buf.setFieldUnscaled(*dimPair.to, idx, d);
+            const Scaler& s = *si;
+            double d = buf.getFieldAs<double>(*si->from, idx);
+            buf.setFieldUnscaled(*si->to, idx, d);
         }
     }
 }
