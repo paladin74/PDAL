@@ -126,6 +126,8 @@ void Selector::processOptions(const Options &options)
                     Dimension::getInterpretation(interpretation);
 
                 Dimension d(name, interp, size, description);
+                m_hasScaleMap[&d] = ops.hasOption("scale");
+                m_hasOffsetMap[&d] = ops.hasOption("offset");
                 d.setUUID(uuid);
 
                 if (d.getUUID().is_nil())
@@ -162,7 +164,11 @@ void Selector::buildSchema(Schema *schema)
         if (old_dim)
             d.setParent(old_dim->getUUID());
         m_ignoredMap[d.getName()] = false;
-        schema->appendDimension(d);
+        Dimension *td = schema->appendDimension(d);
+        m_hasScaleMap[td] = m_hasScaleMap[&d];
+        m_hasScaleMap.erase(&d);
+        m_hasOffsetMap[td] = m_hasOffsetMap[&d];
+        m_hasOffsetMap.erase(&d);
     }
 
     schema::Map& dimensions = schema->getDimensions();
@@ -179,6 +185,30 @@ void Selector::buildSchema(Schema *schema)
                 [d](Dimension &dr)
                 { dr.setFlags(d.getFlags() | dimension::IsIgnored); }
             );
+        }
+    }
+}
+
+
+void Selector::ready(PointContext ctx)
+{
+    Schema *s = ctx.schema();
+    
+    for (auto mi : m_hasScaleMap)
+    {
+        if (!mi.second && mi.first->getParent().is_nil())
+        {
+            Dimension *parent = s->getDimensionPtr(mi.first->getParent());
+            mi.first->setNumericScale(parent->getNumericScale());
+        }
+    }
+
+    for (auto mi : m_hasOffsetMap)
+    {
+        if (!mi.second && mi.first->getParent().is_nil())
+        {
+            Dimension *parent = s->getDimensionPtr(mi.first->getParent());
+            mi.first->setNumericOffset(parent->getNumericOffset());
         }
     }
 }

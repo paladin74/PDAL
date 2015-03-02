@@ -64,8 +64,11 @@ private:
     Selector(const Selector&); // not implemented
     virtual void processOptions(const Options& options);
     virtual void buildSchema(Schema *schema);
+    virtual void ready(PointContext ctx);
     
     std::map<std::string, bool> m_ignoredMap;
+    std::map<Dimension *, bool> m_hasScaleMap;
+    std::map<Dimension *, bool> m_hasOffsetMap;
     bool m_ignoreDefault;
     bool m_overwriteExisting;
     std::vector<Dimension> m_createDimensions;

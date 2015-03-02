@@ -242,6 +242,16 @@ public:
         return const_cast<Dimension *>(&(idx.at(t))); 
     }
 
+    Dimension *getDimensionPtr(dimension::id const& id) const
+    {
+        const schema::index_by_uid& idx = m_index.get<schema::uid>();
+        auto it = idx.find(id);
+        if (it == idx.end())
+            return NULL;
+        const Dimension& d = *it;
+        return (const_cast<Dimension *>(&d));
+    };
+
     /// @return a boost::optional-wrapped const& to a Dimension with the
     /// given name and namespace. If no matching dimension is found, the
     /// optional will be empty.
