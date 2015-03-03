@@ -166,15 +166,6 @@ point_count_t BpfSeqIterator::readPointMajor(PointBuffer& data,
             data.setField(*m_dims[d].m_dim, nextId, f);
         }
 
-        // Transformation X, Y and Z
-        double x = data.getFieldAs<double>(*m_xDim, nextId, false);
-        double y = data.getFieldAs<double>(*m_yDim, nextId, false);
-        double z = data.getFieldAs<double>(*m_zDim, nextId, false);
-        m_header.m_xform.apply(x, y, z);
-        data.setField(*m_xDim, nextId, x);
-        data.setField(*m_yDim, nextId, y);
-        data.setField(*m_zDim, nextId, z);
-
         idx++;
         numRead++;
         nextId++;
@@ -205,18 +196,6 @@ point_count_t BpfSeqIterator::readDimMajor(PointBuffer& data,
         }
     }
     m_index = idx;
-
-    // Transform X, Y and Z
-    for (idx = startId; idx < data.size(); idx++)
-    {
-        double x = data.getFieldAs<double>(*m_xDim, idx, false);
-        double y = data.getFieldAs<double>(*m_yDim, idx, false);
-        double z = data.getFieldAs<double>(*m_zDim, idx, false);
-        m_header.m_xform.apply(x, y, z);
-        data.setField(*m_xDim, idx, x);
-        data.setField(*m_yDim, idx, y);
-        data.setField(*m_zDim, idx, z);
-    }
 
     return numRead;
 }
@@ -260,18 +239,6 @@ point_count_t BpfSeqIterator::readByteMajor(PointBuffer& data,
         }
     }
     m_index = idx;
-
-    // Transform X, Y and Z
-    for (idx = startId; idx < data.size(); idx++)
-    {
-        double x = data.getFieldAs<double>(*m_xDim, idx, false);
-        double y = data.getFieldAs<double>(*m_yDim, idx, false);
-        double z = data.getFieldAs<double>(*m_zDim, idx, false);
-        m_header.m_xform.apply(x, y, z);
-        data.setField(*m_xDim, idx, x);
-        data.setField(*m_yDim, idx, y);
-        data.setField(*m_zDim, idx, z);
-    }
 
     return numRead;
 }
