@@ -615,9 +615,6 @@ void Writer::createPCEntry(Schema const& buffer_schema)
         m.add("version", "1.0");
         schemaData = Schema::to_xml(schema, m);
         assert(schema.getByteSize() == m_pointSize);
-        std::ostream* out = FileUtils::createFile("comp-written-metadata.xml");
-        out->write(schemaData.c_str(), schemaData.size());
-        FileUtils::closeFile(out);
 
     } else
     {
