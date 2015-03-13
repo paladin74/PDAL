@@ -40,7 +40,6 @@
 
 #include "pdal/Dimension.hpp"
 #include "pdal/Metadata.hpp"
-#include "pdal/RawPtBuf.hpp"
 
 namespace pdal
 {
@@ -79,22 +78,14 @@ class PointContext
     friend class plang::BufferedInvocation;
 private:
     DimInfoPtr m_dims;
-    // Provides storage for the point data.
-    RawPtBufPtr m_ptBuf;
-    // Metadata storage;
     MetadataPtr m_metadata;
+    bool m_finalized;
 
 public:
-    PointContext() : m_dims(new DimInfo()), m_ptBuf(new DefaultRawPtBuf()),
-        m_metadata(new Metadata)
+    PointContext() : m_dims(new DimInfo()), m_metadata(new Metadata()),
+        m_finalized(false)
     {}
 
-    PointContext(RawPtBufPtr ptBuf) : m_dims(new DimInfo()), m_ptBuf(ptBuf),
-        m_metadata(new Metadata)
-    {}
- 
-    RawPtBuf *rawPtBuf() const
-        { return m_ptBuf.get(); }
     MetadataNode metadata()
         { return m_metadata->getNode(); }
     SpatialReference spatialRef() const
@@ -144,7 +135,7 @@ public:
         Dimension::Type::Enum type)
     {
         Dimension::Id::Enum id = (Dimension::Id::Enum)m_dims->m_nextFree;
-        
+
         auto di = m_dims->m_propIds.find(name);
         if (di != m_dims->m_propIds.end())
             id = di->second;
@@ -237,7 +228,6 @@ public:
         { return dimDetail(id)->size(); }
     size_t dimOffset(Dimension::Id::Enum id) const
         { return dimDetail(id)->offset(); }
-
     size_t pointSize() const
     {
         size_t size(0);
@@ -246,12 +236,19 @@ public:
         return size;
     }
 
+    void finalize()
+        { m_finalized = true; }
+
 private:
     Dimension::Detail *dimDetail(Dimension::Id::Enum id) const
         { return &(m_dims->m_detail[(size_t)id]); }
 
     bool update(Dimension::Detail dd, const std::string& name)
     {
+        if (m_finalized)
+            throw pdal_error("Can't update dimensions after points have "
+                "been added.");
+
         Dimension::DetailList detail;
         bool used = Utils::contains(m_dims->m_used, dd.id());
         for (auto id : m_dims->m_used)
@@ -264,15 +261,30 @@ private:
         if (!used)
             detail.push_back(dd);
 
-        bool addDim = rawPtBuf()->update(detail, dd.id(), name);
-        if (addDim)
+        auto sorter = [this](const Dimension::Detail& d1,
+                const Dimension::Detail& d2) -> bool
         {
-            if (!used)
-                m_dims->m_used.push_back(dd.id());
-            for (auto& dtemp : detail)
-                m_dims->m_detail[dtemp.id()] = dtemp;
+            if (d1.size() > d2.size())
+                return true;
+            if (d1.size() < d2.size())
+                return false;
+            return d1.id() < d2.id();
+        };
+
+        int offset = 0;
+        std::sort(detail.begin(), detail.end(), sorter);
+        for (auto& d : detail)
+        {
+            d.setOffset(offset);
+            offset += (int)d.size();
         }
-        return addDim;
+
+        if (!used)
+            m_dims->m_used.push_back(dd.id());
+        for (auto& dtemp : detail)
+            m_dims->m_detail[dtemp.id()] = dtemp;
+
+        return true;
     }
 
     Dimension::Type::Enum resolveType(Dimension::Type::Enum t1,

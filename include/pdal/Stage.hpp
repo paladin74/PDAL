@@ -77,6 +77,7 @@ public:
     }
     void prepare(PointContextRef ctx);
     PointBufferSet execute(PointContextRef ctx);
+    PointBufferSet execute(PointContextRef ctx, RawPtBufPtr rawPtBuf);
 
     void setSpatialReference(SpatialReference const&);
     const SpatialReference& getSpatialReference() const;

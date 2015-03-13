@@ -50,15 +50,14 @@ public:
     virtual void setField(Dimension::Detail *d, PointId idx,
         const void *value) = 0;
     virtual void getField(Dimension::Detail *d, PointId idx, void *value) = 0;
-    virtual bool update(Dimension::DetailList& detail, Dimension::Id::Enum id,
-        const std::string& name) = 0;
 };
 
 /// This class provides a place to store the point data.
 class DefaultRawPtBuf : public RawPtBuf
 {
 public:
-    DefaultRawPtBuf() : m_numPts(0)
+    DefaultRawPtBuf(const PointContextRef pointContext) : m_blocks(),
+        m_numPts(0), m_context(pointContext)
     {}
 
     ~DefaultRawPtBuf()
@@ -89,50 +88,19 @@ public:
     void getField(Dimension::Detail *d, PointId idx, void *value)
        { memcpy(value, getDimension(d, idx), d->size()); }
 
-    bool update(Dimension::DetailList& detail, Dimension::Id::Enum id,
-        const std::string& name)
-    {
-        auto sorter = [this](const Dimension::Detail& d1,
-                const Dimension::Detail& d2) -> bool
-        {
-            if (d1.size() > d2.size())
-                return true;
-            if (d1.size() < d2.size())
-                return false;
-            return d1.id() < d2.id();
-        };
-
-        if (m_numPts != 0)
-            throw pdal_error("Can't update dimensions after points have "
-                "been added.");
-
-        int offset = 0;
-        std::sort(detail.begin(), detail.end(), sorter);
-        for (auto& d : detail)
-        {
-            d.setOffset(offset);
-            offset += (int)d.size();
-        }
-        //NOTE - I tried forcing all points to be aligned on 8-byte boundaries
-        // in case this would matter to the optimized memcpy, but it made
-        // no difference.  No sense wasting space for no difference.
-        m_pointSize = (size_t)offset;
-        return true;
-    }
-
 private:
     std::vector<char *> m_blocks;
     point_count_t m_numPts;
-    size_t m_pointSize;
+    const PointContextRef m_context;
 
     // The number of points in each memory block.
     static const point_count_t m_blockPtCnt = 65536;
 
     char *getDimension(Dimension::Detail *d, PointId idx)
         { return getPoint(idx) + d->offset(); }
-    
+
     std::size_t pointsToBytes(point_count_t numPts)
-        { return m_pointSize * numPts; }
+        { return m_context.pointSize() * numPts; }
 };
 typedef std::shared_ptr<RawPtBuf> RawPtBufPtr;
 

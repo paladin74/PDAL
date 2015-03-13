@@ -207,11 +207,10 @@ TEST(CropFilterTest, test_crop_polygon_reprojection)
     crop.setInput(reprojection);
 
     PointContext ctx;
-    PointBufferPtr buffer(new PointBuffer(ctx));
     crop.prepare(ctx);
     PointBufferSet pbSet = crop.execute(ctx);
     EXPECT_EQ(pbSet.size(), 1u);
-    buffer = *pbSet.begin();
+    PointBufferPtr buffer = *pbSet.begin();
     EXPECT_EQ(buffer->size(), 47u);
 
     FileUtils::closeFile(wkt_stream);

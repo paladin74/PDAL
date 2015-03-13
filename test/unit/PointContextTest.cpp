@@ -120,34 +120,20 @@ TEST(PointContext, userBuffer)
         void setField(Dimension::Detail *d, PointId idx, const void *value)
         {
             if (d->id() == Dimension::Id::X)
-               m_x = *(double *)value; 
+               m_x = *(double *)value;
             else if (d->id() == Dimension::Id::Y)
-               m_y = *(double *)value; 
+               m_y = *(double *)value;
             else if (d->id() == Dimension::Id::Z)
-               m_z = *(double *)value; 
+               m_z = *(double *)value;
         }
         void getField(Dimension::Detail *d, PointId idx, void *value)
         {
             if (d->id() == Dimension::Id::X)
-               *(double *)value = m_x; 
+               *(double *)value = m_x;
             else if (d->id() == Dimension::Id::Y)
-               *(double *)value = m_y; 
+               *(double *)value = m_y;
             else if (d->id() == Dimension::Id::Z)
-               *(double *)value = m_z; 
-        }
-
-        bool update(Dimension::DetailList& detail, Dimension::Id::Enum id,
-            const std::string& name)
-        {
-            if (id != Dimension::Id::X && id != Dimension::Id::Y &&
-                id != Dimension::Id::Z)
-                return false;
-            auto di = std::find_if(detail.begin(), detail.end(),
-                [id](const Dimension::Detail& dd) { return id == dd.id(); });
-            if (di == detail.end())
-                throw pdal_error("Internal dimension error.");
-            di->setType(Dimension::Type::Double);
-            return true;    
+               *(double *)value = m_z;
         }
     };
 
@@ -164,8 +150,10 @@ TEST(PointContext, userBuffer)
     PointBufferSet pbSet = reader.execute(defCtx);
     PointBufferPtr pb = *pbSet.begin();
 
-    auto readCb = [pb](PointBuffer& buf, PointId id)
+    bool called(false);
+    auto readCb = [pb, &called](PointBuffer& buf, PointId id)
     {
+        called = true;
         double xDef = pb->getFieldAs<double>(Dimension::Id::X, id);
         double yDef = pb->getFieldAs<double>(Dimension::Id::Y, id);
         double zDef = pb->getFieldAs<double>(Dimension::Id::Z, id);
@@ -180,9 +168,9 @@ TEST(PointContext, userBuffer)
     };
 
     reader.setReadCb(readCb);
-    PointContext ctx(RawPtBufPtr(new UserBuf()));
-
+    PointContext ctx;
     reader.prepare(ctx);
-    reader.execute(ctx);
+    reader.execute(ctx, RawPtBufPtr(new UserBuf()));
+    EXPECT_TRUE(called);
 }
 

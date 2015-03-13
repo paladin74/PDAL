@@ -37,6 +37,7 @@
 #include <pdal/util/Bounds.hpp>
 #include <pdal/pdal_internal.hpp>
 #include <pdal/PointContext.hpp>
+#include <pdal/RawPtBuf.hpp>
 
 #include <memory>
 #include <queue>
@@ -63,7 +64,12 @@ class PDAL_DLL PointBuffer
     friend class plang::BufferedInvocation;
     friend class PointRef;
 public:
-    PointBuffer(PointContextRef context) : m_context(context), m_size(0)
+    PointBuffer(PointContextRef context) : m_context(context),
+        m_rawPtBuf(new DefaultRawPtBuf(context)), m_size(0)
+    {}
+
+    PointBuffer(PointContextRef context, RawPtBufPtr rawPtBuf) :
+        m_context(context), m_rawPtBuf(rawPtBuf), m_size(0)
     {}
 
     PointBufferIter begin();
@@ -90,7 +96,7 @@ public:
     /// Return a new point buffer with the same point context as this
     /// point buffer.
     PointBufferPtr makeNew() const
-        { return PointBufferPtr(new PointBuffer(m_context)); }
+        { return PointBufferPtr(new PointBuffer(m_context, m_rawPtBuf)); }
 
     template<class T>
     T getFieldAs(Dimension::Id::Enum dim, PointId pointIndex) const;
@@ -217,7 +223,7 @@ public:
     /// Provides access to the memory storing the point data.  Though this
     /// function is public, other access methods are safer and preferred.
     char *getPoint(PointId id)
-        { return m_context.rawPtBuf()->getPoint(m_index[id]); }
+        { return m_rawPtBuf->getPoint(m_index[id]); }
 
     // The standard idiom is swapping with a stack-created empty queue, but
     // that invokes the ctor and probably allocates.  We've probably only got
@@ -230,6 +236,7 @@ public:
 
 protected:
     PointContextRef m_context;
+    RawPtBufPtr m_rawPtBuf;
     std::deque<PointId> m_index;
     // The index might be larger than the size to support temporary point
     // references.
@@ -435,7 +442,7 @@ bool PointBuffer::convertAndSet(Dimension::Id::Enum dim, PointId idx, T_IN in)
 //      block seemed somewhat expensive.
 //   2) Round to nearest instead of truncation without rounding before
 //      invoking the converter.
-// 
+//
     using namespace boost;
     static bool ok;
 
@@ -542,7 +549,7 @@ void PointBuffer::setField(Dimension::Id::Enum dim, PointId idx, T val)
 inline void PointBuffer::getFieldInternal(Dimension::Id::Enum dim,
     PointId id, void *buf) const
 {
-    m_context.rawPtBuf()->getField(m_context.dimDetail(dim), m_index[id], buf);
+    m_rawPtBuf->getField(m_context.dimDetail(dim), m_index[id], buf);
 }
 
 
@@ -552,9 +559,12 @@ inline void PointBuffer::setFieldInternal(Dimension::Id::Enum dim,
     PointId rawId = 0;
     if (id == size())
     {
-        rawId = m_context.rawPtBuf()->addPoint();
+        rawId = m_rawPtBuf->addPoint();
         m_index.push_back(rawId);
-        m_size++;
+        if (!m_size++)
+        {
+            m_context.finalize();
+        }
         assert(m_temps.empty());
     }
     else if (id > size())
@@ -567,7 +577,7 @@ inline void PointBuffer::setFieldInternal(Dimension::Id::Enum dim,
     {
         rawId = m_index[id];
     }
-    m_context.rawPtBuf()->setField(m_context.dimDetail(dim), rawId, value);
+    m_rawPtBuf->setField(m_context.dimDetail(dim), rawId, value);
 }
 
 

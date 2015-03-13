@@ -74,20 +74,24 @@ void Stage::prepare(PointContextRef ctx)
     prepared(ctx);
 }
 
-
 PointBufferSet Stage::execute(PointContextRef ctx)
+{
+    return execute(ctx, RawPtBufPtr(new DefaultRawPtBuf(ctx)));
+}
+
+PointBufferSet Stage::execute(PointContextRef ctx, RawPtBufPtr rawPtBuf)
 {
     PointBufferSet buffers;
     if (m_inputs.empty())
     {
-        buffers.insert(PointBufferPtr(new PointBuffer(ctx)));
+        buffers.insert(PointBufferPtr(new PointBuffer(ctx, rawPtBuf)));
     }
     else
     {
         for (size_t i = 0; i < m_inputs.size(); ++i)
         {
             Stage *prev = m_inputs[i];
-            PointBufferSet temp = prev->execute(ctx);
+            PointBufferSet temp = prev->execute(ctx, rawPtBuf);
             buffers.insert(temp.begin(), temp.end());
         }
     }
