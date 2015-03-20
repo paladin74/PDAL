@@ -68,7 +68,8 @@ class PDAL_DLL PointView
     friend class plang::BufferedInvocation;
     friend class PointRef;
 public:
-    PointView(PointTableRef pointTable) : m_pointTable(pointTable), m_size(0)
+    PointView(PointTableRef pointTable) : m_pointTable(pointTable), m_size(0),
+        m_offset(0)
     {}
 
     PointViewIter begin();
@@ -221,7 +222,7 @@ public:
     /// Provides access to the memory storing the point data.  Though this
     /// function is public, other access methods are safer and preferred.
     char *getPoint(PointId id)
-        { return m_pointTable.getPoint(m_index[id]); }
+        { return m_pointTable.getPoint(m_index[normalize(id)]); }
 
     // The standard idiom is swapping with a stack-created empty queue, but
     // that invokes the ctor and probably allocates.  We've probably only got
@@ -232,6 +233,41 @@ public:
             m_temps.pop();
     }
 
+    // Meant to be called during every PointRead callback, so this PointView
+    // should always be size=1 before the call and size=0 afterwards.
+    void purgeOne(PointId index)
+    {
+        if (m_index.empty())
+            return; // throw?
+
+        // Must be a 1:1 mapping (Reader-only pipeline).
+        if (index == m_index.front() && index == m_offset)
+        {
+            m_index.pop_front();
+        }
+
+        ++m_offset;
+    }
+
+    // Clear all.  More flexible.  Can batch stuff in the CB.
+    void clear()
+    {
+        clearTemps();
+
+        if (!m_index.empty())
+        {
+            // Check to ensure ascending order (1:1 mapping) and increment
+            // offset.
+            for (auto i : m_index)
+            {
+                if (i != m_offset++)
+                    throw pdal_error("Tried to clear a non-1:1 View mapping");
+            }
+
+            m_index.clear();
+        }
+    }
+
 protected:
     PointTableRef m_pointTable;
     std::deque<PointId> m_index;
@@ -239,6 +275,18 @@ protected:
     // references.
     size_t m_size;
     std::queue<PointId> m_temps;
+    std::size_t m_offset;
+
+    // Account for cleared entries.
+    PointId normalize(PointId index) const
+    {
+        // Either a Reader went backwards, or someone is trying to write or
+        // filter what should have been a Reader-only pipeline.
+        if (m_offset > index)
+            throw pdal_error("You said you were done with this point!");
+
+        return index - m_offset;
+    }
 
 private:
     template<typename T_IN, typename T_OUT>
@@ -547,7 +595,7 @@ inline void PointView::getFieldInternal(Dimension::Id::Enum dim,
     PointId id, void *buf) const
 {
     m_pointTable.getField(m_pointTable.layout()->dimDetail(dim),
-        m_index[id], buf);
+        m_index[normalize(id)], buf);
 }
 
 
@@ -570,7 +618,7 @@ inline void PointView::setFieldInternal(Dimension::Id::Enum dim,
     }
     else
     {
-        rawId = m_index[id];
+        rawId = m_index[normalize(id)];
     }
     m_pointTable.setField(m_pointTable.layout()->dimDetail(dim),
         rawId, value);
@@ -580,7 +628,7 @@ inline void PointView::setFieldInternal(Dimension::Id::Enum dim,
 inline void PointView::appendPoint(const PointView& buffer, PointId id)
 {
     // Invalid 'id' is a programmer error.
-    PointId rawId = buffer.m_index[id];
+    PointId rawId = buffer.m_index[buffer.normalize(id)];
     point_count_t newid = size();
     m_index.push_back(rawId);
     m_size++;
@@ -591,6 +639,7 @@ inline void PointView::appendPoint(const PointView& buffer, PointId id)
 // Make a temporary copy of a point by adding an entry to the index.
 inline PointId PointView::getTemp(PointId id)
 {
+    // Not sure what to do here.  Throw if m_offset = 0?
     PointId newid;
     if (m_temps.size())
     {
