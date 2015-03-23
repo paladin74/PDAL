@@ -38,7 +38,6 @@
 #include <pdal/Stage.hpp>
 #include <pdal/util/FileUtils.hpp>
 #include <pdal/plugin.h>
-#include <pdal/PointBuffer.hpp>
 
 
 extern "C" int32_t TIndexKernel_ExitFunc();

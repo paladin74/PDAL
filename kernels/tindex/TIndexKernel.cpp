@@ -116,9 +116,9 @@ OGRGeometryH fetchGeometry(std::string const& filename)
 
     stage = hexbinStage;
 
-    PointContext ctx;
-    stage->prepare(ctx);
-    stage->execute(ctx);
+    PointTable tbl;
+    stage->prepare(tbl);
+    stage->execute(tbl);
 
     OGRGeometryH output(0);
     return output;
