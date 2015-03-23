@@ -47,7 +47,7 @@ Stage& PipelineManager::addReader(const std::string& type)
     if (!r)
     {
         std::ostringstream ss;
-        ss << "Couldn't create stage for type '" << type << "'.";
+        ss << "Couldn't create reader stage of type '" << type << "'.";
         throw pdal_error(ss.str());
     }
     m_stages.push_back(std::unique_ptr<Stage>(r));
@@ -58,6 +58,12 @@ Stage& PipelineManager::addReader(const std::string& type)
 Stage& PipelineManager::addFilter(const std::string& type)
 {
     Stage *stage = m_factory.createStage(type);
+    if (!stage)
+    {
+        std::ostringstream ss;
+        ss << "Couldn't create filter stage of type '" << type << "'.";
+        throw pdal_error(ss.str());
+    }
     m_stages.push_back(std::unique_ptr<Stage>(stage));
     return *stage;
 }
@@ -66,6 +72,12 @@ Stage& PipelineManager::addFilter(const std::string& type)
 Stage& PipelineManager::addWriter(const std::string& type)
 {
     Stage *writer = m_factory.createStage(type);
+    if (!writer)
+    {
+        std::ostringstream ss;
+        ss << "Couldn't create writer stage of type '" << type << "'.";
+        throw pdal_error(ss.str());
+    }
     m_stages.push_back(std::unique_ptr<Stage>(writer));
     return *writer;
 }
@@ -75,7 +87,7 @@ void PipelineManager::prepare() const
 {
     Stage *s = getStage();
     if (s)
-       s->prepare(m_context);
+       s->prepare(m_table);
 }
 
 
@@ -86,12 +98,12 @@ point_count_t PipelineManager::execute()
     Stage *s = getStage();
     if (!s)
         return 0;
-    m_pbSet = s->execute(m_context);
+    m_viewSet = s->execute(m_table);
     point_count_t cnt = 0;
-    for (auto pi = m_pbSet.begin(); pi != m_pbSet.end(); ++pi)
+    for (auto pi = m_viewSet.begin(); pi != m_viewSet.end(); ++pi)
     {
-        PointBufferPtr buf = *pi;
-        cnt += buf->size();
+        PointViewPtr view = *pi;
+        cnt += view->size();
     }
     return cnt;
 }

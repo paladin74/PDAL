@@ -34,76 +34,94 @@
 
 #pragma once
 
+#include <map>
 #include <memory>
 #include <vector>
 
-#include "pdal/pdal_internal.hpp"
+#include "pdal/Dimension.hpp"
+#include "pdal/PointLayout.hpp"
+#include "pdal/Metadata.hpp"
 
 namespace pdal
 {
 
-/// This class provides a place to store the point data.
-class RawPtBuf
+class PDAL_DLL BasePointTable
 {
+    friend class PointView;
+
 public:
-    RawPtBuf() : m_numPts(0)
-    {}
+    BasePointTable() : m_layout(new PointLayout()), m_metadata(new Metadata())
+        {}
+    BasePointTable(PointLayoutPtr layout) : m_layout(layout),
+            m_metadata(new Metadata())
+        {}
+    virtual ~BasePointTable()
+        {}
 
-    ~RawPtBuf()
-    {
-        for (auto vi = m_blocks.begin(); vi != m_blocks.end(); ++vi)
-            delete [] *vi;
-    }
+public:
+    // Layout operations.
+    PointLayoutPtr layout()
+        { return m_layout; }
 
-    PointId addPoint()
-    {
-        if (m_numPts % m_blockPtCnt == 0)
-        {
-            char *buf = new char[pointsToBytes(m_blockPtCnt)];
-            m_blocks.push_back(buf);
-        }
-        return m_numPts++;
-    }
+    const PointLayoutPtr layout() const
+        { return m_layout; }
 
-    char *getPoint(PointId idx)
-    {
-        char *buf = m_blocks[idx / m_blockPtCnt];
-        return buf + pointsToBytes(idx % m_blockPtCnt);
-    }
-
-    void setField(Dimension::Detail *d, PointId idx, const void *value)
-       { memcpy(getDimension(d, idx), value, d->size()); }
-
-    void getField(Dimension::Detail *d, PointId idx, void *value)
-       { memcpy(value, getDimension(d, idx), d->size()); }
-
-    void setPointSize(size_t size)
-    {
-        if (m_numPts != 0)
-            throw pdal_error("Can't set point size after points have "
-                "been added.");
-
-        //NOTE - I tried forcing all points to be aligned on 8-byte boundaries
-        // in case this would matter to the optimized memcpy, but it made
-        // no difference.  No sense wasting space for no difference.
-        m_pointSize = size;
-    }
+    // Metadata operations.
+    MetadataNode metadata()
+        { return m_metadata->getNode(); }
+    SpatialReference spatialRef() const;
+    void setSpatialRef(const SpatialReference& sref);
 
 private:
+    // Point data operations.
+    virtual PointId addPoint() = 0;
+    virtual char *getPoint(PointId idx) = 0;
+    virtual void setField(const Dimension::Detail *d, PointId idx,
+        const void *value) = 0;
+    virtual void getField(const Dimension::Detail *d, PointId idx,
+        void *value) = 0;
+
+protected:
+    PointLayoutPtr m_layout;
+    MetadataPtr m_metadata;
+};
+typedef BasePointTable& PointTableRef;
+
+
+// This provides a context for processing a set of points and allows the library
+// to be used to process multiple point sets simultaneously.
+class PDAL_DLL PointTable : public BasePointTable
+{
+private:
+    // Point storage.
     std::vector<char *> m_blocks;
     point_count_t m_numPts;
-    size_t m_pointSize;
+
+public:
+    PointTable() : m_numPts(0)
+        {}
+    PointTable(PointLayoutPtr layout) : BasePointTable(layout), m_numPts(0)
+        {}
+    virtual ~PointTable();
+
+private:
+    // Point data operations.
+    virtual PointId addPoint();
+    virtual char *getPoint(PointId idx);
+    virtual void setField(const Dimension::Detail *d, PointId idx,
+        const void *value);
+    virtual void getField(const Dimension::Detail *d, PointId idx,
+        void *value);
 
     // The number of points in each memory block.
     static const point_count_t m_blockPtCnt = 65536;
 
-    char *getDimension(Dimension::Detail *d, PointId idx)
+    char *getDimension(const Dimension::Detail *d, PointId idx)
         { return getPoint(idx) + d->offset(); }
-    
-    std::size_t pointsToBytes(point_count_t numPts)
-        { return m_pointSize * numPts; }
-};
-typedef std::shared_ptr<RawPtBuf> RawPtBufPtr;
 
-} // namespace pdal
+    std::size_t pointsToBytes(point_count_t numPts)
+        { return m_layout->pointSize() * numPts; }
+};
+
+} //namespace
 

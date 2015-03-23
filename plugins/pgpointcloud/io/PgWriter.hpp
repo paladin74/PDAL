@@ -55,16 +55,18 @@ public:
     Options getDefaultOptions();
 
 private:
+
+
     PgWriter& operator=(const PgWriter&); // not implemented
     PgWriter(const PgWriter&); // not implemented
 
     virtual void processOptions(const Options& options);
-    virtual void write(const PointBuffer& pointBuffer);
-    virtual void done(PointContextRef ctx);
+    virtual void write(const PointViewPtr view);
+    virtual void done(PointTableRef table);
     virtual void initialize();
 
     void writeInit();
-    void writeTile(const PointBuffer& buffer);
+    void writeTile(const PointViewPtr view);
 
     bool CheckTableExists(std::string const& name);
     bool CheckPointCloudExists();
@@ -83,7 +85,7 @@ private:
                      std::string const& table_name,
                      std::string const& column_name);
 
-    bool WriteBlock(PointBuffer const& buffer);
+    bool WriteBlock(const PointViewPtr view);
 
     PGconn* m_session;
     std::string m_schema_name;

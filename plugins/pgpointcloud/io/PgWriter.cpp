@@ -37,7 +37,7 @@
 
 #include "PgWriter.hpp"
 
-#include <pdal/PointBuffer.hpp>
+#include <pdal/PointView.hpp>
 #include <pdal/StageFactory.hpp>
 #include <pdal/util/FileUtils.hpp>
 #include <pdal/util/Endian.hpp>
@@ -70,7 +70,6 @@ std::string PgWriter::getName() const { return s_info.name; }
 PgWriter::PgWriter()
     : m_session(0)
     , m_patch_compression_type(CompressionType::None)
-    , m_patch_capacity(400)
     , m_srid(0)
     , m_pcid(0)
     , m_overwrite(true)
@@ -104,7 +103,6 @@ void PgWriter::processOptions(const Options& options)
 
     // Read other preferences
     m_overwrite = options.getValueOrDefault<bool>("overwrite", true);
-    m_patch_capacity = options.getValueOrDefault<uint32_t>("capacity", 400);
     m_srid = options.getValueOrDefault<uint32_t>("srid", 4326);
     m_pcid = options.getValueOrDefault<uint32_t>("pcid", 0);
     m_pre_sql = options.getValueOrDefault<std::string>("pre_sql");
@@ -137,7 +135,6 @@ Options PgWriter::getDefaultOptions()
     Option column("column", "", "column to write to");
     Option compression("compression", "dimensional", "patch compression format to use (none, dimensional, ght)");
     Option overwrite("overwrite", true, "replace any existing table");
-    Option capacity("capacity", 400, "how many points to store in each patch");
     Option srid("srid", 4326, "spatial reference id to store data in");
     Option pcid("pcid", 0, "use this existing pointcloud schema id, if it exists");
     Option pre_sql("pre_sql", "", "before the pipeline runs, read and execute this SQL file, or run this SQL command");
@@ -148,7 +145,6 @@ Options PgWriter::getDefaultOptions()
     options.add(column);
     options.add(compression);
     options.add(overwrite);
-    options.add(capacity);
     options.add(srid);
     options.add(pcid);
     options.add(pre_sql);
@@ -201,14 +197,14 @@ void PgWriter::writeInit()
     m_schema_is_initialized = true;
 }
 
-void PgWriter::write(const PointBuffer& buffer)
+void PgWriter::write(const PointViewPtr view)
 {
     writeInit();
-    writeTile(buffer);
+    writeTile(view);
 }
 
 
-void PgWriter::done(PointContextRef ctx)
+void PgWriter::done(PointTableRef /*table*/)
 {
     //CreateIndex(m_schema_name, m_table_name, m_column_name);
 
@@ -404,7 +400,6 @@ bool PgWriter::CheckTableExists(std::string const& name)
     return false;
 }
 
-
 void PgWriter::CreateTable(std::string const& schema_name,
     std::string const& table_name, std::string const& column_name,
     uint32_t pcid)
@@ -412,9 +407,10 @@ void PgWriter::CreateTable(std::string const& schema_name,
     std::ostringstream oss;
     oss << "CREATE TABLE ";
     if (schema_name.size())
-        oss << schema_name << ".";
-    oss << table_name;
-    oss << " (id SERIAL PRIMARY KEY, " << column_name << " PcPatch";
+        oss << pg_quote_identifier(schema_name) << ".";
+    oss << pg_quote_identifier(table_name);
+    oss << " (id SERIAL PRIMARY KEY, " <<
+        pg_quote_identifier(column_name) << " PcPatch";
     if (pcid)
         oss << "(" << pcid << ")";
     oss << ")";
@@ -439,27 +435,19 @@ void PgWriter::CreateIndex(std::string const& schema_name,
 }
 
 
-void PgWriter::writeTile(PointBuffer const& buffer)
+void PgWriter::writeTile(const PointViewPtr view)
 {
-    if (buffer.size() > m_patch_capacity)
-    {
-        std::ostringstream oss;
-        oss << "writers.pgpointcloud buffer size (" << buffer.size()
-            << ") is greater than capacity (" << m_patch_capacity << ")";
-        throw pdal_error(oss.str());
-    }
-
     std::vector<char> storage(m_packedPointSize);
     std::string hexrep;
-    size_t maxHexrepSize = m_packedPointSize * buffer.size() * 2;
+    size_t maxHexrepSize = m_packedPointSize * view->size() * 2;
     hexrep.reserve(maxHexrepSize);
 
     m_insert.clear();
     m_insert.reserve(maxHexrepSize + 3000);
 
-    for (PointId idx = 0; idx < buffer.size(); ++idx)
+    for (PointId idx = 0; idx < view->size(); ++idx)
     {
-        size_t written = readPoint(buffer, idx, storage.data());
+        size_t written = readPoint(*view.get(), idx, storage.data());
 
         /* We are always getting uncompressed bytes off the block_data */
         /* so we always used compression type 0 (uncompressed) in writing */
@@ -473,22 +461,23 @@ void PgWriter::writeTile(PointBuffer const& buffer)
     }
 
     std::string insert_into("INSERT INTO ");
-    std::string values(" (pa) VALUES ('");
+    std::string values(" (" + pg_quote_identifier(m_column_name) +
+                       ") VALUES ('");
 
     m_insert.append(insert_into);
 
     if (m_schema_name.size())
     {
-        m_insert.append(m_schema_name);
+        m_insert.append(pg_quote_identifier(m_schema_name));
         m_insert.append(".");
     }
 
-    m_insert.append(m_table_name);
+    m_insert.append(pg_quote_identifier(m_table_name));
     m_insert.append(values);
 
     std::ostringstream options;
 
-    uint32_t num_points = buffer.size();
+    uint32_t num_points = view->size();
     int32_t pcid = m_pcid;
     CompressionType::Enum compression_v = CompressionType::None;
     uint32_t compression = static_cast<uint32_t>(compression_v);
