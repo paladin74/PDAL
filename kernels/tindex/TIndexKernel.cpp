@@ -33,8 +33,14 @@
 ****************************************************************************/
 
 #include "TIndexKernel.hpp"
+#include "../info/InfoKernel.hpp"
+
+#ifndef WIN32
+#include <glob.h>
+#endif
 
 #include <memory>
+#include <vector>
 
 #include <pdal/PDALUtils.hpp>
 #include <ogr_api.h>
@@ -77,8 +83,8 @@ void TIndexKernel::addSwitches()
         new po::options_description("file options");
 
     file_options->add_options()
-        ("directory", po::value<std::string>(&m_indexDirectory), "Directory to index")
         ("filename", po::value<std::string>(&m_outputFilename), "OGR-writeable tile index output")
+        ("directory", po::value<std::string>(&m_indexDirectory), "Directory to index")
     ;
 
     addSwitchSet(file_options);
@@ -90,35 +96,28 @@ void TIndexKernel::addSwitches()
     addSwitchSet(processing_options);
 
     addPositionalSwitch("filename", 1);
+    addPositionalSwitch("directory", 2);
 }
 
+
+
+inline std::vector<std::string> glob(const std::string& pat){
+    using namespace std;
+    vector<string> ret;
+#ifndef WIN32
+    glob_t glob_result;
+    glob(pat.c_str(),GLOB_TILDE,NULL,&glob_result);
+    for(unsigned int i=0;i<glob_result.gl_pathc;++i){
+        ret.push_back(string(glob_result.gl_pathv[i]));
+    }
+    globfree(&glob_result);
+#endif
+    return ret;
+}
 
 OGRGeometryH fetchGeometry(std::string const& filename)
 {
     Options readerOptions;
-
-    readerOptions.add<std::string>("filename", filename);
-//     setCommonOptions(readerOptions);
-    std::unique_ptr<PipelineManager> m_manager;
-
-
-
-    std::unique_ptr<PipelineManager> manager = std::unique_ptr<PipelineManager>(
-                                        KernelSupport::makePipeline(filename));
-
-    Stage* stage = manager->getStage();
-    stage->setOptions(readerOptions);
-
-    Stage* hexbinStage = &(m_manager->addFilter("filters.hexbin"));
-    Options hexOptions;
-    hexbinStage->setOptions(hexOptions);
-    hexbinStage->setInput(*stage);
-
-    stage = hexbinStage;
-
-    PointTable tbl;
-    stage->prepare(tbl);
-    stage->execute(tbl);
 
     OGRGeometryH output(0);
     return output;
@@ -130,6 +129,16 @@ OGRGeometryH fetchGeometry(std::string const& filename)
 
 int TIndexKernel::execute()
 {
+
+
+    std::vector<std::string> files = glob(m_indexDirectory);
+
+    std::cout <<" here " << std::endl;
+    for (auto f: files)
+    {
+        OGRGeometryH g = fetchGeometry(f);
+        std::cout << "f: " << f << std::endl;
+    }
 
 
     return 0;

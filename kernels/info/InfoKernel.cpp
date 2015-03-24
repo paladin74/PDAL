@@ -251,7 +251,7 @@ MetadataNode InfoKernel::dumpSummary(const QuickInfo& qi)
 }
 
 
-void InfoKernel::dump(std::ostream& o, const std::string& filename)
+MetadataNode InfoKernel::dump(const std::string& filename)
 {
     MetadataNode root;
     root.add("filename", filename);
@@ -309,11 +309,9 @@ void InfoKernel::dump(std::ostream& o, const std::string& filename)
         MetadataNode boundary = m_hexbinStage->getMetadata().clone("boundary");
         root.add(boundary);
     }
-    if (!root.valid())
-        return;
 
     root.add("pdal_version", pdal::GetFullVersionString());
-    utils::toJSON(root, o);
+    return root;
 }
 
 
@@ -382,7 +380,8 @@ int InfoKernel::execute()
         stage = m_hexbinStage;
     }
 
-    dump(std::cout, filename);
+    MetadataNode root = dump(filename);
+    utils::toJSON(root, std::cout);
 
     return 0;
 }

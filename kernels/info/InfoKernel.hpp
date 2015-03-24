@@ -69,7 +69,7 @@ private:
     void addSwitches(); // overrride
     void validateSwitches(); // overrride
 
-    void dump(std::ostream& o, const std::string& filename);
+    MetadataNode dump(const std::string& filename);
 
     MetadataNode dumpPoints(PointViewPtr inView) const;
     MetadataNode dumpStats() const;
