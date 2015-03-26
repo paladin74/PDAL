@@ -106,7 +106,6 @@ void LasReader::processOptions(const Options& options)
     m_extraDims = LasUtils::parse(extraDims);
 
     m_error.setFilename(m_filename);
-    m_error.setLog(log());  
 }
 
 static PluginInfo const s_info = PluginInfo(
@@ -216,6 +215,8 @@ void LasReader::ready(PointTableRef table, MetadataNode& m)
         throw pdal_error("LASzip is not enabled.  Can't read LAZ data.");
 #endif
     }
+    m_error.setLog(log());  
+    
 }
 
 

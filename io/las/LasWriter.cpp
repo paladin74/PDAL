@@ -127,7 +127,6 @@ void LasWriter::processOptions(const Options& options)
     getHeaderOptions(options);
     getVlrOptions(options);
     m_error.setFilename(m_filename);
-    m_error.setLog(log());
 }
 
 
@@ -260,6 +259,8 @@ void LasWriter::ready(PointTableRef table)
     m_lasHeader.setPointOffset((uint32_t)m_ostream->tellp());
     if (m_lasHeader.compressed())
         openCompression();
+
+    m_error.setLog(log());
 }
 
 
