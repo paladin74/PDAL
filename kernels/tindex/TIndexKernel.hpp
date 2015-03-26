@@ -1,3 +1,4 @@
+#include <pdal/Kernel.hpp>
 /******************************************************************************
 * Copyright (c) 2015, Howard Butler (howard@hobu.co)
 *
@@ -61,12 +62,15 @@ private:
     void addSwitches(); // overrride
     void validateSwitches(); // overrride
 
+    void* fetchGeometry(std::string const& filename);
+    
 //     MetadataNode m_tree;
     std::unique_ptr<PipelineManager> m_manager;
     
     std::string m_outputFilename;
     std::string m_indexDirectory;
     std::vector<std::string> m_files;
+    void* m_kernelFactory;
 };
 
 } // namespace pdal

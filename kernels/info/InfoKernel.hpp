@@ -64,12 +64,17 @@ public:
     std::string getName() const;
     int execute(); // overrride
 
+    MetadataNode dump(const std::string& filename);
+
+    void prepare(const std::string& filename);
+    
+    inline bool showAll() { return m_showAll; }
+    inline void doShowAll(bool value) { m_showAll = value; }
+
 private:
     InfoKernel();
     void addSwitches(); // overrride
     void validateSwitches(); // overrride
-
-    MetadataNode dump(const std::string& filename);
 
     MetadataNode dumpPoints(PointViewPtr inView) const;
     MetadataNode dumpStats() const;

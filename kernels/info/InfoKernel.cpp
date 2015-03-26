@@ -251,6 +251,43 @@ MetadataNode InfoKernel::dumpSummary(const QuickInfo& qi)
 }
 
 
+void InfoKernel::prepare(const std::string& filename)
+{
+    Options readerOptions;
+
+    readerOptions.add("filename", filename);
+    if (m_showMetadata)
+        readerOptions.add("count", 0);
+
+    m_manager = std::unique_ptr<PipelineManager>(
+        KernelSupport::makePipeline(filename));
+    m_reader = m_manager->getStage();
+    Stage *stage = m_reader;
+
+    if (m_Dimensions.size())
+        m_options.add("dimensions", m_Dimensions, "List of dimensions");
+
+    Options options = m_options + readerOptions;
+    m_reader->setOptions(options);
+
+    if (m_showStats || m_showAll)
+    {
+        m_statsStage = &(m_manager->addFilter("filters.stats"));
+        m_statsStage->setOptions(options);
+        m_statsStage->setInput(*stage);
+        stage = m_statsStage;
+    }
+    if (m_boundary || m_showAll)
+    {
+        m_hexbinStage = &(m_manager->addFilter("filters.hexbin"));
+        m_hexbinStage->setOptions(options);
+        m_hexbinStage->setInput(*stage);
+        stage = m_hexbinStage;
+        Options readerOptions;
+    }
+
+}
+
 MetadataNode InfoKernel::dump(const std::string& filename)
 {
     MetadataNode root;
@@ -347,39 +384,9 @@ MetadataNode InfoKernel::dumpQuery(PointViewPtr inView) const
 
 int InfoKernel::execute()
 {
-    Options readerOptions;
 
     std::string filename = m_usestdin ? std::string("STDIN") : m_inputFile;
-    readerOptions.add("filename", filename);
-    if (m_showMetadata)
-        readerOptions.add("count", 0);
-
-    m_manager = std::unique_ptr<PipelineManager>(
-        KernelSupport::makePipeline(filename));
-    m_reader = m_manager->getStage();
-    Stage *stage = m_reader;
-
-    if (m_Dimensions.size())
-        m_options.add("dimensions", m_Dimensions, "List of dimensions");
-
-    Options options = m_options + readerOptions;
-    m_reader->setOptions(options);
-
-    if (m_showStats || m_showAll)
-    {
-        m_statsStage = &(m_manager->addFilter("filters.stats"));
-        m_statsStage->setOptions(options);
-        m_statsStage->setInput(*stage);
-        stage = m_statsStage;
-    }
-    if (m_boundary || m_showAll)
-    {
-        m_hexbinStage = &(m_manager->addFilter("filters.hexbin"));
-        m_hexbinStage->setOptions(options);
-        m_hexbinStage->setInput(*stage);
-        stage = m_hexbinStage;
-    }
-
+    prepare(filename);
     MetadataNode root = dump(filename);
     utils::toJSON(root, std::cout);
 

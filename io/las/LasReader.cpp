@@ -106,6 +106,7 @@ void LasReader::processOptions(const Options& options)
     m_extraDims = LasUtils::parse(extraDims);
 
     m_error.setFilename(m_filename);
+    m_error.setLog(log());  
 }
 
 static PluginInfo const s_info = PluginInfo(

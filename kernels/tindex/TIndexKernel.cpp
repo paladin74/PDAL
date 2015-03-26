@@ -43,6 +43,8 @@
 #include <vector>
 
 #include <pdal/PDALUtils.hpp>
+#include <pdal/KernelFactory.hpp>
+
 #include <ogr_api.h>
 
 #include <boost/program_options.hpp>
@@ -64,6 +66,7 @@ std::string TIndexKernel::getName() const { return s_info.name; }
 TIndexKernel::TIndexKernel()
     : Kernel()
     , m_outputFilename("")
+    , m_kernelFactory(0)
 
 {}
 
@@ -115,10 +118,40 @@ inline std::vector<std::string> glob(const std::string& pat){
     return ret;
 }
 
-OGRGeometryH fetchGeometry(std::string const& filename)
+OGRGeometryH TIndexKernel::fetchGeometry(std::string const& filename)
 {
-    Options readerOptions;
 
+    // kf is void* because we don't have definition when 
+    // we make TIndexKernel 
+    KernelFactory* kf = static_cast<KernelFactory*>(m_kernelFactory);
+    std::unique_ptr<Kernel> app = kf->createKernel("kernels.info");
+    
+    Kernel* k = static_cast<Kernel*>(app.get());
+    // Evil, this is.
+    InfoKernel* info = static_cast<InfoKernel*>(k);
+
+    std::vector<std::string> args;
+    args.push_back("--all"); args.push_back(filename);
+
+//     const char* argv[2];
+//     argv[0] = args[0].c_str();
+//     argv[1] = args[1].c_str();
+//     info->run(args.size(), argv, "info");
+    std::stringstream ss;
+    info->doShowAll(true);
+    info->prepare(filename);
+
+    MetadataNode metadata;
+    try
+    {
+        metadata = info->dump(filename);
+    } catch (...)
+    {
+        return NULL;
+    }
+    utils::toJSON(metadata, std::cout);
+
+//     MetadataNode metadata = info.dump(filename);
     OGRGeometryH output(0);
     return output;
 
@@ -130,6 +163,7 @@ OGRGeometryH fetchGeometry(std::string const& filename)
 int TIndexKernel::execute()
 {
 
+    m_kernelFactory = (void*) new KernelFactory (false);
 
     std::vector<std::string> files = glob(m_indexDirectory);
 

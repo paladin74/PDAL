@@ -127,6 +127,7 @@ void LasWriter::processOptions(const Options& options)
     getHeaderOptions(options);
     getVlrOptions(options);
     m_error.setFilename(m_filename);
+    m_error.setLog(log());
 }
 
 

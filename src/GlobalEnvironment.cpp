@@ -60,10 +60,10 @@ GlobalEnvironment& GlobalEnvironment::get()
 
 void GlobalEnvironment::startup()
 {
-    if (t != 0) // sanity check
-    {
-        throw pdal_error("attempt to reinitialize global environment");
-    }
+//     if (t != 0) // sanity check
+//     {
+//         throw pdal_error("attempt to reinitialize global environment");
+//     }
     get();
 }
 
@@ -72,6 +72,8 @@ void GlobalEnvironment::shutdown()
 {
     if (t == 0) // sanity check
     {
+        // done
+        return;
         throw pdal_error("bad global shutdown call -- was called more "
             "than once or was called without corresponding startup");
     }

@@ -128,6 +128,8 @@ protected:
         return *s;
     }
     bool m_usestdin;
+    int m_argc;
+    const char** m_argv;
 
 private:
     int innerRun();
@@ -148,8 +150,6 @@ private:
     std::string m_showOptions;
     bool m_showVersion;
     bool m_showTime;
-    int m_argc;
-    const char** m_argv;
     std::string m_appName;
     bool m_hardCoreDebug;
     std::vector<std::string> m_heartbeat_shell_command;
