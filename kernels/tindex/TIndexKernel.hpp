@@ -62,15 +62,26 @@ private:
     void addSwitches(); // overrride
     void validateSwitches(); // overrride
 
-    void* fetchGeometry(std::string const& filename);
-    
-//     MetadataNode m_tree;
-    std::unique_ptr<PipelineManager> m_manager;
+    void* fetchGeometry(MetadataNode metadata);
+    void createDS(std::string const& filename);
+    MetadataNode fetchInfo(std::string const& filename);
+    void createLayer(std::string const& filename, std::string const& srs_wkt);
     
     std::string m_outputFilename;
     std::string m_indexDirectory;
     std::vector<std::string> m_files;
+    std::string m_layerName;
+    std::string m_driverName;
+    std::string m_tileIndexColumnName;
+    std::string m_srsColumnName;
+
+
     void* m_kernelFactory;
+    void* m_DS;
+    void* m_Layer;
+    void* m_fDefn;
+    bool m_bAbsolutePaths;
+    std::string m_targetSRSString;
 };
 
 } // namespace pdal
