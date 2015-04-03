@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2012, Michael P. Gerlek (mpg@flaxen.com)
+* Copyright (c) 2015,  Hobu Inc. (info@hobu.co)
 *
 * All rights reserved.
 *
@@ -13,8 +13,8 @@
 *       notice, this list of conditions and the following disclaimer in
 *       the documentation and/or other materials provided
 *       with the distribution.
-*     * Neither the name of Hobu, Inc. or Flaxen Consulting LLC nor the
-*       names of its contributors may be used to endorse or promote
+*     * Neither the name of Hobu, Inc. nor the names of its
+*       contributors may be used to endorse or promote
 *       products derived from this software without specific prior
 *       written permission.
 *
@@ -31,20 +31,16 @@
 * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY
 * OF SUCH DAMAGE.
 ****************************************************************************/
- 
-#include <pdal/pdal_test_main.hpp>
 
-#include <pdal/GlobalEnvironment.hpp>
+#include "gtest/gtest.h"
 
-using namespace pdal;
+// NOTE:  This file contains main() for all tests, and therefore 
+//   should be included only once for each test executable.  Usually test
+//   executables consist of a single source file, but if this isn't the case
+//   you may need to take precautions or define your own main().
 
-TEST(EnvironmentTest, EnvironmentTest_1)
-{
-    GlobalEnvironment& pdal_env = ::pdal::GlobalEnvironment::get();
-
-#ifdef PDAL_HAVE_PYTHON
-    plang::PythonEnvironment& python_env = pdal_env.getPythonEnvironment();
-
-    (void)python_env;
-#endif
+GTEST_API_ int main(int argc, char **argv) {
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }
+
