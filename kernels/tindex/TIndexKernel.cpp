@@ -324,7 +324,8 @@ OGRGeometryH TIndexKernel::fetchGeometry(MetadataNode metadata)
 
 int TIndexKernel::execute()
 {
-    GlobalEnvironment::get().getGDALEnvironment();
+    GlobalEnvironment::get().initializeGDAL(0);
+
     m_kernelFactory = (void*) new KernelFactory (false);
 
     std::vector<std::string> files = glob(m_indexDirectory);
