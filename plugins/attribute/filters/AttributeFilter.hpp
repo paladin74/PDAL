@@ -50,7 +50,7 @@ namespace pdal
 
 namespace gdal
 {
-    class Debug;
+    class ErrorHandler;
 }
 
 
@@ -123,7 +123,7 @@ private:
     virtual void initialize();
     virtual void processOptions(const Options&);
     virtual void ready(PointTableRef table);
-    virtual void filter(PointViewPtr view);
+    virtual void filter(PointView& view);
 
     AttributeFilter& operator=(const AttributeFilter&); // not implemented
     AttributeFilter(const AttributeFilter&); // not implemented
@@ -132,8 +132,8 @@ private:
 
     AttributeInfoMap m_dimensions;
     GEOSContextHandle_t m_geosEnvironment;
-    std::shared_ptr<pdal::gdal::Debug> m_gdal_debug;
-    void UpdateGEOSBuffer(PointViewPtr view, AttributeInfo& info);
+    std::unique_ptr<pdal::gdal::ErrorHandler> m_gdal_debug;
+    void UpdateGEOSBuffer(PointView& view, AttributeInfo& info);
 
 };
 

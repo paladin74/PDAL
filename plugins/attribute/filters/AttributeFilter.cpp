@@ -89,7 +89,7 @@ struct OGRFeatureDeleter
 
 void AttributeFilter::initialize()
 {
-    GlobalEnvironment::get().initializeGDAL(log());
+    GlobalEnvironment::get().initializeGDAL(log(), isDebug());
 }
 
 
@@ -156,8 +156,7 @@ void AttributeFilter::processOptions(const Options& options)
 
 void AttributeFilter::ready(PointTableRef table)
 {
-    m_gdal_debug = std::shared_ptr<pdal::gdal::Debug>(
-        new pdal::gdal::Debug(isDebug(), log()));
+    m_gdal_debug.reset( new pdal::gdal::ErrorHandler(isDebug(), log()));
 
     for (auto& dim_par : m_dimensions)
     {
@@ -236,7 +235,7 @@ GEOSGeometry* createGEOSPoint(GEOSContextHandle_t ctx, double x, double y, doubl
     return p;
 }
 
-void AttributeFilter::UpdateGEOSBuffer(PointViewPtr view, AttributeInfo& info)
+void AttributeFilter::UpdateGEOSBuffer(PointView& view, AttributeInfo& info)
 {
     QuadIndex idx(view);
 
@@ -314,9 +313,9 @@ void AttributeFilter::UpdateGEOSBuffer(PointViewPtr view, AttributeInfo& info)
         for (const auto& i : ids)
         {
 
-            double x = view->getFieldAs<double>(Dimension::Id::X, i);
-            double y = view->getFieldAs<double>(Dimension::Id::Y, i);
-            double z = view->getFieldAs<double>(Dimension::Id::Z, i);
+            double x = view.getFieldAs<double>(Dimension::Id::X, i);
+            double y = view.getFieldAs<double>(Dimension::Id::Y, i);
+            double z = view.getFieldAs<double>(Dimension::Id::Z, i);
 
             GEOSGeometry* p = createGEOSPoint(m_geosEnvironment, x, y ,z);
 
@@ -324,7 +323,7 @@ void AttributeFilter::UpdateGEOSBuffer(PointViewPtr view, AttributeInfo& info)
             {
                 // We're in the poly, write the attribute value
                 int32_t v = OGR_F_GetFieldAsInteger(feature.get(), field_index);
-                view->setField(info.dim, i, v);
+                view.setField(info.dim, i, v);
 //                 log()->get(LogLevel::Debug) << "Setting value: " << v << std::endl;
             }
 
@@ -336,7 +335,7 @@ void AttributeFilter::UpdateGEOSBuffer(PointViewPtr view, AttributeInfo& info)
     }
 }
 
-void AttributeFilter::filter(PointViewPtr view)
+void AttributeFilter::filter(PointView& view)
 {
 
     for (auto& dim_par : m_dimensions)
@@ -346,10 +345,10 @@ void AttributeFilter::filter(PointViewPtr view)
             UpdateGEOSBuffer(view, dim_par.second);
         }  else
         {
-            for (PointId i = 0; i < view->size(); ++i)
+            for (PointId i = 0; i < view.size(); ++i)
             {
                 double v = boost::lexical_cast<double>(dim_par.second.value);
-                view->setField(dim_par.second.dim, i, v);
+                view.setField(dim_par.second.dim, i, v);
             }
 
         }
