@@ -52,6 +52,7 @@
 #include <cpl_port.h>
 #include <cpl_vsi.h>
 #include <cpl_string.h>
+#include <gdal.h>
 
 
 #include <boost/program_options.hpp>
@@ -76,13 +77,14 @@ TIndexKernel::TIndexKernel()
     , m_layerName("")
     , m_driverName("ESRI Shapefile")
     , m_tileIndexColumnName("location")
-    , m_srsColumnName("")
+    , m_srsColumnName("srs")
     , m_kernelFactory(0)
     , m_DS(0)
     , m_Layer(0)
     , m_fDefn(0)
     , m_bAbsolutePaths(false)
     , m_targetSRSString("")
+    , m_ti_field(0)
 {}
 
 
@@ -240,14 +242,11 @@ void TIndexKernel::createLayer(std::string const& filename, std::string const& s
                 OGR_Fld_SetWidth( hFieldDefn, nMaxFieldSize);
             OGR_L_CreateField( m_Layer, hFieldDefn, TRUE );
             OGR_Fld_Destroy(hFieldDefn);
-            if( m_srsColumnName.size() )
-            {
-                hFieldDefn = OGR_Fld_Create( m_srsColumnName.c_str(), OFTString );
-                if( nMaxFieldSize )
-                    OGR_Fld_SetWidth( hFieldDefn, nMaxFieldSize);
-                OGR_L_CreateField( m_Layer, hFieldDefn, TRUE );
-                OGR_Fld_Destroy(hFieldDefn);
-            }
+            hFieldDefn = OGR_Fld_Create( m_srsColumnName.c_str(), OFTString );
+            if( nMaxFieldSize )
+                OGR_Fld_SetWidth( hFieldDefn, nMaxFieldSize);
+            OGR_L_CreateField( m_Layer, hFieldDefn, TRUE );
+            OGR_Fld_Destroy(hFieldDefn);
         }
     }
 
@@ -259,16 +258,19 @@ void TIndexKernel::createLayer(std::string const& filename, std::string const& s
 
     m_fDefn = OGR_L_GetLayerDefn(m_Layer);
 
-    int ti_field = OGR_FD_GetFieldIndex( m_fDefn, m_tileIndexColumnName.c_str());
-    if( ti_field < 0 )
+    m_ti_field = OGR_FD_GetFieldIndex( m_fDefn, m_tileIndexColumnName.c_str());
+    if( m_ti_field < 0 )
     {
         std::cerr << "Unable to find field '" << m_tileIndexColumnName << "' in file '" << filename <<"'" << std::endl;
         exit(2);
     }
+    m_srs_field = OGR_FD_GetFieldIndex( m_fDefn, m_srsColumnName.c_str());
+    if( m_srs_field < 0 )
+    {
+        std::cerr << "Unable to find field '" << m_srsColumnName << "' in file '" << filename <<"'" << std::endl;
+        exit(2);
+    }
     
-//     if( m_srsColumnName.size() )
-//         i_SrcSRSName = OGR_FD_GetFieldIndex( hFDefn, pszSrcSRSName );
-
     /* Load in memory existing file names in SHP */
     int nExistingFiles = (int)OGR_L_GetFeatureCount(m_Layer, FALSE);
     if (nExistingFiles > 0)
@@ -277,7 +279,7 @@ void TIndexKernel::createLayer(std::string const& filename, std::string const& s
         for(auto i=0;i<nExistingFiles;i++)
         {
             hFeature = OGR_L_GetNextFeature(m_Layer);
-            m_files.push_back(OGR_F_GetFieldAsString( hFeature, ti_field));
+            m_files.push_back(OGR_F_GetFieldAsString( hFeature, m_ti_field));
             OGR_F_Destroy( hFeature );
         }
     }
@@ -321,7 +323,47 @@ OGRGeometryH TIndexKernel::fetchGeometry(MetadataNode metadata)
 
 }
 
+OGRFeatureH CreateFeature(OGRLayerH layer, 
+                    std::string const& filename,
+                    OGRGeometryH geometry,
+                    MetadataNode metadata,
+                    int ti_field,
+                    int srs_field)
+{
+    OGRFeatureH hFeature = OGR_F_Create( OGR_L_GetLayerDefn( layer) );
+    OGR_F_SetFieldString( hFeature, ti_field, filename.c_str());
+    std::string srs = metadata.findChild("summary:spatial_reference").value();
 
+    if (srs.size())
+    {
+        std::cout << "Metadarta srs: " << srs << std::endl; 
+
+        OGRSpatialReferenceH hSourceSRS = OSRNewSpatialReference(srs.c_str());
+        const char* pszAuthorityCode = OSRGetAuthorityCode(hSourceSRS, NULL);
+        const char* pszAuthorityName = OSRGetAuthorityName(hSourceSRS, NULL);
+        if( pszAuthorityName != NULL && pszAuthorityCode != NULL )
+            OGR_F_SetFieldString( hFeature, srs_field,
+                                CPLSPrintf("%s:%s", pszAuthorityName, pszAuthorityCode) );
+//         else
+//         {
+//             char* pszProj4 = NULL;
+//             if( OSRExportToProj4(hSourceSRS, &pszProj4) == OGRERR_NONE )
+//             {
+//                 srs = std::string(pszProj4);
+//                 CPLFree(pszProj4);
+//             }
+//             std::cerr << "unable to output proj4 SRS for file '" << filename << "'" <<std::endl;
+//             exit(1);
+//         }
+// 
+        OGR_F_SetFieldString( hFeature, srs_field, srs.c_str());
+        OSRDestroySpatialReference(hSourceSRS);
+    }
+    OGR_F_SetGeometry( hFeature, geometry);
+
+    return hFeature;
+
+}
 int TIndexKernel::execute()
 {
     GlobalEnvironment::get().initializeGDAL(0);
@@ -330,7 +372,6 @@ int TIndexKernel::execute()
 
     std::vector<std::string> files = glob(m_indexDirectory);
 
-    std::cout <<" here " << std::endl;
     bool bCreatedLayer(false);
     for (auto f: files)
     {
@@ -339,6 +380,7 @@ int TIndexKernel::execute()
         std::string wkt = m.findChild("boundary:boundary").value();
         std::string srs = m.findChild("summary:spatial_reference").value();
 
+        std::cout << "loop srs: " << srs << std::endl;
         if (!bCreatedLayer)
         {
             createDS(m_outputFilename);
@@ -346,9 +388,22 @@ int TIndexKernel::execute()
             bCreatedLayer = true;
         }
         OGRGeometryH g = fetchGeometry(m);
+        if (!g) 
+        { std::cout << "Geometry was empty!" << std::endl;continue;}
+        OGRFeatureH hFeature = CreateFeature(m_Layer, f, g, m, m_ti_field, m_srs_field);
+        if( OGR_L_CreateFeature( m_Layer, hFeature ) != OGRERR_NONE )
+        {
+           printf( "Failed to create feature in shapefile.\n" );
+           break;
+        }
+
+        OGR_G_DestroyGeometry(g);
+        OGR_F_Destroy(hFeature);
+        
         std::cout << "f: " << f << std::endl;
     }
 
+    GDALClose(m_DS);
 
     return 0;
 }

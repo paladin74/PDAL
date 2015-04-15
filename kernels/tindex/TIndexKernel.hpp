@@ -82,6 +82,8 @@ private:
     void* m_fDefn;
     bool m_bAbsolutePaths;
     std::string m_targetSRSString;
+    int m_ti_field;
+    int m_srs_field;
 };
 
 } // namespace pdal
