@@ -47,7 +47,16 @@ extern "C" PF_ExitFunc TIndexKernel_InitPlugin();
 namespace pdal
 {
     
-
+namespace tindex
+{
+    struct FieldIndexes
+    {
+        int filename;
+        int srs;
+        int ctime;
+        int mtime;
+    };
+}
 class PDAL_DLL TIndexKernel : public Kernel
 {
 public:
@@ -65,7 +74,7 @@ private:
     void* fetchGeometry(MetadataNode metadata);
     void createDS(std::string const& filename);
     MetadataNode fetchInfo(std::string const& filename);
-    void createLayer(std::string const& filename, std::string const& srs_wkt);
+    tindex::FieldIndexes createLayer(std::string const& filename, std::string const& srs_wkt);
     
     std::string m_outputFilename;
     std::string m_indexDirectory;
@@ -82,8 +91,6 @@ private:
     void* m_fDefn;
     bool m_bAbsolutePaths;
     std::string m_targetSRSString;
-    int m_ti_field;
-    int m_srs_field;
 };
 
 } // namespace pdal
