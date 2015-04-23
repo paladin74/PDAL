@@ -153,7 +153,8 @@ std::string StageFactory::inferWriterDriver(const std::string& filename)
 }
 
 
-pdal::Options StageFactory::inferWriterOptionsChanges(const std::string& filename)
+pdal::Options StageFactory::inferWriterOptionsChanges(
+    const std::string& filename)
 {
     std::string ext = boost::filesystem::extension(filename);
     boost::to_lower(ext);
@@ -223,7 +224,7 @@ StageFactory::StageFactory(bool no_plugins)
 /// \param[in] stage_name  Type of stage to by created.
 /// \return  Pointer to created stage.
 ///
-Stage *StageFactory::createStage(std::string const& stage_name)
+Stage *StageFactory::createStage(std::string const& stage_name) const
 {
     PluginManager& pm = PluginManager::getInstance();
 
@@ -235,7 +236,7 @@ Stage *StageFactory::createStage(std::string const& stage_name)
 }
 
 
-StringList StageFactory::getStageNames()
+StringList StageFactory::getStageNames() const
 {
     PluginManager & pm = PluginManager::getInstance();
     PluginManager::RegistrationMap rm = pm.getRegistrationMap();
@@ -251,7 +252,7 @@ StringList StageFactory::getStageNames()
 }
 
 
-std::map<std::string, std::string> StageFactory::getStageMap()
+std::map<std::string, std::string> StageFactory::getStageMap() const
 {
     PluginManager& pm = PluginManager::getInstance();
     PluginManager::RegistrationMap rm = pm.getRegistrationMap();
