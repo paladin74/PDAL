@@ -144,11 +144,11 @@ inline std::vector<std::string> glob(const std::string& pat){
 
 MetadataNode TIndexKernel::fetchInfo(std::string const& filename)
 {
-    // kf is void* because we don't have definition when 
-    // we make TIndexKernel 
+    // kf is void* because we don't have definition when
+    // we make TIndexKernel
     KernelFactory* kf = static_cast<KernelFactory*>(m_kernelFactory);
     std::unique_ptr<Kernel> app = kf->createKernel("kernels.info");
-    
+
     Kernel* k = static_cast<Kernel*>(app.get());
     // Evil, this is.
     InfoKernel* info = static_cast<InfoKernel*>(k);
@@ -204,7 +204,6 @@ void TIndexKernel::createDS(std::string const& filename)
 
 
         std::string dsname = pdal::FileUtils::toAbsolutePath(filename);
-        std::cout << "creating datasource with filename : '" << dsname<< "'" << std::endl;
 
         m_DS = OGR_Dr_CreateDataSource( hDriver, dsname.c_str(), NULL );
     }
@@ -221,7 +220,7 @@ time_t get_mtime(const char *path)
     return statbuf.st_mtime;
 }
 
-tindex::FieldIndexes TIndexKernel::createLayer(std::string const& filename, std::string const& srs_wkt)
+tindex::FieldIndexes TIndexKernel::createLayer(std::string const& filename, std::string const& srs)
 {
     size_t nMaxFieldSize(254);
 
@@ -241,7 +240,12 @@ tindex::FieldIndexes TIndexKernel::createLayer(std::string const& filename, std:
             }
         }
 
-        OGRSpatialReferenceH hSpatialRef = OSRNewSpatialReference(srs_wkt.c_str());
+        OGRSpatialReferenceH hSpatialRef = OSRNewSpatialReference("");
+        OGRErr err = OSRSetFromUserInput(hSpatialRef, srs.c_str());
+        if (err != OGRERR_NONE)
+        {
+            std::cerr << "unable to import srs for layer creation!" << std::endl;
+        }
         if (m_layerName.size())
         {
             m_Layer = OGR_DS_GetLayerByName(m_DS, m_layerName.c_str());
@@ -255,7 +259,7 @@ tindex::FieldIndexes TIndexKernel::createLayer(std::string const& filename, std:
                 std::cerr << "Unable to create layer of name '" << m_layerName << "' in file '" << filename << "'";
             }
 
-        } else 
+        } else
         {
             m_Layer = OGR_DS_CreateLayer( m_DS, m_layerName.c_str(), hSpatialRef, wkbPolygon, NULL );
         }
@@ -304,7 +308,7 @@ tindex::FieldIndexes TIndexKernel::createLayer(std::string const& filename, std:
         std::cerr << "Unable to find field '" << m_srsColumnName << "' in file '" << filename <<"'" << std::endl;
         exit(2);
     }
-    
+
     indexes.ctime = OGR_FD_GetFieldIndex( m_fDefn, "created");
     indexes.mtime = OGR_FD_GetFieldIndex( m_fDefn, "modified");
 
@@ -327,19 +331,19 @@ OGRGeometryH TIndexKernel::fetchGeometry(MetadataNode metadata)
 {
 
     // fetch the boundary geometry out of the metadata
-    // This will also fetch the SRS and assign it to the 
+    // This will also fetch the SRS and assign it to the
     // geometry.
 
     std::string wkt = metadata.findChild("boundary:boundary").value();
     std::string srs = metadata.findChild("summary:spatial_reference").value();
     std::string filename = metadata.findChild("filename").value();
 
-    std::cout << "boundary is '" << wkt << "'"<<std::endl;
-    std::cout << "srs is '" << srs << "'"<<std::endl;
+//     std::cout << "boundary is '" << wkt << "'"<<std::endl;
+//     std::cout << "srs is '" << srs << "'"<<std::endl;
 
 
     OGRGeometryH hGeometry(0);
-    OGRSpatialReferenceH hSRS = OSRNewSpatialReference(NULL);
+    OGRSpatialReferenceH hSRS = OSRNewSpatialReference("");
 
     char* p_wkt = (char*)wkt.c_str();
     char* p_srs = (char*)srs.c_str();
@@ -351,8 +355,27 @@ OGRGeometryH TIndexKernel::fetchGeometry(MetadataNode metadata)
     err = OGR_G_CreateFromWkt(&p_wkt, hSRS, &hGeometry);
     if (err != OGRERR_NONE)
     {
-        std::cerr << "Unable to SRS for file '" << filename << "'" << std::endl;
+        std::cerr << "Unable to create WKT for file '" << filename << "'" << std::endl;
     }
+
+    if (m_targetSRSString.size())
+    {
+        OGRSpatialReferenceH hTargetSRS = OSRNewSpatialReference("");
+        err = OSRSetFromUserInput(hTargetSRS, m_targetSRSString.c_str());
+        if (err != OGRERR_NONE)
+        {
+            std::cerr << "Unable to import SRS for --t_srs '" << m_targetSRSString << "'"<< std::endl;
+        }
+        err = OGR_G_TransformTo(hGeometry, hTargetSRS);
+        if (err != OGRERR_NONE)
+        {
+            std::cerr << "Unable to transform geometry to output srs" << std::endl;
+        }
+        OSRDestroySpatialReference(hTargetSRS);
+
+
+    }
+    OSRDestroySpatialReference(hSRS);
 
     return hGeometry;
 
@@ -363,7 +386,7 @@ OGRGeometryH TIndexKernel::fetchGeometry(MetadataNode metadata)
 
 void SetDate(OGRFeatureH feature, tm* tyme, int fieldNumber)
 {
-    OGR_F_SetFieldDateTime(feature, 
+    OGR_F_SetFieldDateTime(feature,
                            fieldNumber,
                            tyme->tm_year + 1900,
                            tyme->tm_mon + 1,
@@ -373,7 +396,7 @@ void SetDate(OGRFeatureH feature, tm* tyme, int fieldNumber)
                            tyme->tm_sec,
                            100);
 }
-OGRFeatureH CreateFeature(OGRLayerH layer, 
+OGRFeatureH CreateFeature(OGRLayerH layer,
                     std::string const& filename,
                     OGRGeometryH geometry,
                     MetadataNode metadata,
@@ -384,7 +407,7 @@ OGRFeatureH CreateFeature(OGRLayerH layer,
     std::string srs = metadata.findChild("summary:spatial_reference").value();
 
     struct stat statbuf;
-    if (stat(filename.c_str(), &statbuf) == -1) 
+    if (stat(filename.c_str(), &statbuf) == -1)
     {
         std::cerr << "unable to stat '" << filename <<"'"<<std::endl;
     }
@@ -395,9 +418,13 @@ OGRFeatureH CreateFeature(OGRLayerH layer,
     SetDate(hFeature, tyme, indexes.ctime);
     if (srs.size())
     {
-        std::cout << "Metadarta srs: " << srs << std::endl; 
 
-        OGRSpatialReferenceH hSourceSRS = OSRNewSpatialReference(srs.c_str());
+        OGRSpatialReferenceH hSourceSRS = OSRNewSpatialReference("");
+        OGRErr err = OSRSetFromUserInput(hSourceSRS, srs.c_str());
+        if (err != OGRERR_NONE)
+        {
+            std::cerr << "Unable to import spatial reference '"<< srs <<"' for file '"<< filename <<"'"<<std::endl;
+        }
 //         OSRSetFromUserInput(hSourceSRS, srs.c_str());
         const char* pszAuthorityCode = OSRGetAuthorityCode(hSourceSRS, NULL);
         const char* pszAuthorityName = OSRGetAuthorityName(hSourceSRS, NULL);
@@ -411,7 +438,7 @@ OGRFeatureH CreateFeature(OGRLayerH layer,
             {
                 srs = std::string(pszProj4);
                 CPLFree(pszProj4);
-            } else 
+            } else
             {
                 std::cerr << "unable to output proj4 SRS for file '" << filename << "'" <<std::endl;
                 exit(1);
@@ -434,6 +461,8 @@ int TIndexKernel::execute()
 
     std::vector<std::string> files = glob(m_indexDirectory);
 
+    if (m_targetSRSString.size())
+        std::clog << "overriding output SRS" << std::endl;
     bool bCreatedLayer(false);
     for (auto f: files)
     {
@@ -446,23 +475,23 @@ int TIndexKernel::execute()
         if (!bCreatedLayer)
         {
             createDS(m_outputFilename);
-            indexes = createLayer(m_outputFilename, srs);
+            indexes = createLayer(m_outputFilename, m_targetSRSString.size() ? m_targetSRSString : srs);
             bCreatedLayer = true;
         }
         OGRGeometryH g = fetchGeometry(m);
-        if (!g) 
+        if (!g)
         { std::cerr << "Geometry was empty!" << std::endl;continue;}
         OGRFeatureH hFeature = CreateFeature(m_Layer, f, g, m, indexes);
         if( OGR_L_CreateFeature( m_Layer, hFeature ) != OGRERR_NONE )
         {
-           printf( "Failed to create feature in shapefile.\n" );
-           break;
+            std::cerr<< "Failed to create feature for file '" << f <<"'" << std::endl;
+            continue;
         }
 
         OGR_G_DestroyGeometry(g);
         OGR_F_Destroy(hFeature);
-        
-        std::cerr << "f: " << f << std::endl;
+
+        std::clog << "indexed file " << f << std::endl;
     }
 
     OGR_DS_Destroy(m_DS);
