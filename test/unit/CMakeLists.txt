@@ -39,6 +39,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/filters/sort
     ${PROJECT_SOURCE_DIR}/filters/splitter
     ${PROJECT_SOURCE_DIR}/filters/stats
+    ${PROJECT_SOURCE_DIR}/filters/tiler
     ${PROJECT_SOURCE_DIR}/filters/transformation
     ${PROJECT_SOURCE_DIR}/kernels/info
 )
@@ -98,6 +99,7 @@ PDAL_ADD_TEST(pdal_filters_range_test FILES filters/RangeFilterTest.cpp)
 PDAL_ADD_TEST(pdal_filters_sort_test FILES filters/SortFilterTest.cpp)
 PDAL_ADD_TEST(pdal_filters_splitter_test FILES filters/SplitterTest.cpp)
 PDAL_ADD_TEST(pdal_filters_stats_test FILES filters/StatsFilterTest.cpp)
+PDAL_ADD_TEST(pdal_filters_tiler_test FILES filters/TilerTest.cpp)
 PDAL_ADD_TEST(pdal_filters_transformation_test FILES filters/TransformationFilterTest.cpp)
 
 #

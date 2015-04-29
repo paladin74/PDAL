@@ -50,6 +50,7 @@
 #include <sort/SortFilter.hpp>
 #include <splitter/SplitterFilter.hpp>
 #include <stats/StatsFilter.hpp>
+#include <tiler/TilerFilter.hpp>
 #include <transformation/TransformationFilter.hpp>
 
 // readers
@@ -198,6 +199,7 @@ StageFactory::StageFactory(bool no_plugins)
     PluginManager::initializePlugin(SortFilter_InitPlugin);
     PluginManager::initializePlugin(SplitterFilter_InitPlugin);
     PluginManager::initializePlugin(StatsFilter_InitPlugin);
+    PluginManager::initializePlugin(TilerFilter_InitPlugin);
     PluginManager::initializePlugin(TransformationFilter_InitPlugin);
 
     // readers
@@ -268,4 +270,3 @@ std::map<std::string, std::string> StageFactory::getStageMap() const
 }
 
 } // namespace pdal
-
