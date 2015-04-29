@@ -141,6 +141,9 @@ option(BUILD_PLUGIN_PGPOINTCLOUD "Choose if PostgreSQL PointCloud support should
 add_feature_info("PostgreSQL PointCloud plugin" BUILD_PLUGIN_PGPOINTCLOUD
     "read/write PostgreSQL PointCloud objects")
 
+# if building sqlite support for Mac OS X:
+#   (1) you need to run `brew install sqlite`
+#   (2) you need to use `-DSQLITE3_LIBRARY=/usr/local/Cellar/sqlite/3.8.9/lib/libsqlite3.0.dylib`
 option(BUILD_PLUGIN_SQLITE "Choose if SQLite database support should be built" FALSE)
 add_feature_info("SQLite plugin" BUILD_PLUGIN_SQLITE
     "read/write SQLite objects")
