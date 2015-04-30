@@ -53,6 +53,9 @@ public:
     static int32_t destroy(void *);
     std::string getName() const;
 
+    void ready(PointTableRef table);
+    void done(PointTableRef table);
+
     Options getDefaultOptions();
 
 private:
@@ -63,6 +66,8 @@ private:
     int32_t m_numTilesY;
     tilercommon::Rectangle m_rectangle;
 
+    tilercommon::TileSet *m_tileSet;
+    
     virtual void processOptions(const Options& options);
     virtual PointViewSet run(PointViewPtr view);
 

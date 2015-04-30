@@ -53,6 +53,8 @@ std::string TilerFilter::getName() const { return s_info.name; }
 
 void TilerFilter::processOptions(const Options& options)
 {
+    m_tileSet = NULL;
+    
     m_maxLevel = options.getValueOrDefault<uint32_t>("maxLevel");
     
     // TODO: make these be options
@@ -76,16 +78,34 @@ Options TilerFilter::getDefaultOptions()
 
 bool TilerFilter::isMetadataValid(const PointViewSet& viewSet)
 {
-    if (viewSet.size() == 0) return true;
+    assert(viewSet.size() != 0);
     
     PointViewPtr view = *(viewSet.begin());
     const MetadataNode node = view->metadata().findChild("tiles");
+    assert(node.valid());
     if (!node.valid()) return false;
     
-    const MetadataNodeList children = node.children();    
-    if (children.size() != viewSet.size()) return false;
+    //const MetadataNodeList children = node.children();    
+    //assert(children.size() == viewSet.size());
+    //if (children.size() != viewSet.size()) return false;
 
     return true;
+}
+
+
+void TilerFilter::ready(PointTableRef table)
+{
+    assert(!m_tileSet);
+    m_tileSet = new tilercommon::TileSet(table, m_maxLevel, log());
+}
+
+
+void TilerFilter::done(PointTableRef table)
+{
+    if (m_tileSet) {
+        delete m_tileSet;
+        m_tileSet = NULL;
+    }
 }
 
 
@@ -93,11 +113,13 @@ PointViewSet TilerFilter::run(PointViewPtr sourceView)
 {
     // TODO: assert the input is ESPG:4326
 
+    assert(m_tileSet);
+    
     PointViewSet outputSet;
 
     const PointView& sourceViewRef(*sourceView.get());
         
-    tilercommon::TileSet tileSet(sourceViewRef, outputSet, m_maxLevel, log());
+    m_tileSet->prep(sourceView.get(), &outputSet);
 
     // build the tiles
     for (PointId idx = 0; idx < sourceViewRef.size(); ++idx)
@@ -105,10 +127,15 @@ PointViewSet TilerFilter::run(PointViewPtr sourceView)
         double lon = sourceViewRef.getFieldAs<double>(Dimension::Id::X, idx);
         double lat = sourceViewRef.getFieldAs<double>(Dimension::Id::Y, idx);
 
-        tileSet.addPoint(idx, lon, lat);
+        m_tileSet->addPoint(idx, lon, lat);
     }
 
+    m_tileSet->setMasks();
+    
     assert(isMetadataValid(outputSet));
+
+    delete m_tileSet;
+    m_tileSet = NULL;
 
     return outputSet;
 }

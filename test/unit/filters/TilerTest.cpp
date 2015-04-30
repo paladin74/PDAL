@@ -111,18 +111,44 @@ TEST(TilerTest, test_tiler_filter)
     PointTable outputTable;
     tiler.prepare(outputTable);
 
+    outputTable.metadata().add("foo");
+    assert(outputTable.metadata().findChild("foo").valid());
+    
     PointViewSet outputViews = tiler.execute(outputTable);
 
+    assert(outputTable.metadata().findChild("foo").valid());
+
+    {
+        for (auto iter = outputViews.begin(); iter != outputViews.end(); ++iter) {
+            PointViewPtr tmp = *outputViews.begin();
+
+            const std::string idString = std::to_string(tmp->id());
+            
+            const MetadataNode node = tmp->metadata().findChild("tiles");
+            assert(node.valid());
+
+            //const MetadataNode foo = node.findChild("foo");
+            //assert(foo.valid());
+            //printf("==> %s\n", foo.value().c_str());
+            
+
+            const MetadataNode node2 = node.findChild(idString);
+            assert(node2.valid());
+        }
+    }
+    
     
     // testing
     EXPECT_EQ(outputViews.size(), 2u + 8u + 1u);
 
     PointViewPtr tmp = *outputViews.begin();
-    const MetadataNode rootNode = tmp->metadata().findChild("tiles");
-    EXPECT_TRUE(rootNode.valid());
-    MetadataNodeList children = rootNode.children();
-    EXPECT_TRUE(children.size() == outputViews.size());
+    //const MetadataNode rootNode = outputTable.metadata().findChild("tiles");
+    //EXPECT_TRUE(rootNode.valid());
+    //MetadataNodeList children = rootNode.children();
+    //EXPECT_TRUE(children.size() == outputViews.size());
         
+    const MetadataNode rootNode = tmp->metadata().findChild("tiles");
+
     for (auto iter = outputViews.begin(); iter != outputViews.end(); ++iter)
     {
         PointViewPtr outputView = *iter;

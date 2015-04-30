@@ -136,20 +136,26 @@ class Tile;
 class TileSet
 {
     public:
-        TileSet(const PointView& sourceView, PointViewSet& outputSet, uint32_t maxLevel, LogPtr log);
+        TileSet(PointTableRef table, uint32_t maxLevel, LogPtr log);
         ~TileSet();
 
+        void prep(const PointView* sourceView, PointViewSet* outputSet);
         void addPoint(PointId, double lon, double lat);
-        void addToSet(PointViewPtr pointView);
         uint32_t getMaxLevel() const { return m_maxLevel; }
         LogPtr log() { return m_log; }
-
+        void setMasks();
+        MetadataNode& metadata() { return m_metadata; }    
+        PointViewPtr createPointView();
+        
     private:
-        const PointView& m_sourceView;
-        PointViewSet& m_outputSet;
+        
+        PointTableRef m_table;
+        const PointView* m_sourceView;
+        PointViewSet* m_outputSet;
         uint32_t m_maxLevel;
         LogPtr m_log;
         Tile** m_roots;
+        MetadataNode m_metadata;
 };
 
 
@@ -159,17 +165,22 @@ public:
     Tile(TileSet& tileSet, uint32_t level, uint32_t tx, uint32_t ty, Rectangle r);
     ~Tile();
 
-    void add(const PointView& pointViewRef, PointId pointNumber, double lon, double lat);
+    void add(const PointView* pointView, PointId pointNumber, double lon, double lat);
     
     void collectStats(std::vector<uint32_t> numTilesPerLevel,
         std::vector<uint64_t> numPointsPerLevel) const;
     
-    //void write(const char* dir) const;
-    //void writeData(FILE*) const;
+    MetadataNode& metadata() { return m_metadata; }
+    
+    void setMasks();
+    
+    void write(const char* dir);
+    void writeData(FILE*) const;
 
 private:
-    void createPointView(const PointView& sourcePointView);
     LogPtr log() { return m_tileSet.log(); }
+    char* getPointData(const PointView& buf, PointId& idx) const;
+    void setMaskMetadata();
     
     TileSet& m_tileSet;
     uint32_t m_level;
@@ -179,6 +190,7 @@ private:
     Rectangle m_rect;
     uint64_t m_skip;
     PointViewPtr m_pointView;
+    MetadataNode m_metadata;
 };
 
 } // namespace tilercommon
