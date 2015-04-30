@@ -194,7 +194,7 @@ void Tile::setMasks()
     }
 
     {
-        metadata().add("mask", mask);
+        metadata().addOrUpdate("mask", mask);
     }
 
     if (m_children) {
@@ -224,24 +224,13 @@ void Tile::add(const PointView* sourcePointView, PointId pointNumber, double lon
 
             MetadataNode& node = m_tileSet.metadata();    
 
-//            MetadataNode foox = node.findChild("foo");
-//            assert(!foox.valid());
-            MetadataNode fooy = node.findChild(idString);
-            assert(!fooy.valid());
-
-//            MetadataNode foo = node.add("foo", idString);
-//            assert(foo.valid());
-//            MetadataNode fooxxx = node.findChild("foo");
-//            assert(fooxxx.valid());
-//            printf("<== %s\n", foo.value().c_str());
-
-
             m_metadata = node.add(idString);
             assert(m_metadata.valid());
 
             metadata().add("level", m_level);
             metadata().add("tileX", m_tileX);
             metadata().add("tileY", m_tileY);
+            metadata().add("mask", 0u);
 
             //printf("made view for %u %u %u\n", m_level, m_tileX, m_tileY);
         }

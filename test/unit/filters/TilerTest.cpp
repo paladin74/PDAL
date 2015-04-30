@@ -111,29 +111,20 @@ TEST(TilerTest, test_tiler_filter)
     PointTable outputTable;
     tiler.prepare(outputTable);
 
-    outputTable.metadata().add("foo");
-    assert(outputTable.metadata().findChild("foo").valid());
-    
     PointViewSet outputViews = tiler.execute(outputTable);
 
-    assert(outputTable.metadata().findChild("foo").valid());
-
     {
+        PointViewPtr tmpx = *outputViews.begin();
+        const MetadataNode node = tmpx->metadata().findChild("tiles");
+        EXPECT_TRUE(node.valid());
+
         for (auto iter = outputViews.begin(); iter != outputViews.end(); ++iter) {
-            PointViewPtr tmp = *outputViews.begin();
+            PointViewPtr p = *iter;
 
-            const std::string idString = std::to_string(tmp->id());
+            const std::string idString = std::to_string(p->id());
             
-            const MetadataNode node = tmp->metadata().findChild("tiles");
-            assert(node.valid());
-
-            //const MetadataNode foo = node.findChild("foo");
-            //assert(foo.valid());
-            //printf("==> %s\n", foo.value().c_str());
-            
-
             const MetadataNode node2 = node.findChild(idString);
-            assert(node2.valid());
+            EXPECT_TRUE(node2.valid());
         }
     }
     
@@ -141,14 +132,12 @@ TEST(TilerTest, test_tiler_filter)
     // testing
     EXPECT_EQ(outputViews.size(), 2u + 8u + 1u);
 
-    PointViewPtr tmp = *outputViews.begin();
-    //const MetadataNode rootNode = outputTable.metadata().findChild("tiles");
-    //EXPECT_TRUE(rootNode.valid());
-    //MetadataNodeList children = rootNode.children();
-    //EXPECT_TRUE(children.size() == outputViews.size());
+    PointViewPtr tmpxx = *outputViews.begin();
+    const MetadataNode rootNode = tmpxx->metadata().findChild("tiles");
+    EXPECT_TRUE(rootNode.valid());
+    MetadataNodeList children = rootNode.children();
+    EXPECT_TRUE(children.size() == outputViews.size());
         
-    const MetadataNode rootNode = tmp->metadata().findChild("tiles");
-
     for (auto iter = outputViews.begin(); iter != outputViews.end(); ++iter)
     {
         PointViewPtr outputView = *iter;
@@ -162,43 +151,59 @@ TEST(TilerTest, test_tiler_filter)
         const MetadataNode nodeL = node.findChild("level");
         const MetadataNode nodeX = node.findChild("tileX");
         const MetadataNode nodeY = node.findChild("tileY");
+        const MetadataNode nodeM = node.findChild("mask");
         EXPECT_TRUE(nodeL.valid());
         EXPECT_TRUE(nodeX.valid());
         EXPECT_TRUE(nodeY.valid());
+        EXPECT_TRUE(nodeM.valid());
 
         const uint32_t l = boost::lexical_cast<uint32_t>(nodeL.value());
         const uint32_t x = boost::lexical_cast<uint32_t>(nodeX.value());
         const uint32_t y = boost::lexical_cast<uint32_t>(nodeY.value());
+        const uint8_t m = boost::lexical_cast<uint32_t>(nodeM.value());
 
         //if (!(l == 2 && x == 0 && y == 0)) continue;
+        
+        EXPECT_TRUE(m >= 0u && m <= 15u);
         
         uint32_t idx = 3141579;
         if (l == 0 && x == 0 && y == 0) {
             idx = 0;
+            EXPECT_NE(m, 0u);
         }
         
         else if (l == 1 && x == 0 && y == 0) {
             idx = 0;
+            EXPECT_NE(m, 0u);
         } else if (l == 1 && x == 2 && y == 0) {
             idx = 4;
+            EXPECT_NE(m, 0u);
         }
         
         else if (l == 2 && x == 0 && y == 0) {
             idx = 0;
+            EXPECT_EQ(m, 0u);
         } else if (l == 2 && x == 3 && y == 0) {
             idx = 1;
+            EXPECT_EQ(m, 0u);
         } else if (l == 2 && x == 0 && y == 3) {
             idx = 2;
+            EXPECT_EQ(m, 0u);
         } else if (l == 2 && x == 3 && y == 3) {
             idx = 3;
+            EXPECT_EQ(m, 0u);
         } else if (l == 2 && x == 5 && y == 1) {
             idx = 4;
+            EXPECT_EQ(m, 0u);
         } else if (l == 2 && x == 6 && y == 1) {
             idx = 5;
+            EXPECT_EQ(m, 0u);
         } else if (l == 2 && x == 5 && y == 2) {
             idx = 6;
+            EXPECT_EQ(m, 0u);
         } else if (l == 2 && x == 6 && y == 2) {
             idx = 7;
+            EXPECT_EQ(m, 0u);
         } else {
             //printf("%s: %d %d %d\n", idString.c_str(), l, x, y);
             EXPECT_TRUE(false);
