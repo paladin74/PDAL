@@ -47,12 +47,11 @@ namespace tilercommon
 {
     
 Tile::Tile(
-        int32_t level,
-        int32_t tx,
-        int32_t ty,
+        uint32_t level,
+        uint32_t tx,
+        uint32_t ty,
         Rectangle r,
-        int32_t maxLevel,
-        ConstPointTableRef table,
+        uint32_t maxLevel,
         LogPtr log) :
     m_level(level),
     m_tileX(tx),
@@ -60,21 +59,19 @@ Tile::Tile(
     m_rect(r),
     m_maxLevel(maxLevel),
     m_skip(0),
-    m_table(table),
     m_log(log)
 {
-    assert(m_level >= 0);
-    assert(m_tileX >= 0);
-    assert(m_tileY >= 0);
-    assert(m_maxLevel >= 0);
+    assert(m_maxLevel <= 32);
+    assert(m_level <= m_maxLevel);
+
     m_log->get(LogLevel::Debug1) << "created tb (l=" << m_level
         << ", tx=" << m_tileX
         << ", ty=" << m_tileY
         << ") (slip" << m_skip
-        << ")  --  w" << m_rect.m_west
-        << " s" << m_rect.m_south
-        << " e" << m_rect.m_east
-        << " n" << m_rect.m_north << "\n";
+        << ")  --  w" << m_rect.west()
+        << " s" << m_rect.south()
+        << " e" << m_rect.east()
+        << " n" << m_rect.north() << "\n";
 
     m_children = NULL;
 
@@ -99,15 +96,7 @@ Tile::Tile(
 
 Tile::~Tile()
 {
-    if (m_children == NULL)
-    {
-        for (size_t i=0; i<m_points.size(); ++i)
-        {
-            char* p = m_points[i];
-            delete[] p;
-        }
-    }
-    else
+    if (m_children != NULL)
     {
         for (int i=0; i<4; ++i)
         {
@@ -120,7 +109,8 @@ Tile::~Tile()
     }
 }
 
-void Tile::add(PointId pointNumber, char* p, double lon, double lat)
+
+void Tile::add(const PointView& pointViewRef, PointId pointNumber, double lon, double lat, PointViewSet& pointViewSet)
 {
     assert(m_rect.contains(lon, lat));
 
@@ -130,7 +120,12 @@ void Tile::add(PointId pointNumber, char* p, double lon, double lat)
 
     if (pointNumber % m_skip == 0)
     {
-        m_points.push_back(p);
+        if (!m_pointView) {
+            m_pointView = pointViewRef.makeNew();
+            pointViewSet.insert(m_pointView);
+            //printf("made view for %u %u %u\n", m_level, m_tileX, m_tileY);
+        }
+        m_pointView->appendPoint(pointViewRef, pointNumber);
     }
 
     if (m_level == m_maxLevel) return;
@@ -154,16 +149,16 @@ void Tile::add(PointId pointNumber, char* p, double lon, double lat)
         switch (q)
         {
             case QuadSW:
-                child = new Tile(m_level+1, m_tileX*2, m_tileY*2+1, r, m_maxLevel, m_table, m_log);
+                child = new Tile(m_level+1, m_tileX*2, m_tileY*2+1, r, m_maxLevel, m_log);
                 break;
             case QuadNW:
-                child = new Tile(m_level+1, m_tileX*2, m_tileY*2, r, m_maxLevel, m_table, m_log);
+                child = new Tile(m_level+1, m_tileX*2, m_tileY*2, r, m_maxLevel, m_log);
                 break;
             case QuadSE:
-                child = new Tile(m_level+1, m_tileX*2+1, m_tileY*2+1, r, m_maxLevel, m_table, m_log);
+                child = new Tile(m_level+1, m_tileX*2+1, m_tileY*2+1, r, m_maxLevel, m_log);
                 break;
             case QuadNE:
-                child = new Tile(m_level+1, m_tileX*2+1, m_tileY*2, r, m_maxLevel, m_table, m_log);
+                child = new Tile(m_level+1, m_tileX*2+1, m_tileY*2, r, m_maxLevel, m_log);
                 break;
             default:
                 assert(0);
@@ -171,12 +166,12 @@ void Tile::add(PointId pointNumber, char* p, double lon, double lat)
         m_children[q] = child;
     }
 
-    child->add(pointNumber, p, lon, lat);
+    child->add(pointViewRef, pointNumber, lon, lat, pointViewSet);
 }
 
-void Tile::collectStats(std::vector<int32_t> numTilesPerLevel, std::vector<int64_t> numPointsPerLevel) const
+void Tile::collectStats(std::vector<uint32_t> numTilesPerLevel, std::vector<uint64_t> numPointsPerLevel) const
 {
-    numPointsPerLevel[m_level] += m_points.size();
+    numPointsPerLevel[m_level] += m_pointView->size();
     ++numTilesPerLevel[m_level];
 
     for (int i=0; i<4; ++i)
@@ -188,7 +183,7 @@ void Tile::collectStats(std::vector<int32_t> numTilesPerLevel, std::vector<int64
     }
 }
 
-void Tile::write(const char* prefix) const
+/*void Tile::write(const char* prefix) const
 {
     char* filename = new char[strlen(prefix) + 1024];
 
@@ -234,10 +229,10 @@ void Tile::write(const char* prefix) const
     }
 
     delete[] filename;
-}
+}*/
 
 
-void Tile::writeData(FILE* fp) const
+/*void Tile::writeData(FILE* fp) const
 {
     const PointLayoutPtr layout(m_table.layout());
     for (size_t i=0; i<m_points.size(); ++i)
@@ -253,7 +248,7 @@ void Tile::writeData(FILE* fp) const
             p += size;
         }
     }
-}
+}*/
 
 } // namespace tilercommon
 

@@ -34,68 +34,103 @@
 
 #include <pdal/pdal_test_main.hpp>
 
-#include <pdal/StageFactory.hpp>
-#include <pdal/StageWrapper.hpp>
-#include <LasReader.hpp>
+#include <pdal/BufferReader.hpp>
 #include <TilerFilter.hpp>
+
 #include "Support.hpp"
 
 using namespace pdal;
 
+
+static void getPoint(const PointView& data, double& x, double& y, double& z)
+{
+    x = data.getFieldAs<double>(Dimension::Id::X, 0);
+    y = data.getFieldAs<double>(Dimension::Id::Y, 0);
+    z = data.getFieldAs<double>(Dimension::Id::Z, 0);
+}
+
+
 TEST(TilerTest, test_tiler_filter)
 {
-    StageFactory f;
+    // test data
+    PointTable inputTable;
+    PointViewPtr inputView(new PointView(inputTable));
 
-    // create the reader
-    Options ops1;
-    ops1.add("filename", Support::datapath("las/1.2-with-color.las"));
-    LasReader r;
-    r.setOptions(ops1);
+    inputTable.layout()->registerDim(Dimension::Id::X);
+    inputTable.layout()->registerDim(Dimension::Id::Y);
+    inputTable.layout()->registerDim(Dimension::Id::Z);
 
-    Options o;
-    Option length("length", 1000, "length");
-    o.add(length);
-
-    // create the tile filter and prepare
-    TilerFilter s;
-    s.setOptions(o);
-    s.setInput(r);
-
-    PointTable table;
-    PointViewPtr view(new PointView(table));
-    s.prepare(table);
-
-    StageWrapper::ready(r, table);
-    PointViewSet viewSet = StageWrapper::run(r, view);
-    StageWrapper::done(r, table);
-    EXPECT_EQ(viewSet.size(), 1u);
-    view = *viewSet.begin();
-
-    StageWrapper::ready(s, table);
-    viewSet = StageWrapper::run(s, view);
-    StageWrapper::done(s, table);
-
-    std::vector<PointViewPtr> views;
-    for (auto it = viewSet.begin(); it != viewSet.end(); ++it)
-        views.push_back(*it);
-
-    auto sorter = [](PointViewPtr p1, PointViewPtr p2)
     {
-        BOX3D b1 = p1->calculateBounds();
-        BOX3D b2 = p2->calculateBounds();
+        inputView->setField(Dimension::Id::X, 0, -179.0);
+        inputView->setField(Dimension::Id::Y, 0, 89.0);
+        inputView->setField(Dimension::Id::Z, 0, 0.0);
+        
+        inputView->setField(Dimension::Id::X, 1, -1.0);
+        inputView->setField(Dimension::Id::Y, 1, 89.0);
+        inputView->setField(Dimension::Id::Z, 1, 11.0);
 
-        return b1.minx < b2.minx ?  true :
-            b1.minx > b2.minx ? false :
-            b1.miny < b2.miny;
-    };
-    std::sort(views.begin(), views.end(), sorter);
+        inputView->setField(Dimension::Id::X, 2, -179.0);
+        inputView->setField(Dimension::Id::Y, 2, -89.0);
+        inputView->setField(Dimension::Id::Z, 2, 22.0);
 
-    EXPECT_EQ(views.size(), 15u);
-    size_t counts[] = {24, 27, 26, 27, 10, 166, 142, 76, 141, 132, 63, 70, 67,
-        34, 60 };
-    for (size_t i = 0; i < views.size(); ++i)
-    {
-        PointViewPtr view = views[i];
-        EXPECT_EQ(view->size(), counts[i]);
+        inputView->setField(Dimension::Id::X, 3, -1.0);
+        inputView->setField(Dimension::Id::Y, 3, -89.0);
+        inputView->setField(Dimension::Id::Z, 3, 33.0);
+
+        inputView->setField(Dimension::Id::X, 4, 89.0);
+        inputView->setField(Dimension::Id::Y, 4, 1.0);
+        inputView->setField(Dimension::Id::Z, 4, 44.0);
+        
+        inputView->setField(Dimension::Id::X, 5, 91.0);
+        inputView->setField(Dimension::Id::Y, 5, 1.0);
+        inputView->setField(Dimension::Id::Z, 5, 55.0);
+
+        inputView->setField(Dimension::Id::X, 6, 89.0);
+        inputView->setField(Dimension::Id::Y, 6, -1.0);
+        inputView->setField(Dimension::Id::Z, 6, 66.0);
+
+        inputView->setField(Dimension::Id::X, 7, 91.0);
+        inputView->setField(Dimension::Id::Y, 7, -1.0);
+        inputView->setField(Dimension::Id::Z, 7, 77.0);
     }
+
+
+    // options
+    Options readerOptions;
+
+    Options tilerOptions;
+    tilerOptions.add("maxLevel", 2);
+
+
+    // stages
+    BufferReader reader;
+    reader.setOptions(readerOptions);
+    reader.addView(inputView);
+
+    TilerFilter tiler;
+    tiler.setOptions(tilerOptions);
+    tiler.setInput(reader);
+
+
+    // execution
+    PointTable outputTable;
+    tiler.prepare(outputTable);
+
+    PointViewSet outputViews = tiler.execute(outputTable);
+
+    
+    // testing
+    EXPECT_EQ(outputViews.size(), 2u + 8u + 1u);
+    PointViewPtr outputView = *outputViews.begin();
+
+    double x, y, z;
+    getPoint(*outputView.get(), x, y, z);
+
+    const double postX = -93.351563;
+    const double postY = 41.577148;
+    const double postZ = 16.000000;
+
+    //EXPECT_FLOAT_EQ(x, postX);
+    //EXPECT_FLOAT_EQ(y, postY);
+    //EXPECT_FLOAT_EQ(z, postZ);
 }

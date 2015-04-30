@@ -36,6 +36,8 @@
 
 #include <pdal/Filter.hpp>
 
+#include "TilerCommon.hpp"
+
 extern "C" int32_t TilerFilter_ExitFunc();
 extern "C" PF_ExitFunc TilerFilter_InitPlugin();
 
@@ -55,7 +57,11 @@ public:
     Options getDefaultOptions();
 
 private:
-    uint32_t m_length;
+    int32_t m_maxLevel;
+    int32_t m_numTilesX;
+    int32_t m_numTilesY;
+    tilercommon::Rectangle m_rectangle;
+    tilercommon::Tile** m_roots;
 
     virtual void processOptions(const Options& options);
     virtual PointViewSet run(PointViewPtr view);

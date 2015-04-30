@@ -53,72 +53,54 @@ std::string TilerFilter::getName() const { return s_info.name; }
 
 void TilerFilter::processOptions(const Options& options)
 {
-    m_length = options.getValueOrDefault<uint32_t>("length", 1000);
+    m_maxLevel = options.getValueOrDefault<uint32_t>("maxLevel");
+    
+    // TODO: make these be options
+    m_numTilesX = 2;    
+    m_numTilesY = 1;
+
+    // TODO: make this be an option
+    m_rectangle = tilercommon::Rectangle(-180.0, -90.0, 180.0, 90.0);
+
+    m_roots = new tilercommon::Tile*[2];
+
+    const tilercommon::Rectangle r00(-180.0, -90.0, 0.0, 90.0); // wsen
+    const tilercommon::Rectangle r10(0.0, -90.0, 180.0, 90.0);
+    m_roots[0] = new tilercommon::Tile(0, 0, 0, r00, m_maxLevel, log());
+    m_roots[1] = new tilercommon::Tile(0, 1, 0, r10, m_maxLevel, log());
 }
 
 
 Options TilerFilter::getDefaultOptions()
 {
     Options options;
-    Option length("length", 1000, "Splitter length");
-    options.add(length);
+    
+    options.add("maxLevel", 23, "Number of levels"); // yields 0..23
 
     return options;
 }
 
 
-//This used to be a lambda, but the VS compiler exploded, I guess.
-typedef std::pair<int, int> Coord;
-namespace
-{
-class CoordCompare
-{
-public:
-    bool operator () (const Coord& c1, const Coord& c2) const
-    {
-        return c1.first < c2.first ? true :
-            c1.first > c2.first ? false :
-            c1.second < c2.second ? true :
-            false;
-    };
-};
-}
-
 PointViewSet TilerFilter::run(PointViewPtr inView)
 {
+    // TODO: assert the input is ESPG:4326
+    
     PointViewSet viewSet;
-    if (!inView->size())
-        return viewSet;
 
-    CoordCompare compare;
-    std::map<Coord, PointViewPtr, CoordCompare> viewMap(compare);
+    const PointView& inViewRef(*inView.get());
 
-    // Use the location of the first point as the origin.
-    double xOrigin = inView->getFieldAs<double>(Dimension::Id::X, 0);
-    double yOrigin = inView->getFieldAs<double>(Dimension::Id::Y, 0);
-
-    // Overlay a grid of squares on the points (m_length sides).  Each square
-    // corresponds to a new point buffer.  Place the points falling in the
-    // each square in the corresponding point buffer.
-    for (PointId idx = 0; idx < inView->size(); idx++)
+    // build the tiles
+    for (PointId idx = 0; idx < inViewRef.size(); ++idx)
     {
-        int xpos = (inView->getFieldAs<double>(Dimension::Id::X, idx) - xOrigin) /
-            m_length;
-        int ypos = (inView->getFieldAs<double>(Dimension::Id::Y, idx) - yOrigin) /
-            m_length;
-        Coord loc(xpos, ypos);
-        PointViewPtr& outView = viewMap[loc];
-        if (!outView)
-        {
-            outView = inView->makeNew();
-        }
-        outView->appendPoint(*inView.get(), idx);
+        double lon = inViewRef.getFieldAs<double>(Dimension::Id::X, idx);
+        double lat = inViewRef.getFieldAs<double>(Dimension::Id::Y, idx);
+
+        if (lon < 0)
+            m_roots[0]->add(inViewRef, idx, lon, lat, viewSet);
+        else
+            m_roots[1]->add(inViewRef, idx, lon, lat, viewSet);
     }
 
-    // Pull the buffers out of the map and stick them in the standard
-    // output set, setting the bounds as we go.
-    for (auto bi = viewMap.begin(); bi != viewMap.end(); ++bi)
-        viewSet.insert(bi->second);
     return viewSet;
 }
 

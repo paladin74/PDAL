@@ -116,38 +116,40 @@ public:
                (lat >= m_south) && (lat <= m_north);
     }
 
+    double north() const { return m_north; }
+    double south() const { return m_south; }
+    double east() const { return m_east; }
+    double west() const { return m_west; }
+    double midx() const { return m_midx; }
+    double midy() const { return m_midy; }
+
+private:
     double m_north, m_south, m_east, m_west, m_midx, m_midy;
 };
 
 class Tile
 {
 public:
-    Tile(int32_t level, int32_t tx, int32_t ty, Rectangle r, int32_t maxLevel,
-        ConstPointTableRef table, LogPtr log);
+    Tile(uint32_t level, uint32_t tx, uint32_t ty, Rectangle r, uint32_t maxLevel, LogPtr log);
     ~Tile();
 
-    std::vector<char*>& points()
-        { return m_points; }
-
-    size_t numPoints() const
-        { return m_points.size(); }
-
-    void add(PointId pointNumber, char* data, double lon, double lat);
-    void collectStats(std::vector<int32_t> numTilesPerLevel,
-        std::vector<int64_t> numPointsPerLevel) const;
-    void write(const char* dir) const;
-    void writeData(FILE*) const;
+    void add(const PointView& pointViewRef, PointId pointNumber, double lon, double lat, PointViewSet& pointViewSet);
+    
+    void collectStats(std::vector<uint32_t> numTilesPerLevel,
+        std::vector<uint64_t> numPointsPerLevel) const;
+    
+    //void write(const char* dir) const;
+    //void writeData(FILE*) const;
 
 private:
-    int32_t m_level;
-    int32_t m_tileX;
-    int32_t m_tileY;
-    std::vector<char*> m_points;
+    uint32_t m_level;
+    uint32_t m_tileX;
+    uint32_t m_tileY;
     Tile** m_children;
     Rectangle m_rect;
-    int32_t m_maxLevel;
-    int64_t m_skip;
-    ConstPointTableRef m_table;
+    uint32_t m_maxLevel;
+    uint64_t m_skip;
+    PointViewPtr m_pointView;
     LogPtr m_log;
 };
 
