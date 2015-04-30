@@ -47,14 +47,14 @@ namespace pdal
 namespace tilercommon
 {
     
-enum Quad
-{
-    QuadSW=0, QuadNW=1, QuadSE=2, QuadNE=3,
-};
-
 class Rectangle
 {
 public:
+    enum Quadrant
+    {
+        QuadrantSW=0, QuadrantNW=1, QuadrantSE=2, QuadrantNE=3,
+    };
+
     Rectangle() : m_north(0.0), m_south(0.0), m_east(0.0), m_west(0.0), m_midx(0.0), m_midy(0.0)
         {}
 
@@ -78,36 +78,38 @@ public:
         return *this;
     }
 
-    Quad getQuadrantOf(double lon, double lat)
+    // return the quadrant of the child of this rect, for the given point
+    Quadrant getQuadrantOf(double lon, double lat)
     {
         // NW=1  NE=3
         // SW=0  SE=2
-        bool lowX = (lon <= m_midx);
-        bool lowY = (lat <= m_midy);
+        const bool lowX = (lon <= m_midx);
+        const bool lowY = (lat <= m_midy);
 
         if (lowX && lowY)
-            return QuadSW;
-        else if (lowX && !lowY)
-            return QuadNW;
-        else if (!lowX && lowY)
-            return QuadSE;
-        else
-            return QuadNE;
+            return QuadrantSW;
+        if (lowX && !lowY)
+            return QuadrantNW;
+        if (!lowX && lowY)
+            return QuadrantSE;
+        return QuadrantNE;
     }
 
-    Rectangle getQuadrantRect(Quad q)
+    // return the rect of the given child quadrant of this rect
+    Rectangle getQuadrantRect(Quadrant q)
     {
-        assert(q == QuadSW || q == QuadNW || q == QuadSE || q == QuadNE);
-
-        // w s e n
-        if (q == QuadSW)
+        switch (q) {
+        case QuadrantSW:
             return Rectangle(m_west, m_south, m_midx, m_midy);
-        else if (q == QuadNW)
+        case QuadrantNW:
             return Rectangle(m_west, m_midy, m_midx, m_north);
-        else if (q == QuadSE)
+        case QuadrantSE:
             return Rectangle(m_midx, m_south, m_east, m_midy);
-        else
+        case QuadrantNE:
             return Rectangle(m_midx, m_midy, m_east, m_north);
+        }
+
+        throw pdal_error("invalid quadrant");
     }
 
     bool contains(double lon, double lat) const
@@ -127,13 +129,14 @@ private:
     double m_north, m_south, m_east, m_west, m_midx, m_midy;
 };
 
+
 class Tile
 {
 public:
-    Tile(uint32_t level, uint32_t tx, uint32_t ty, Rectangle r, uint32_t maxLevel, LogPtr log);
+    Tile(uint32_t level, uint32_t tx, uint32_t ty, Rectangle r, uint32_t maxLevel, PointViewSet& pointViewSet, LogPtr log);
     ~Tile();
 
-    void add(const PointView& pointViewRef, PointId pointNumber, double lon, double lat, PointViewSet& pointViewSet);
+    void add(const PointView& pointViewRef, PointId pointNumber, double lon, double lat);
     
     void collectStats(std::vector<uint32_t> numTilesPerLevel,
         std::vector<uint64_t> numPointsPerLevel) const;
@@ -142,7 +145,7 @@ public:
     //void writeData(FILE*) const;
 
 private:
-    void addMetadata();
+    void createPointView(const PointView& sourcePointView);
     
     uint32_t m_level;
     uint32_t m_tileX;
@@ -151,6 +154,7 @@ private:
     Rectangle m_rect;
     uint32_t m_maxLevel;
     uint64_t m_skip;
+    PointViewSet& m_pointViewSet;
     PointViewPtr m_pointView;
     LogPtr m_log;
 };

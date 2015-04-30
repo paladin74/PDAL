@@ -47,9 +47,9 @@ namespace pdal
 class PDAL_DLL TilerFilter : public pdal::Filter
 {
 public:
-    TilerFilter() : Filter()
-        {}
-
+    TilerFilter() : Filter() {}
+    virtual ~TilerFilter();
+    
     static void * create();
     static int32_t destroy(void *);
     std::string getName() const;

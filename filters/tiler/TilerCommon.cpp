@@ -52,13 +52,17 @@ Tile::Tile(
         uint32_t ty,
         Rectangle r,
         uint32_t maxLevel,
+        PointViewSet& pointViewSet,
         LogPtr log) :
     m_level(level),
     m_tileX(tx),
     m_tileY(ty),
+    m_children(NULL),
     m_rect(r),
     m_maxLevel(maxLevel),
     m_skip(0),
+    m_pointViewSet(pointViewSet),
+    m_pointView(NULL),
     m_log(log)
 {
     assert(m_maxLevel <= 32);
@@ -72,8 +76,6 @@ Tile::Tile(
         << " s" << m_rect.south()
         << " e" << m_rect.east()
         << " n" << m_rect.north() << "\n";
-
-    m_children = NULL;
 
     // level N+1 has 1/4 the points of level N
     //
@@ -110,8 +112,10 @@ Tile::~Tile()
 }
 
 
-void Tile::addMetadata() 
+void Tile::createPointView(const PointView& sourcePointView)
 {
+    m_pointView = sourcePointView.makeNew();
+
     MetadataNode node = m_pointView->metadata().findChild("tiles");
     if (!node.valid()) {
         node = m_pointView->metadata().add("tiles");
@@ -123,10 +127,12 @@ void Tile::addMetadata()
     tilesNode.add("level", m_level);
     tilesNode.add("tileX", m_tileX);
     tilesNode.add("tileY", m_tileY);
+
+    //printf("made view for %u %u %u\n", m_level, m_tileX, m_tileY);
 }
 
 
-void Tile::add(const PointView& pointViewRef, PointId pointNumber, double lon, double lat, PointViewSet& pointViewSet)
+void Tile::add(const PointView& sourcePointView, PointId pointNumber, double lon, double lat)
 {
     assert(m_rect.contains(lon, lat));
 
@@ -134,18 +140,16 @@ void Tile::add(const PointView& pointViewRef, PointId pointNumber, double lon, d
         << " " << m_skip
         << " " << (pointNumber % m_skip == 0) << "\n";
 
+    // put the point into this tile, if we're at the right level of decimation
     if (pointNumber % m_skip == 0)
     {
         if (!m_pointView) {
-            m_pointView = pointViewRef.makeNew();
-            pointViewSet.insert(m_pointView);
-            //printf("made view for %u %u %u\n", m_level, m_tileX, m_tileY);
-
-            addMetadata();
+            createPointView(sourcePointView);
+            m_pointViewSet.insert(m_pointView);
         }
         
         //printf("%u:  to %u,%u,%u   ===   %u   ===   %lf %lf\n", m_pointView->id(), m_level, m_tileX, m_tileY, pointNumber, lon, lat);
-        m_pointView->appendPoint(pointViewRef, pointNumber);
+        m_pointView->appendPoint(sourcePointView, pointNumber);
     }
 
     if (m_level == m_maxLevel) return;
@@ -159,7 +163,7 @@ void Tile::add(const PointView& pointViewRef, PointId pointNumber, double lon, d
         m_children[3] = NULL;
     }
 
-    Quad q = m_rect.getQuadrantOf(lon, lat);
+    Rectangle::Quadrant q = m_rect.getQuadrantOf(lon, lat);
     m_log->get(LogLevel::Debug5) << "which=" << q << "\n";
 
     Tile* child = m_children[q];
@@ -168,26 +172,27 @@ void Tile::add(const PointView& pointViewRef, PointId pointNumber, double lon, d
         Rectangle r = m_rect.getQuadrantRect(q);
         switch (q)
         {
-            case QuadSW:
-                child = new Tile(m_level+1, m_tileX*2, m_tileY*2+1, r, m_maxLevel, m_log);
+            case Rectangle::QuadrantSW:
+                child = new Tile(m_level+1, m_tileX*2, m_tileY*2+1, r, m_maxLevel, m_pointViewSet, m_log);
                 break;
-            case QuadNW:
-                child = new Tile(m_level+1, m_tileX*2, m_tileY*2, r, m_maxLevel, m_log);
+            case Rectangle::QuadrantNW:
+                child = new Tile(m_level+1, m_tileX*2, m_tileY*2, r, m_maxLevel, m_pointViewSet, m_log);
                 break;
-            case QuadSE:
-                child = new Tile(m_level+1, m_tileX*2+1, m_tileY*2+1, r, m_maxLevel, m_log);
+            case Rectangle::QuadrantSE:
+                child = new Tile(m_level+1, m_tileX*2+1, m_tileY*2+1, r, m_maxLevel, m_pointViewSet, m_log);
                 break;
-            case QuadNE:
-                child = new Tile(m_level+1, m_tileX*2+1, m_tileY*2, r, m_maxLevel, m_log);
+            case Rectangle::QuadrantNE:
+                child = new Tile(m_level+1, m_tileX*2+1, m_tileY*2, r, m_maxLevel, m_pointViewSet, m_log);
                 break;
             default:
-                assert(0);
+                throw pdal_error("invalid quadrant");
         }
         m_children[q] = child;
     }
 
-    child->add(pointViewRef, pointNumber, lon, lat, pointViewSet);
+    child->add(sourcePointView, pointNumber, lon, lat);
 }
+
 
 void Tile::collectStats(std::vector<uint32_t> numTilesPerLevel, std::vector<uint64_t> numPointsPerLevel) const
 {
@@ -202,6 +207,7 @@ void Tile::collectStats(std::vector<uint32_t> numTilesPerLevel, std::vector<uint
         }
     }
 }
+
 
 /*void Tile::write(const char* prefix) const
 {

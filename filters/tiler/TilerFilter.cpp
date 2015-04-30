@@ -51,6 +51,15 @@ CREATE_STATIC_PLUGIN(1, 0, TilerFilter, Filter, s_info)
 
 std::string TilerFilter::getName() const { return s_info.name; }
 
+TilerFilter::~TilerFilter()
+{
+    if (m_roots) {
+        delete m_roots[0];
+        delete m_roots[1];
+        delete[] m_roots;
+    }
+}
+
 void TilerFilter::processOptions(const Options& options)
 {
     m_maxLevel = options.getValueOrDefault<uint32_t>("maxLevel");
@@ -61,13 +70,8 @@ void TilerFilter::processOptions(const Options& options)
 
     // TODO: make this be an option
     m_rectangle = tilercommon::Rectangle(-180.0, -90.0, 180.0, 90.0);
-
-    m_roots = new tilercommon::Tile*[2];
-
-    const tilercommon::Rectangle r00(-180.0, -90.0, 0.0, 90.0); // wsen
-    const tilercommon::Rectangle r10(0.0, -90.0, 180.0, 90.0);
-    m_roots[0] = new tilercommon::Tile(0, 0, 0, r00, m_maxLevel, log());
-    m_roots[1] = new tilercommon::Tile(0, 1, 0, r10, m_maxLevel, log());
+    
+    m_roots = NULL;
 }
 
 
@@ -103,6 +107,15 @@ PointViewSet TilerFilter::run(PointViewPtr inView)
     PointViewSet viewSet;
 
     const PointView& inViewRef(*inView.get());
+    
+    if (!m_roots) {
+        m_roots = new tilercommon::Tile*[2];
+
+        const tilercommon::Rectangle r00(-180.0, -90.0, 0.0, 90.0); // wsen
+        const tilercommon::Rectangle r10(0.0, -90.0, 180.0, 90.0);
+        m_roots[0] = new tilercommon::Tile(0, 0, 0, r00, m_maxLevel, viewSet, log());
+        m_roots[1] = new tilercommon::Tile(0, 1, 0, r10, m_maxLevel, viewSet, log());
+    }
 
     // build the tiles
     for (PointId idx = 0; idx < inViewRef.size(); ++idx)
@@ -111,9 +124,9 @@ PointViewSet TilerFilter::run(PointViewPtr inView)
         double lat = inViewRef.getFieldAs<double>(Dimension::Id::Y, idx);
 
         if (lon < 0)
-            m_roots[0]->add(inViewRef, idx, lon, lat, viewSet);
+            m_roots[0]->add(inViewRef, idx, lon, lat);
         else
-            m_roots[1]->add(inViewRef, idx, lon, lat, viewSet);
+            m_roots[1]->add(inViewRef, idx, lon, lat);
     }
 
     assert(isMetadataValid(viewSet));
