@@ -57,6 +57,8 @@ public:
     Options getDefaultOptions();
 
 private:
+    bool isMetadataValid(const PointViewSet& viewSet);
+
     int32_t m_maxLevel;
     int32_t m_numTilesX;
     int32_t m_numTilesY;

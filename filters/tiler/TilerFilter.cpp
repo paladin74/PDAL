@@ -81,10 +81,25 @@ Options TilerFilter::getDefaultOptions()
 }
 
 
+bool TilerFilter::isMetadataValid(const PointViewSet& viewSet)
+{
+    if (viewSet.size() == 0) return true;
+    
+    PointViewPtr view = *(viewSet.begin());
+    const MetadataNode node = view->metadata().findChild("tiles");
+    if (!node.valid()) return false;
+    
+    const MetadataNodeList children = node.children();    
+    if (children.size() != viewSet.size()) return false;
+
+    return true;
+}
+
+
 PointViewSet TilerFilter::run(PointViewPtr inView)
 {
     // TODO: assert the input is ESPG:4326
-    
+
     PointViewSet viewSet;
 
     const PointView& inViewRef(*inView.get());
@@ -100,6 +115,8 @@ PointViewSet TilerFilter::run(PointViewPtr inView)
         else
             m_roots[1]->add(inViewRef, idx, lon, lat, viewSet);
     }
+
+    assert(isMetadataValid(viewSet));
 
     return viewSet;
 }

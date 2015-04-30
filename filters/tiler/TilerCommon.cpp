@@ -110,6 +110,22 @@ Tile::~Tile()
 }
 
 
+void Tile::addMetadata() 
+{
+    MetadataNode node = m_pointView->metadata().findChild("tiles");
+    if (!node.valid()) {
+        node = m_pointView->metadata().add("tiles");
+    }
+
+    const std::string idString = std::to_string(m_pointView->id());
+
+    MetadataNode tilesNode = node.add(idString);
+    tilesNode.add("level", m_level);
+    tilesNode.add("tileX", m_tileX);
+    tilesNode.add("tileY", m_tileY);
+}
+
+
 void Tile::add(const PointView& pointViewRef, PointId pointNumber, double lon, double lat, PointViewSet& pointViewSet)
 {
     assert(m_rect.contains(lon, lat));
@@ -124,7 +140,11 @@ void Tile::add(const PointView& pointViewRef, PointId pointNumber, double lon, d
             m_pointView = pointViewRef.makeNew();
             pointViewSet.insert(m_pointView);
             //printf("made view for %u %u %u\n", m_level, m_tileX, m_tileY);
+
+            addMetadata();
         }
+        
+        //printf("%u:  to %u,%u,%u   ===   %u   ===   %lf %lf\n", m_pointView->id(), m_level, m_tileX, m_tileY, pointNumber, lon, lat);
         m_pointView->appendPoint(pointViewRef, pointNumber);
     }
 

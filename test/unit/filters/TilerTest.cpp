@@ -42,11 +42,33 @@
 using namespace pdal;
 
 
-static void getPoint(const PointView& data, double& x, double& y, double& z)
+const struct {
+    double x;
+    double y;
+    double z;
+} data[8] = {
+    /*0*/ { -179.0, 89.0, 0.0},
+    /*1*/ { -1.0, 89.0, 11.0},
+    /*2*/ { -179.0, -89.0, 22.0},
+    /*3*/ { -1.0, -89.0, 33.0},
+    /*4*/ { 89.0, 1.0, 44.0},
+    /*5*/ { 91.0, 1.0, 55.0},
+    /*6*/ { 89.0, -1.0, 66.0},
+    /*7*/ { 91.0, -1.0, 77.0}
+};
+
+
+static void testPoint(const PointView& view, uint32_t idx)
 {
-    x = data.getFieldAs<double>(Dimension::Id::X, 0);
-    y = data.getFieldAs<double>(Dimension::Id::Y, 0);
-    z = data.getFieldAs<double>(Dimension::Id::Z, 0);
+    EXPECT_EQ(view.size(), 1u);
+    
+    const double x = view.getFieldAs<double>(Dimension::Id::X, 0);
+    const double y = view.getFieldAs<double>(Dimension::Id::Y, 0);
+    const double z = view.getFieldAs<double>(Dimension::Id::Z, 0);
+
+    EXPECT_FLOAT_EQ(x, data[idx].x);
+    EXPECT_FLOAT_EQ(y, data[idx].y);
+    EXPECT_FLOAT_EQ(z, data[idx].z);
 }
 
 
@@ -60,38 +82,11 @@ TEST(TilerTest, test_tiler_filter)
     inputTable.layout()->registerDim(Dimension::Id::Y);
     inputTable.layout()->registerDim(Dimension::Id::Z);
 
+    for (int i=0; i<8; i++)
     {
-        inputView->setField(Dimension::Id::X, 0, -179.0);
-        inputView->setField(Dimension::Id::Y, 0, 89.0);
-        inputView->setField(Dimension::Id::Z, 0, 0.0);
-        
-        inputView->setField(Dimension::Id::X, 1, -1.0);
-        inputView->setField(Dimension::Id::Y, 1, 89.0);
-        inputView->setField(Dimension::Id::Z, 1, 11.0);
-
-        inputView->setField(Dimension::Id::X, 2, -179.0);
-        inputView->setField(Dimension::Id::Y, 2, -89.0);
-        inputView->setField(Dimension::Id::Z, 2, 22.0);
-
-        inputView->setField(Dimension::Id::X, 3, -1.0);
-        inputView->setField(Dimension::Id::Y, 3, -89.0);
-        inputView->setField(Dimension::Id::Z, 3, 33.0);
-
-        inputView->setField(Dimension::Id::X, 4, 89.0);
-        inputView->setField(Dimension::Id::Y, 4, 1.0);
-        inputView->setField(Dimension::Id::Z, 4, 44.0);
-        
-        inputView->setField(Dimension::Id::X, 5, 91.0);
-        inputView->setField(Dimension::Id::Y, 5, 1.0);
-        inputView->setField(Dimension::Id::Z, 5, 55.0);
-
-        inputView->setField(Dimension::Id::X, 6, 89.0);
-        inputView->setField(Dimension::Id::Y, 6, -1.0);
-        inputView->setField(Dimension::Id::Z, 6, 66.0);
-
-        inputView->setField(Dimension::Id::X, 7, 91.0);
-        inputView->setField(Dimension::Id::Y, 7, -1.0);
-        inputView->setField(Dimension::Id::Z, 7, 77.0);
+        inputView->setField(Dimension::Id::X, i, data[i].x);
+        inputView->setField(Dimension::Id::Y, i, data[i].y);
+        inputView->setField(Dimension::Id::Z, i, data[i].z);
     }
 
 
@@ -121,16 +116,71 @@ TEST(TilerTest, test_tiler_filter)
     
     // testing
     EXPECT_EQ(outputViews.size(), 2u + 8u + 1u);
-    PointViewPtr outputView = *outputViews.begin();
 
-    double x, y, z;
-    getPoint(*outputView.get(), x, y, z);
+    PointViewPtr tmp = *outputViews.begin();
+    const MetadataNode rootNode = tmp->metadata().findChild("tiles");
+    EXPECT_TRUE(rootNode.valid());
+    MetadataNodeList children = rootNode.children();
+    EXPECT_TRUE(children.size() == outputViews.size());
+        
+    for (auto iter = outputViews.begin(); iter != outputViews.end(); ++iter)
+    {
+        PointViewPtr outputView = *iter;
+    
+        const std::string idString = std::to_string(outputView->id());
+        const uint32_t id = boost::lexical_cast<uint32_t>(idString);
 
-    const double postX = -93.351563;
-    const double postY = 41.577148;
-    const double postZ = 16.000000;
+        const MetadataNode node = rootNode.findChild(idString);
+        EXPECT_TRUE(node.valid());
+        
+        const MetadataNode nodeL = node.findChild("level");
+        const MetadataNode nodeX = node.findChild("tileX");
+        const MetadataNode nodeY = node.findChild("tileY");
+        EXPECT_TRUE(nodeL.valid());
+        EXPECT_TRUE(nodeX.valid());
+        EXPECT_TRUE(nodeY.valid());
 
-    //EXPECT_FLOAT_EQ(x, postX);
-    //EXPECT_FLOAT_EQ(y, postY);
-    //EXPECT_FLOAT_EQ(z, postZ);
+        const uint32_t l = boost::lexical_cast<uint32_t>(nodeL.value());
+        const uint32_t x = boost::lexical_cast<uint32_t>(nodeX.value());
+        const uint32_t y = boost::lexical_cast<uint32_t>(nodeY.value());
+
+        //if (!(l == 2 && x == 0 && y == 0)) continue;
+        
+        uint32_t idx = 3141579;
+        if (l == 0 && x == 0 && y == 0) {
+            idx = 0;
+        }
+        
+        else if (l == 1 && x == 0 && y == 0) {
+            idx = 0;
+        } else if (l == 1 && x == 2 && y == 0) {
+            idx = 4;
+        }
+        
+        else if (l == 2 && x == 0 && y == 0) {
+            idx = 0;
+        } else if (l == 2 && x == 3 && y == 0) {
+            idx = 1;
+        } else if (l == 2 && x == 0 && y == 3) {
+            idx = 2;
+        } else if (l == 2 && x == 3 && y == 3) {
+            idx = 3;
+        } else if (l == 2 && x == 5 && y == 1) {
+            idx = 4;
+        } else if (l == 2 && x == 6 && y == 1) {
+            idx = 5;
+        } else if (l == 2 && x == 5 && y == 2) {
+            idx = 6;
+        } else if (l == 2 && x == 6 && y == 2) {
+            idx = 7;
+        } else {
+            //printf("%s: %d %d %d\n", idString.c_str(), l, x, y);
+            EXPECT_TRUE(false);
+        }
+        
+        EXPECT_TRUE(idx < 8);
+        
+        //printf("%s:   %d %d %d == %d\n", idString.c_str(), l, x, y, idx);
+        testPoint(*outputView, idx);
+    }
 }

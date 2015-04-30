@@ -142,6 +142,8 @@ public:
     //void writeData(FILE*) const;
 
 private:
+    void addMetadata();
+    
     uint32_t m_level;
     uint32_t m_tileX;
     uint32_t m_tileY;
