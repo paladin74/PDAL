@@ -48,7 +48,6 @@ class PDAL_DLL TilerFilter : public pdal::Filter
 {
 public:
     TilerFilter() : Filter() {}
-    virtual ~TilerFilter();
     
     static void * create();
     static int32_t destroy(void *);
@@ -63,7 +62,6 @@ private:
     int32_t m_numTilesX;
     int32_t m_numTilesY;
     tilercommon::Rectangle m_rectangle;
-    tilercommon::Tile** m_roots;
 
     virtual void processOptions(const Options& options);
     virtual PointViewSet run(PointViewPtr view);

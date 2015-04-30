@@ -130,10 +130,33 @@ private:
 };
 
 
+class Tile;
+
+
+class TileSet
+{
+    public:
+        TileSet(const PointView& sourceView, PointViewSet& outputSet, uint32_t maxLevel, LogPtr log);
+        ~TileSet();
+
+        void addPoint(PointId, double lon, double lat);
+        void addToSet(PointViewPtr pointView);
+        uint32_t getMaxLevel() const { return m_maxLevel; }
+        LogPtr log() { return m_log; }
+
+    private:
+        const PointView& m_sourceView;
+        PointViewSet& m_outputSet;
+        uint32_t m_maxLevel;
+        LogPtr m_log;
+        Tile** m_roots;
+};
+
+
 class Tile
 {
 public:
-    Tile(uint32_t level, uint32_t tx, uint32_t ty, Rectangle r, uint32_t maxLevel, PointViewSet& pointViewSet, LogPtr log);
+    Tile(TileSet& tileSet, uint32_t level, uint32_t tx, uint32_t ty, Rectangle r);
     ~Tile();
 
     void add(const PointView& pointViewRef, PointId pointNumber, double lon, double lat);
@@ -146,17 +169,16 @@ public:
 
 private:
     void createPointView(const PointView& sourcePointView);
+    LogPtr log() { return m_tileSet.log(); }
     
+    TileSet& m_tileSet;
     uint32_t m_level;
     uint32_t m_tileX;
     uint32_t m_tileY;
     Tile** m_children;
     Rectangle m_rect;
-    uint32_t m_maxLevel;
     uint64_t m_skip;
-    PointViewSet& m_pointViewSet;
     PointViewPtr m_pointView;
-    LogPtr m_log;
 };
 
 } // namespace tilercommon

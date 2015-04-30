@@ -45,30 +45,74 @@ namespace pdal
 {
 namespace tilercommon
 {
+
+
+TileSet::TileSet(
+        const PointView& sourceView,
+        PointViewSet& outputSet,
+        uint32_t maxLevel,
+        LogPtr log) :
+    m_sourceView(sourceView),
+    m_outputSet(outputSet),
+    m_maxLevel(maxLevel),
+    m_log(log),
+    m_roots(NULL)
+
+{
+    assert(m_maxLevel <= 32);
+
+    m_roots = new tilercommon::Tile*[2];
+
+    const tilercommon::Rectangle r00(-180.0, -90.0, 0.0, 90.0); // wsen
+    const tilercommon::Rectangle r10(0.0, -90.0, 180.0, 90.0);
+    m_roots[0] = new tilercommon::Tile(*this, 0, 0, 0, r00);
+    m_roots[1] = new tilercommon::Tile(*this, 0, 1, 0, r10);
+}
+
+
+TileSet::~TileSet() 
+{
+    if (m_roots) {
+        delete m_roots[0];
+        delete m_roots[1];
+        delete[] m_roots;
+    }
+}
+
+
+void TileSet::addPoint(PointId idx, double lon, double lat)
+{
+    if (lon < 0)
+        m_roots[0]->add(m_sourceView, idx, lon, lat);
+    else
+        m_roots[1]->add(m_sourceView, idx, lon, lat);
+}
+
     
+void TileSet::addToSet(PointViewPtr pointView)
+{
+    m_outputSet.insert(pointView);
+}
+
+
 Tile::Tile(
+        TileSet& tileSet,
         uint32_t level,
         uint32_t tx,
         uint32_t ty,
-        Rectangle r,
-        uint32_t maxLevel,
-        PointViewSet& pointViewSet,
-        LogPtr log) :
+        Rectangle r) :
+    m_tileSet(tileSet),
     m_level(level),
     m_tileX(tx),
     m_tileY(ty),
     m_children(NULL),
     m_rect(r),
-    m_maxLevel(maxLevel),
     m_skip(0),
-    m_pointViewSet(pointViewSet),
-    m_pointView(NULL),
-    m_log(log)
+    m_pointView(NULL)
 {
-    assert(m_maxLevel <= 32);
-    assert(m_level <= m_maxLevel);
+    assert(m_level <= m_tileSet.getMaxLevel());
 
-    m_log->get(LogLevel::Debug1) << "created tb (l=" << m_level
+    log()->get(LogLevel::Debug1) << "created tb (l=" << m_level
         << ", tx=" << m_tileX
         << ", ty=" << m_tileY
         << ") (slip" << m_skip
@@ -90,8 +134,8 @@ Tile::Tile(
     // 3-1=2  skip 16    4^2
     // 3-0=3  skip 64    4^3
     //
-    m_skip = std::pow(4, (m_maxLevel - m_level));
-    m_log->get(LogLevel::Debug1) << "level=" << m_level
+    m_skip = std::pow(4, (m_tileSet.getMaxLevel() - m_level));
+    log()->get(LogLevel::Debug1) << "level=" << m_level
         << "  skip=" << m_skip << "\n";
 }
 
@@ -136,7 +180,7 @@ void Tile::add(const PointView& sourcePointView, PointId pointNumber, double lon
 {
     assert(m_rect.contains(lon, lat));
 
-    m_log->get(LogLevel::Debug5) << "-- -- " << pointNumber
+    log()->get(LogLevel::Debug5) << "-- -- " << pointNumber
         << " " << m_skip
         << " " << (pointNumber % m_skip == 0) << "\n";
 
@@ -145,14 +189,14 @@ void Tile::add(const PointView& sourcePointView, PointId pointNumber, double lon
     {
         if (!m_pointView) {
             createPointView(sourcePointView);
-            m_pointViewSet.insert(m_pointView);
+            m_tileSet.addToSet(m_pointView);
         }
         
         //printf("%u:  to %u,%u,%u   ===   %u   ===   %lf %lf\n", m_pointView->id(), m_level, m_tileX, m_tileY, pointNumber, lon, lat);
         m_pointView->appendPoint(sourcePointView, pointNumber);
     }
 
-    if (m_level == m_maxLevel) return;
+    if (m_level == m_tileSet.getMaxLevel()) return;
 
     if (!m_children)
     {
@@ -164,7 +208,7 @@ void Tile::add(const PointView& sourcePointView, PointId pointNumber, double lon
     }
 
     Rectangle::Quadrant q = m_rect.getQuadrantOf(lon, lat);
-    m_log->get(LogLevel::Debug5) << "which=" << q << "\n";
+    log()->get(LogLevel::Debug5) << "which=" << q << "\n";
 
     Tile* child = m_children[q];
     if (child == NULL)
@@ -173,16 +217,16 @@ void Tile::add(const PointView& sourcePointView, PointId pointNumber, double lon
         switch (q)
         {
             case Rectangle::QuadrantSW:
-                child = new Tile(m_level+1, m_tileX*2, m_tileY*2+1, r, m_maxLevel, m_pointViewSet, m_log);
+                child = new Tile(m_tileSet, m_level+1, m_tileX*2, m_tileY*2+1, r);
                 break;
             case Rectangle::QuadrantNW:
-                child = new Tile(m_level+1, m_tileX*2, m_tileY*2, r, m_maxLevel, m_pointViewSet, m_log);
+                child = new Tile(m_tileSet, m_level+1, m_tileX*2, m_tileY*2, r);
                 break;
             case Rectangle::QuadrantSE:
-                child = new Tile(m_level+1, m_tileX*2+1, m_tileY*2+1, r, m_maxLevel, m_pointViewSet, m_log);
+                child = new Tile(m_tileSet, m_level+1, m_tileX*2+1, m_tileY*2+1, r);
                 break;
             case Rectangle::QuadrantNE:
-                child = new Tile(m_level+1, m_tileX*2+1, m_tileY*2, r, m_maxLevel, m_pointViewSet, m_log);
+                child = new Tile(m_tileSet, m_level+1, m_tileX*2+1, m_tileY*2, r);
                 break;
             default:
                 throw pdal_error("invalid quadrant");

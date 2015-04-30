@@ -51,15 +51,6 @@ CREATE_STATIC_PLUGIN(1, 0, TilerFilter, Filter, s_info)
 
 std::string TilerFilter::getName() const { return s_info.name; }
 
-TilerFilter::~TilerFilter()
-{
-    if (m_roots) {
-        delete m_roots[0];
-        delete m_roots[1];
-        delete[] m_roots;
-    }
-}
-
 void TilerFilter::processOptions(const Options& options)
 {
     m_maxLevel = options.getValueOrDefault<uint32_t>("maxLevel");
@@ -70,8 +61,6 @@ void TilerFilter::processOptions(const Options& options)
 
     // TODO: make this be an option
     m_rectangle = tilercommon::Rectangle(-180.0, -90.0, 180.0, 90.0);
-    
-    m_roots = NULL;
 }
 
 
@@ -100,38 +89,28 @@ bool TilerFilter::isMetadataValid(const PointViewSet& viewSet)
 }
 
 
-PointViewSet TilerFilter::run(PointViewPtr inView)
+PointViewSet TilerFilter::run(PointViewPtr sourceView)
 {
     // TODO: assert the input is ESPG:4326
 
-    PointViewSet viewSet;
+    PointViewSet outputSet;
 
-    const PointView& inViewRef(*inView.get());
-    
-    if (!m_roots) {
-        m_roots = new tilercommon::Tile*[2];
-
-        const tilercommon::Rectangle r00(-180.0, -90.0, 0.0, 90.0); // wsen
-        const tilercommon::Rectangle r10(0.0, -90.0, 180.0, 90.0);
-        m_roots[0] = new tilercommon::Tile(0, 0, 0, r00, m_maxLevel, viewSet, log());
-        m_roots[1] = new tilercommon::Tile(0, 1, 0, r10, m_maxLevel, viewSet, log());
-    }
+    const PointView& sourceViewRef(*sourceView.get());
+        
+    tilercommon::TileSet tileSet(sourceViewRef, outputSet, m_maxLevel, log());
 
     // build the tiles
-    for (PointId idx = 0; idx < inViewRef.size(); ++idx)
+    for (PointId idx = 0; idx < sourceViewRef.size(); ++idx)
     {
-        double lon = inViewRef.getFieldAs<double>(Dimension::Id::X, idx);
-        double lat = inViewRef.getFieldAs<double>(Dimension::Id::Y, idx);
+        double lon = sourceViewRef.getFieldAs<double>(Dimension::Id::X, idx);
+        double lat = sourceViewRef.getFieldAs<double>(Dimension::Id::Y, idx);
 
-        if (lon < 0)
-            m_roots[0]->add(inViewRef, idx, lon, lat);
-        else
-            m_roots[1]->add(inViewRef, idx, lon, lat);
+        tileSet.addPoint(idx, lon, lat);
     }
 
-    assert(isMetadataValid(viewSet));
+    assert(isMetadataValid(outputSet));
 
-    return viewSet;
+    return outputSet;
 }
 
 } // pdal
