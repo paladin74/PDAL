@@ -57,8 +57,10 @@ const struct {
     /*7*/ { 91.0, -1.0, 77.0}
 };
 
+typedef std::map<uint32_t, PointView*> ViewsMap;
 
-static void testPoint(const PointViewPtr view, uint32_t idx)
+
+static void testPoint(PointView* view, uint32_t idx)
 {
     EXPECT_EQ(view->size(), 1u);
 
@@ -69,6 +71,175 @@ static void testPoint(const PointViewPtr view, uint32_t idx)
     EXPECT_FLOAT_EQ(x, data[idx].x);
     EXPECT_FLOAT_EQ(y, data[idx].y);
     EXPECT_FLOAT_EQ(z, data[idx].z);
+}
+
+
+static void populateMap(ViewsMap& views, PointViewSet& outputViews)
+{
+    for (auto iter=outputViews.begin(); iter != outputViews.end(); ++iter) {
+        PointViewPtr ptr = *iter;
+        PointView* p = ptr.get();
+        views[p->id()] = &(*p);
+    }
+    
+    testPoint(views[3], 0); // quick sanity check
+}
+
+
+static void testNodeDetails(uint32_t tileId, double l, double x, double y, uint8_t m, uint32_t v, ViewsMap& views)
+{
+    switch (tileId) {
+
+      case 0:
+        EXPECT_TRUE(l==0 && x == 0 && y == 0);
+        EXPECT_TRUE(m == 15);
+        EXPECT_TRUE(v == 3);
+        testPoint(views[v], 0);
+        break;
+
+      case 1:
+        EXPECT_TRUE(l==0 && x == 1 && y == 0);
+        EXPECT_TRUE(m == 15);
+        EXPECT_TRUE(v = 999);
+        break;
+
+      case 2:
+        EXPECT_TRUE(l==1 && x == 0 && y == 0);
+        EXPECT_TRUE(m == 8);
+        EXPECT_TRUE(v == 4);
+        testPoint(views[v], 0);
+        break;
+
+      case 3:
+        EXPECT_TRUE(l==2 && x == 0 && y == 0);
+        EXPECT_TRUE(m == 0);
+        EXPECT_TRUE(v == 5);
+        testPoint(views[v], 0);
+        break;
+
+      case 4:
+        EXPECT_TRUE(l==1 && x == 1 && y == 0);
+        EXPECT_TRUE(m == 4);
+        EXPECT_TRUE(v == 999);
+        break;
+
+      case 5:
+        EXPECT_TRUE(l==2 && x == 3 && y == 0);
+        EXPECT_TRUE(m == 0);
+        EXPECT_TRUE(v == 6);
+        testPoint(views[v], 1);
+        break;
+
+      case 6:
+        EXPECT_TRUE(l==1 && x == 0 && y == 1);
+        EXPECT_TRUE(m == 1);
+        EXPECT_TRUE(v == 999);
+        break;
+
+      case 7:
+        EXPECT_TRUE(l==2 && x == 0 && y == 3);
+        EXPECT_TRUE(m == 0);
+        EXPECT_TRUE(v == 7);
+        testPoint(views[v], 2);
+        break;
+
+      case 8:
+        EXPECT_TRUE(l==1 && x == 1 && y == 1);
+        EXPECT_TRUE(m == 2);
+        EXPECT_TRUE(v == 999);
+        break;
+
+      case 9:
+        EXPECT_TRUE(l==2 && x == 3 && y == 3);
+        EXPECT_TRUE(m == 0);
+        EXPECT_TRUE(v == 8);
+        testPoint(views[v], 3);
+        break;
+
+      case 10:
+        EXPECT_TRUE(l==1 && x == 2 && y == 0);
+        EXPECT_TRUE(m == 2);
+        EXPECT_TRUE(v == 9);
+        testPoint(views[v], 4);
+        break;
+
+      case 11:
+        EXPECT_TRUE(l==2 && x == 5 && y == 1);
+        EXPECT_TRUE(m == 0);
+        EXPECT_TRUE(v == 10);
+        testPoint(views[v], 4);
+        break;
+
+      case 12:
+        EXPECT_TRUE(l==1 && x == 3 && y == 0);
+        EXPECT_TRUE(m == 1);
+        EXPECT_TRUE(v == 999);
+        break;
+
+      case 13:
+        EXPECT_TRUE(l==2 && x == 6 && y == 1);
+        EXPECT_TRUE(m == 0);
+        EXPECT_TRUE(v == 11);
+        testPoint(views[v], 5);
+        break;
+
+      case 14:
+        EXPECT_TRUE(l==1 && x == 2 && y == 1);
+        EXPECT_TRUE(m == 4);
+        EXPECT_TRUE(v == 999);
+        break;
+
+      case 15:
+        EXPECT_TRUE(l==2 && x == 5 && y == 2);
+        EXPECT_TRUE(m == 0);
+        EXPECT_TRUE(v == 12);
+        testPoint(views[v], 6);
+        break;
+
+      case 16:
+        EXPECT_TRUE(l==1 && x == 3 && y == 1);
+        EXPECT_TRUE(m == 8);
+        EXPECT_TRUE(v == 999);
+        break;
+
+      case 17:
+        EXPECT_TRUE(l==2 && x == 6 && y == 2);
+        EXPECT_TRUE(m == 0);
+        EXPECT_TRUE(v == 13);
+        testPoint(views[v], 7);
+        break;
+
+      default:
+        EXPECT_TRUE(false);
+    }
+}
+
+
+static void testNode(MetadataNode tileNode, ViewsMap& views)
+{
+    const uint32_t tileId = boost::lexical_cast<uint32_t>(tileNode.name());
+
+    const MetadataNode nodeL = tileNode.findChild("level");
+    const MetadataNode nodeX = tileNode.findChild("tileX");
+    const MetadataNode nodeY = tileNode.findChild("tileY");
+    const MetadataNode nodeM = tileNode.findChild("mask");
+    EXPECT_TRUE(nodeL.valid());
+    EXPECT_TRUE(nodeX.valid());
+    EXPECT_TRUE(nodeY.valid());
+    EXPECT_TRUE(nodeM.valid());
+
+    const uint32_t l = boost::lexical_cast<uint32_t>(nodeL.value());
+    const uint32_t x = boost::lexical_cast<uint32_t>(nodeX.value());
+    const uint32_t y = boost::lexical_cast<uint32_t>(nodeY.value());
+    const uint8_t m = boost::lexical_cast<uint32_t>(nodeM.value());
+
+    const MetadataNode nodeP = tileNode.findChild("pointView");
+    uint32_t v = 999;
+    if (nodeP.valid()) {
+      v = boost::lexical_cast<uint32_t>(nodeP.value());
+    }
+
+    testNodeDetails(tileId, l, x, y, m, v, views);
 }
 
 
@@ -126,168 +297,14 @@ TEST(TilerTest, test_tiler_filter)
 
     EXPECT_EQ(outputViews.size(), 2u + 8u + 1u);
 
-    PointViewPtr **pointViewArray = new PointViewPtr*[18];
-    for (auto iter=outputViews.begin(); iter != outputViews.end(); ++iter) {
-        PointViewPtr p = *iter;
-        pointViewArray[p->id()] = &p;
-    }
-
-    EXPECT_TRUE(tileSetNodes.size() >= outputViews.size());
-
+    ViewsMap viewsMap;
+    populateMap(viewsMap, outputViews);
+    
     for (auto iter = tileSetNodes.begin(); iter != tileSetNodes.end(); ++iter)
     {
         MetadataNode tileNode = *iter;
         EXPECT_TRUE(tileNode.valid());
-        const uint32_t tileId = boost::lexical_cast<uint32_t>(tileNode.name());
-
-        const MetadataNode nodeL = tileNode.findChild("level");
-        const MetadataNode nodeX = tileNode.findChild("tileX");
-        const MetadataNode nodeY = tileNode.findChild("tileY");
-        const MetadataNode nodeM = tileNode.findChild("mask");
-        EXPECT_TRUE(nodeL.valid());
-        EXPECT_TRUE(nodeX.valid());
-        EXPECT_TRUE(nodeY.valid());
-        EXPECT_TRUE(nodeM.valid());
-
-        const uint32_t l = boost::lexical_cast<uint32_t>(nodeL.value());
-        const uint32_t x = boost::lexical_cast<uint32_t>(nodeX.value());
-        const uint32_t y = boost::lexical_cast<uint32_t>(nodeY.value());
-        const uint8_t m = boost::lexical_cast<uint32_t>(nodeM.value());
-
-        const MetadataNode nodeP = tileNode.findChild("pointView");
-        uint32_t v = 999;
-        PointViewPtr view;
-        if (nodeP.valid()) {
-          v = boost::lexical_cast<uint32_t>(nodeP.value());
-          assert(v<18);
-          printf("%u\n", v);
-          view = *(pointViewArray[v]);
-        }
-
-        switch (tileId) {
-
-          case 0:
-            EXPECT_TRUE(l==0 && x == 0 && y == 0);
-            EXPECT_TRUE(m == 15);
-            EXPECT_TRUE(v == 3);
-            testPoint(view, 0);
-            break;
-
-          case 1:
-            EXPECT_TRUE(l==0 && x == 1 && y == 0);
-            EXPECT_TRUE(m == 15);
-            EXPECT_TRUE(v = 999);
-            break;
-
-          case 2:
-            EXPECT_TRUE(l==1 && x == 0 && y == 0);
-            EXPECT_TRUE(m == 8);
-            EXPECT_TRUE(v == 4);
-            testPoint(view, 0);
-            break;
-
-          case 3:
-            EXPECT_TRUE(l==2 && x == 0 && y == 0);
-            EXPECT_TRUE(m == 0);
-            EXPECT_TRUE(v == 5);
-            testPoint(view, 0);
-            break;
-
-          case 4:
-            EXPECT_TRUE(l==1 && x == 1 && y == 0);
-            EXPECT_TRUE(m == 4);
-            EXPECT_TRUE(v == 999);
-            break;
-
-          case 5:
-            EXPECT_TRUE(l==2 && x == 3 && y == 0);
-            EXPECT_TRUE(m == 0);
-            EXPECT_TRUE(v == 6);
-            testPoint(view, 1);
-            break;
-
-          case 6:
-            EXPECT_TRUE(l==1 && x == 0 && y == 1);
-            EXPECT_TRUE(m == 1);
-            EXPECT_TRUE(v == 999);
-            break;
-
-          case 7:
-            EXPECT_TRUE(l==2 && x == 0 && y == 3);
-            EXPECT_TRUE(m == 0);
-            EXPECT_TRUE(v == 7);
-            testPoint(view, 2);
-            break;
-
-          case 8:
-            EXPECT_TRUE(l==1 && x == 1 && y == 1);
-            EXPECT_TRUE(m == 2);
-            EXPECT_TRUE(v == 999);
-            break;
-
-          case 9:
-            EXPECT_TRUE(l==2 && x == 3 && y == 3);
-            EXPECT_TRUE(m == 0);
-            EXPECT_TRUE(v == 8);
-            testPoint(view, 3);
-            break;
-
-          case 10:
-            EXPECT_TRUE(l==1 && x == 2 && y == 0);
-            EXPECT_TRUE(m == 2);
-            EXPECT_TRUE(v == 9);
-            testPoint(view, 4);
-            break;
-
-          case 11:
-            EXPECT_TRUE(l==2 && x == 5 && y == 1);
-            EXPECT_TRUE(m == 0);
-            EXPECT_TRUE(v == 10);
-            testPoint(view, 4);
-            break;
-
-          case 12:
-            EXPECT_TRUE(l==1 && x == 3 && y == 0);
-            EXPECT_TRUE(m == 1);
-            EXPECT_TRUE(v == 999);
-            break;
-
-          case 13:
-            EXPECT_TRUE(l==2 && x == 6 && y == 1);
-            EXPECT_TRUE(m == 0);
-            EXPECT_TRUE(v == 11);
-            testPoint(view, 5);
-            break;
-
-          case 14:
-            EXPECT_TRUE(l==1 && x == 2 && y == 1);
-            EXPECT_TRUE(m == 4);
-            EXPECT_TRUE(v == 999);
-            break;
-
-          case 15:
-            EXPECT_TRUE(l==2 && x == 5 && y == 2);
-            EXPECT_TRUE(m == 0);
-            EXPECT_TRUE(v == 12);
-            testPoint(view, 6);
-            break;
-
-          case 16:
-            EXPECT_TRUE(l==1 && x == 3 && y == 1);
-            EXPECT_TRUE(m == 8);
-            EXPECT_TRUE(v == 999);
-            break;
-
-          case 17:
-            EXPECT_TRUE(l==2 && x == 6 && y == 2);
-            EXPECT_TRUE(m == 0);
-            EXPECT_TRUE(v == 13);
-            testPoint(view, 7);
-            break;
-
-          default:
-              EXPECT_TRUE(false);
-        }
-
+        
+        testNode(tileNode, viewsMap);
     }
 }

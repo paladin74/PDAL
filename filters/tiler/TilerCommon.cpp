@@ -200,7 +200,7 @@ void Tile::setMetadata(MetadataNode& tileSetNode)
 
   if (m_pointView)
   {
-    tileNode.add("pointView", m_pointView->id());
+      tileNode.add("pointView", m_pointView->id());
   }
 
   if (m_children) {
