@@ -35,7 +35,6 @@
 #include <pdal/pdal_test_main.hpp>
 
 #include <pdal/BufferReader.hpp>
-#include <LasReader.hpp>
 #include <TilerFilter.hpp>
 #include <StatsFilter.hpp>
 
@@ -315,9 +314,31 @@ TEST(TilerTest, test_tiler_filter)
     const MetadataNode root = outputTable.metadata();
     EXPECT_TRUE(root.valid());
 
+    // sanity check the stats metadata
+    {
+        bool statsOkay = false;
+        const MetadataNode statsNode = root.findChild("filters.stats");
+        EXPECT_TRUE(statsNode.valid());
+        for (auto node1 : statsNode.children("statistic"))
+        {
+            EXPECT_TRUE(node1.valid());
+            for (auto node2 : node1.children())
+            {
+                EXPECT_TRUE(node2.valid());
+                if (node2.name().compare("name")==0 && node2.value().compare("Z")==0) {
+                    statsOkay = true;
+                    MetadataNode avg = node1.findChild("average");
+                    EXPECT_TRUE(avg.value().compare("38.5") == 0);
+                }
+            }
+        }
+        EXPECT_TRUE(statsOkay);
+    }
+
     const MetadataNode tileSetNode = root.findChild("tileSet");
     EXPECT_TRUE(tileSetNode.valid());
 
+    EXPECT_EQ(getMetadataU32(tileSetNode, "maxLevel"), 2u);
     EXPECT_EQ(getMetadataU32(tileSetNode, "numCols"), 2u);
     EXPECT_EQ(getMetadataU32(tileSetNode, "numRows"), 1u);
     EXPECT_EQ(getMetadataF64(tileSetNode, "minX"), -180.0);
@@ -343,5 +364,16 @@ TEST(TilerTest, test_tiler_filter)
         EXPECT_TRUE(tileNode.valid());
         
         testTile(tileNode, viewsMap);
+    }
+    
+    // finally, check the tile set's stats metadata
+    {
+        MetadataNode statsNode = tileSetNode.findChild("stats");
+        EXPECT_TRUE(statsNode.valid());
+        MetadataNode zNode = statsNode.findChild("Z");
+        EXPECT_TRUE(zNode.valid());
+        EXPECT_EQ(getMetadataF64(zNode, "min"), 0.0);
+        EXPECT_EQ(getMetadataF64(zNode, "avg"), 38.5);
+        EXPECT_EQ(getMetadataF64(zNode, "max"), 77.0);
     }
 }

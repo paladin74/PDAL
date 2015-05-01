@@ -179,10 +179,10 @@ public:
 
     void add(PointViewPtr pointView, PointId pointNumber, double lon, double lat);
 
-    void collectStats(std::vector<uint32_t> numTilesPerLevel,
-        std::vector<uint64_t> numPointsPerLevel) const;
+    void collectCounts(std::vector<uint32_t>& numTilesPerLevel,
+                       std::vector<uint64_t>& numPointsPerLevel) const;
 
-    void setMetadata(MetadataNode&);
+    void setTileMetadata(MetadataNode&);
 
 private:
     LogPtr log() { return m_tileSet.log(); }

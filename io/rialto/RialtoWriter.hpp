@@ -37,8 +37,6 @@
 #include <pdal/pdal_export.hpp>
 #include <pdal/Writer.hpp>
 
-#include "RialtoCommon.hpp"
-
 #include <cstdint>
 #include <string>
 
@@ -54,8 +52,9 @@ class Tile;
 class PDAL_DLL RialtoWriter : public Writer
 {
 public:
-    RialtoWriter()
-        {}
+    RialtoWriter() :
+        m_table(NULL)
+    {}
 
     static void * create();
     static int32_t destroy(void *);
@@ -72,13 +71,7 @@ private:
     uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name) const;
     double getMetadataF64(const MetadataNode& parent, const std::string& name) const;
     
-    int32_t m_bytesPerPoint;
-    int32_t m_maxLevel;
-    int32_t m_numTilesX;
-    int32_t m_numTilesY;
     bool m_overwrite;
-    Rectangle m_rectangle;
-    Tile** m_roots;
     BasePointTable *m_table;
     
     RialtoWriter& operator=(const RialtoWriter&); // not implemented

@@ -89,6 +89,7 @@ void TileSet::ready(PointTableRef table)
     assert(tileSetNode.valid());
 
     // TODO: hard-coded for now
+    tileSetNode.add("maxLevel", m_maxLevel);
     tileSetNode.add("numCols", 2);
     tileSetNode.add("numRows", 1);
     tileSetNode.add("minX", -180.0);
@@ -117,6 +118,11 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
         addPoint(idx, lon, lat);
     }
     
+    //std::vector<uint32_t> numTilesPerLevel(m_maxLevel+1);
+    //std::vector<uint64_t> numPointsPerLevel(m_maxLevel+1);
+    //m_roots[0]->collectCounts(numTilesPerLevel, numPointsPerLevel);
+    //m_roots[1]->collectCounts(numTilesPerLevel, numPointsPerLevel);
+    
     setTileSetMetadata();
 }
 
@@ -129,18 +135,40 @@ void TileSet::done(PointTableRef table)
 
 void TileSet::setStatsMetadata(const MetadataNode& root)
 {
-    MetadataNode node = root.findChild("filters.stats");
-    assert(node.valid());
+    assert(m_metadata.valid());
+    MetadataNode records = m_metadata.addList("stats");
     
-    for (auto node1 : node.children("statistic"))
+    MetadataNode statsNode = root.findChild("filters.stats");
+    assert(statsNode.valid());
+    
+    for (auto node1 : statsNode.children("statistic"))
     {    
         assert(node1.valid());
-        printf("=>%s %s\n", node1.name().c_str(), node1.value().c_str());
+        //printf("=>%s %s\n", node1.name().c_str(), node1.value().c_str());
 
         for (auto node2 : node1.children())
         {    
             assert(node2.valid());
-            printf("==>>%s %s\n", node2.name().c_str(), node2.value().c_str());
+            //printf("==>>%s %s\n", node2.name().c_str(), node2.value().c_str());
+
+            if (node2.name().compare("name")==0) {
+                std::string name = node2.value();
+                MetadataNode avg = node1.findChild("average");
+                MetadataNode min = node1.findChild("minimum");
+                MetadataNode max = node1.findChild("maximum");
+                if (!avg.valid() || !min.valid() || !max.valid()) {
+                    throw pdal_error("TileFilter: required stats metadata not found");
+                }
+                std::string avgS = avg.value();
+                std::string minS = min.value();
+                std::string maxS = max.value();
+                //printf("%s: %s / %s / %s\n", name.c_str(), minS.c_str(), avgS.c_str(), maxS.c_str());
+                
+                MetadataNode thisRecord = records.addList(name);
+                thisRecord.add("min", minS);
+                thisRecord.add("avg", avgS);
+                thisRecord.add("max", maxS);
+            }
         }
     }
 }
@@ -181,8 +209,8 @@ void TileSet::setTileSetMetadata()
     MetadataNode tilesNode = m_metadata.addList("tiles");
     assert(tilesNode.valid());
 
-    m_roots[0]->setMetadata(tilesNode);
-    m_roots[1]->setMetadata(tilesNode);
+    m_roots[0]->setTileMetadata(tilesNode);
+    m_roots[1]->setTileMetadata(tilesNode);
 }
 
 
@@ -251,7 +279,7 @@ Tile::~Tile()
 
 
 // set the metaadata for this node, and then recurse down
-void Tile::setMetadata(MetadataNode& tileSetNode)
+void Tile::setTileMetadata(MetadataNode& tileSetNode)
 {
   // child mask
   uint8_t mask = 0x0;
@@ -277,10 +305,10 @@ void Tile::setMetadata(MetadataNode& tileSetNode)
   }
 
   if (m_children) {
-      if (m_children[0]) m_children[0]->setMetadata(tileSetNode);
-      if (m_children[1]) m_children[1]->setMetadata(tileSetNode);
-      if (m_children[2]) m_children[2]->setMetadata(tileSetNode);
-      if (m_children[3]) m_children[3]->setMetadata(tileSetNode);
+      if (m_children[0]) m_children[0]->setTileMetadata(tileSetNode);
+      if (m_children[1]) m_children[1]->setTileMetadata(tileSetNode);
+      if (m_children[2]) m_children[2]->setTileMetadata(tileSetNode);
+      if (m_children[3]) m_children[3]->setTileMetadata(tileSetNode);
     }
 }
 
@@ -352,16 +380,21 @@ void Tile::add(PointViewPtr sourcePointView, PointId pointNumber, double lon, do
 }
 
 
-void Tile::collectStats(std::vector<uint32_t> numTilesPerLevel, std::vector<uint64_t> numPointsPerLevel) const
+void Tile::collectCounts(std::vector<uint32_t>& numTilesPerLevel, std::vector<uint64_t>& numPointsPerLevel) const
 {
-    numPointsPerLevel[m_level] += m_pointView->size();
-    ++numTilesPerLevel[m_level];
+    if (m_pointView) {
+        numPointsPerLevel[m_level] += m_pointView->size();
+    }
+    numTilesPerLevel[m_level]++;
 
-    for (int i=0; i<4; ++i)
+    if (m_children)
     {
-        if (m_children && m_children[i])
+        for (int i=0; i<4; ++i)
         {
-            m_children[i]->collectStats(numTilesPerLevel, numPointsPerLevel);
+            if (m_children[i])
+            {
+                m_children[i]->collectCounts(numTilesPerLevel, numPointsPerLevel);
+            }
         }
     }
 }

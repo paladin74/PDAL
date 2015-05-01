@@ -44,10 +44,6 @@
 #include <pdal/util/Bounds.hpp>
 #include <pdal/util/FileUtils.hpp>
 
-#include "stats/StatsFilter.hpp"
-
-#include "RialtoCommon.hpp"
-
 #include <cstdint>
 
 namespace pdal
@@ -65,7 +61,6 @@ namespace
     static void writeHeader(
             std::string dir,
             PointTableRef table,
-            const Rectangle& rect,
             int32_t xt,
             int32_t yt,
             double minx,
@@ -80,10 +75,7 @@ namespace
         fprintf(fp, "    \"version\": 3,\n");
 
         fprintf(fp, "    \"tilebbox\": [%f, %f, %f, %f],\n",
-                rect.m_west,
-                rect.m_south,
-                rect.m_east,
-                rect.m_north);
+                minx, miny, maxx, maxy);
 
         fprintf(fp, "    \"numTilesX\": %d,\n", xt);
         fprintf(fp, "    \"numTilesY\": %d,\n", yt);
@@ -209,7 +201,6 @@ std::string RialtoWriter::getName() const
 
 void RialtoWriter::processOptions(const Options& options)
 {
-    m_maxLevel = options.getValueOrDefault<int32_t>("max_level", 16);
     m_overwrite = options.getValueOrDefault<bool>("overwrite", false);
 }
 
@@ -266,8 +257,8 @@ void RialtoWriter::ready(PointTableRef table)
     if (!FileUtils::createDirectory(m_filename))
         throw pdal_error("RialtoWriter: Error creating directory.\n");
         
-    m_numTilesX = getMetadataU32(tileSetNode, "numCols");
-    m_numTilesY = getMetadataU32(tileSetNode, "numRows");
+    uint32_t numTilesX = getMetadataU32(tileSetNode, "numCols");
+    uint32_t numTilesY = getMetadataU32(tileSetNode, "numRows");
 
     const double minx = getMetadataF64(tileSetNode, "minX");
     const double miny = getMetadataF64(tileSetNode, "minY");
@@ -280,9 +271,8 @@ void RialtoWriter::ready(PointTableRef table)
     writeHeader(
             m_filename,
             *m_table,
-            m_rectangle,
-            m_numTilesX,
-            m_numTilesY,
+            numTilesX,
+            numTilesY,
             minx, miny, maxx, maxy);
 }
 
@@ -322,9 +312,6 @@ void RialtoWriter::write(const PointViewPtr view)
 
 void RialtoWriter::done(PointTableRef table)
 {
-    delete m_roots[0];
-    delete m_roots[1];
-    delete[] m_roots;
 }
 
 
