@@ -69,6 +69,9 @@ private:
     virtual void write(const PointViewPtr view);
     virtual void done(PointTableRef table);
 
+    uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name) const;
+    double getMetadataF64(const MetadataNode& parent, const std::string& name) const;
+    
     int32_t m_bytesPerPoint;
     int32_t m_maxLevel;
     int32_t m_numTilesX;
@@ -77,10 +80,9 @@ private:
     Rectangle m_rectangle;
     Tile** m_roots;
     BasePointTable *m_table;
-
+    
     RialtoWriter& operator=(const RialtoWriter&); // not implemented
     RialtoWriter(const RialtoWriter&); // not implemented
 };
 
 } // namespace pdal
-
