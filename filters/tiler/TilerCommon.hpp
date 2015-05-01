@@ -46,7 +46,7 @@ namespace pdal
 
 namespace tilercommon
 {
-    
+
 class Rectangle
 {
 public:
@@ -136,20 +136,17 @@ class Tile;
 class TileSet
 {
     public:
-        TileSet(PointTableRef table, uint32_t maxLevel, LogPtr log);
+        TileSet(uint32_t maxLevel, LogPtr log);
         ~TileSet();
 
         void prep(const PointView* sourceView, PointViewSet* outputSet);
         void addPoint(PointId, double lon, double lat);
         uint32_t getMaxLevel() const { return m_maxLevel; }
         LogPtr log() { return m_log; }
-        void setMasks();
-        MetadataNode& metadata() { return m_metadata; }    
+        void setMetadata(MetadataNode&);
         PointViewPtr createPointView();
-        
+
     private:
-        
-        PointTableRef m_table;
         const PointView* m_sourceView;
         PointViewSet* m_outputSet;
         uint32_t m_maxLevel;
@@ -166,14 +163,12 @@ public:
     ~Tile();
 
     void add(const PointView* pointView, PointId pointNumber, double lon, double lat);
-    
+
     void collectStats(std::vector<uint32_t> numTilesPerLevel,
         std::vector<uint64_t> numPointsPerLevel) const;
-    
-    MetadataNode& metadata() { return m_metadata; }
-    
-    void setMasks();
-    
+
+    void setMetadata(MetadataNode&);
+
     void write(const char* dir);
     void writeData(FILE*) const;
 
@@ -181,7 +176,8 @@ private:
     LogPtr log() { return m_tileSet.log(); }
     char* getPointData(const PointView& buf, PointId& idx) const;
     void setMaskMetadata();
-    
+
+    int m_id;
     TileSet& m_tileSet;
     uint32_t m_level;
     uint32_t m_tileX;
@@ -190,7 +186,6 @@ private:
     Rectangle m_rect;
     uint64_t m_skip;
     PointViewPtr m_pointView;
-    MetadataNode m_metadata;
 };
 
 } // namespace tilercommon

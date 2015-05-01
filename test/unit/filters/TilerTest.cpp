@@ -58,13 +58,13 @@ const struct {
 };
 
 
-static void testPoint(const PointView& view, uint32_t idx)
+static void testPoint(const PointViewPtr view, uint32_t idx)
 {
-    EXPECT_EQ(view.size(), 1u);
-    
-    const double x = view.getFieldAs<double>(Dimension::Id::X, 0);
-    const double y = view.getFieldAs<double>(Dimension::Id::Y, 0);
-    const double z = view.getFieldAs<double>(Dimension::Id::Z, 0);
+    EXPECT_EQ(view->size(), 1u);
+
+    const double x = view->getFieldAs<double>(Dimension::Id::X, 0);
+    const double y = view->getFieldAs<double>(Dimension::Id::Y, 0);
+    const double z = view->getFieldAs<double>(Dimension::Id::Z, 0);
 
     EXPECT_FLOAT_EQ(x, data[idx].x);
     EXPECT_FLOAT_EQ(y, data[idx].y);
@@ -110,48 +110,40 @@ TEST(TilerTest, test_tiler_filter)
     // execution
     PointTable outputTable;
     tiler.prepare(outputTable);
-
     PointViewSet outputViews = tiler.execute(outputTable);
 
-    {
-        PointViewPtr tmpx = *outputViews.begin();
-        const MetadataNode node = tmpx->metadata().findChild("tiles");
-        EXPECT_TRUE(node.valid());
 
-        for (auto iter = outputViews.begin(); iter != outputViews.end(); ++iter) {
-            PointViewPtr p = *iter;
-
-            const std::string idString = std::to_string(p->id());
-            
-            const MetadataNode node2 = node.findChild(idString);
-            EXPECT_TRUE(node2.valid());
-        }
-    }
-    
-    
     // testing
+    PointViewPtr tmp = *outputViews.begin();
+    const MetadataNode root = tmp->metadata();
+    EXPECT_TRUE(root.valid());
+
+    const MetadataNode tileSetNode = root.findChild("tileSet");
+    EXPECT_TRUE(tileSetNode.valid());
+
+    const MetadataNodeList tileSetNodes = tileSetNode.children();
+    EXPECT_EQ(tileSetNodes.size(), 18u);
+
     EXPECT_EQ(outputViews.size(), 2u + 8u + 1u);
 
-    PointViewPtr tmpxx = *outputViews.begin();
-    const MetadataNode rootNode = tmpxx->metadata().findChild("tiles");
-    EXPECT_TRUE(rootNode.valid());
-    MetadataNodeList children = rootNode.children();
-    EXPECT_TRUE(children.size() == outputViews.size());
-        
-    for (auto iter = outputViews.begin(); iter != outputViews.end(); ++iter)
-    {
-        PointViewPtr outputView = *iter;
-    
-        const std::string idString = std::to_string(outputView->id());
-        const uint32_t id = boost::lexical_cast<uint32_t>(idString);
+    PointViewPtr **pointViewArray = new PointViewPtr*[18];
+    for (auto iter=outputViews.begin(); iter != outputViews.end(); ++iter) {
+        PointViewPtr p = *iter;
+        pointViewArray[p->id()] = &p;
+    }
 
-        const MetadataNode node = rootNode.findChild(idString);
-        EXPECT_TRUE(node.valid());
-        
-        const MetadataNode nodeL = node.findChild("level");
-        const MetadataNode nodeX = node.findChild("tileX");
-        const MetadataNode nodeY = node.findChild("tileY");
-        const MetadataNode nodeM = node.findChild("mask");
+    EXPECT_TRUE(tileSetNodes.size() >= outputViews.size());
+
+    for (auto iter = tileSetNodes.begin(); iter != tileSetNodes.end(); ++iter)
+    {
+        MetadataNode tileNode = *iter;
+        EXPECT_TRUE(tileNode.valid());
+        const uint32_t tileId = boost::lexical_cast<uint32_t>(tileNode.name());
+
+        const MetadataNode nodeL = tileNode.findChild("level");
+        const MetadataNode nodeX = tileNode.findChild("tileX");
+        const MetadataNode nodeY = tileNode.findChild("tileY");
+        const MetadataNode nodeM = tileNode.findChild("mask");
         EXPECT_TRUE(nodeL.valid());
         EXPECT_TRUE(nodeX.valid());
         EXPECT_TRUE(nodeY.valid());
@@ -162,56 +154,140 @@ TEST(TilerTest, test_tiler_filter)
         const uint32_t y = boost::lexical_cast<uint32_t>(nodeY.value());
         const uint8_t m = boost::lexical_cast<uint32_t>(nodeM.value());
 
-        //if (!(l == 2 && x == 0 && y == 0)) continue;
-        
-        EXPECT_TRUE(m >= 0u && m <= 15u);
-        
-        uint32_t idx = 3141579;
-        if (l == 0 && x == 0 && y == 0) {
-            idx = 0;
-            EXPECT_NE(m, 0u);
+        const MetadataNode nodeP = tileNode.findChild("pointView");
+        uint32_t v = 999;
+        PointViewPtr view;
+        if (nodeP.valid()) {
+          v = boost::lexical_cast<uint32_t>(nodeP.value());
+          assert(v<18);
+          printf("%u\n", v);
+          view = *(pointViewArray[v]);
         }
-        
-        else if (l == 1 && x == 0 && y == 0) {
-            idx = 0;
-            EXPECT_NE(m, 0u);
-        } else if (l == 1 && x == 2 && y == 0) {
-            idx = 4;
-            EXPECT_NE(m, 0u);
+
+        switch (tileId) {
+
+          case 0:
+            EXPECT_TRUE(l==0 && x == 0 && y == 0);
+            EXPECT_TRUE(m == 15);
+            EXPECT_TRUE(v == 3);
+            testPoint(view, 0);
+            break;
+
+          case 1:
+            EXPECT_TRUE(l==0 && x == 1 && y == 0);
+            EXPECT_TRUE(m == 15);
+            EXPECT_TRUE(v = 999);
+            break;
+
+          case 2:
+            EXPECT_TRUE(l==1 && x == 0 && y == 0);
+            EXPECT_TRUE(m == 8);
+            EXPECT_TRUE(v == 4);
+            testPoint(view, 0);
+            break;
+
+          case 3:
+            EXPECT_TRUE(l==2 && x == 0 && y == 0);
+            EXPECT_TRUE(m == 0);
+            EXPECT_TRUE(v == 5);
+            testPoint(view, 0);
+            break;
+
+          case 4:
+            EXPECT_TRUE(l==1 && x == 1 && y == 0);
+            EXPECT_TRUE(m == 4);
+            EXPECT_TRUE(v == 999);
+            break;
+
+          case 5:
+            EXPECT_TRUE(l==2 && x == 3 && y == 0);
+            EXPECT_TRUE(m == 0);
+            EXPECT_TRUE(v == 6);
+            testPoint(view, 1);
+            break;
+
+          case 6:
+            EXPECT_TRUE(l==1 && x == 0 && y == 1);
+            EXPECT_TRUE(m == 1);
+            EXPECT_TRUE(v == 999);
+            break;
+
+          case 7:
+            EXPECT_TRUE(l==2 && x == 0 && y == 3);
+            EXPECT_TRUE(m == 0);
+            EXPECT_TRUE(v == 7);
+            testPoint(view, 2);
+            break;
+
+          case 8:
+            EXPECT_TRUE(l==1 && x == 1 && y == 1);
+            EXPECT_TRUE(m == 2);
+            EXPECT_TRUE(v == 999);
+            break;
+
+          case 9:
+            EXPECT_TRUE(l==2 && x == 3 && y == 3);
+            EXPECT_TRUE(m == 0);
+            EXPECT_TRUE(v == 8);
+            testPoint(view, 3);
+            break;
+
+          case 10:
+            EXPECT_TRUE(l==1 && x == 2 && y == 0);
+            EXPECT_TRUE(m == 2);
+            EXPECT_TRUE(v == 9);
+            testPoint(view, 4);
+            break;
+
+          case 11:
+            EXPECT_TRUE(l==2 && x == 5 && y == 1);
+            EXPECT_TRUE(m == 0);
+            EXPECT_TRUE(v == 10);
+            testPoint(view, 4);
+            break;
+
+          case 12:
+            EXPECT_TRUE(l==1 && x == 3 && y == 0);
+            EXPECT_TRUE(m == 1);
+            EXPECT_TRUE(v == 999);
+            break;
+
+          case 13:
+            EXPECT_TRUE(l==2 && x == 6 && y == 1);
+            EXPECT_TRUE(m == 0);
+            EXPECT_TRUE(v == 11);
+            testPoint(view, 5);
+            break;
+
+          case 14:
+            EXPECT_TRUE(l==1 && x == 2 && y == 1);
+            EXPECT_TRUE(m == 4);
+            EXPECT_TRUE(v == 999);
+            break;
+
+          case 15:
+            EXPECT_TRUE(l==2 && x == 5 && y == 2);
+            EXPECT_TRUE(m == 0);
+            EXPECT_TRUE(v == 12);
+            testPoint(view, 6);
+            break;
+
+          case 16:
+            EXPECT_TRUE(l==1 && x == 3 && y == 1);
+            EXPECT_TRUE(m == 8);
+            EXPECT_TRUE(v == 999);
+            break;
+
+          case 17:
+            EXPECT_TRUE(l==2 && x == 6 && y == 2);
+            EXPECT_TRUE(m == 0);
+            EXPECT_TRUE(v == 13);
+            testPoint(view, 7);
+            break;
+
+          default:
+              EXPECT_TRUE(false);
         }
-        
-        else if (l == 2 && x == 0 && y == 0) {
-            idx = 0;
-            EXPECT_EQ(m, 0u);
-        } else if (l == 2 && x == 3 && y == 0) {
-            idx = 1;
-            EXPECT_EQ(m, 0u);
-        } else if (l == 2 && x == 0 && y == 3) {
-            idx = 2;
-            EXPECT_EQ(m, 0u);
-        } else if (l == 2 && x == 3 && y == 3) {
-            idx = 3;
-            EXPECT_EQ(m, 0u);
-        } else if (l == 2 && x == 5 && y == 1) {
-            idx = 4;
-            EXPECT_EQ(m, 0u);
-        } else if (l == 2 && x == 6 && y == 1) {
-            idx = 5;
-            EXPECT_EQ(m, 0u);
-        } else if (l == 2 && x == 5 && y == 2) {
-            idx = 6;
-            EXPECT_EQ(m, 0u);
-        } else if (l == 2 && x == 6 && y == 2) {
-            idx = 7;
-            EXPECT_EQ(m, 0u);
-        } else {
-            //printf("%s: %d %d %d\n", idString.c_str(), l, x, y);
-            EXPECT_TRUE(false);
-        }
-        
-        EXPECT_TRUE(idx < 8);
-        
-        //printf("%s:   %d %d %d == %d\n", idString.c_str(), l, x, y, idx);
-        testPoint(*outputView, idx);
+
     }
 }

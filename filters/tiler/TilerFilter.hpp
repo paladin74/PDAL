@@ -48,7 +48,7 @@ class PDAL_DLL TilerFilter : public pdal::Filter
 {
 public:
     TilerFilter() : Filter() {}
-    
+
     static void * create();
     static int32_t destroy(void *);
     std::string getName() const;
@@ -59,15 +59,13 @@ public:
     Options getDefaultOptions();
 
 private:
-    bool isMetadataValid(const PointViewSet& viewSet);
-
     int32_t m_maxLevel;
     int32_t m_numTilesX;
     int32_t m_numTilesY;
     tilercommon::Rectangle m_rectangle;
 
     tilercommon::TileSet *m_tileSet;
-    
+
     virtual void processOptions(const Options& options);
     virtual PointViewSet run(PointViewPtr view);
 

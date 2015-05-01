@@ -48,10 +48,8 @@ namespace tilercommon
 
 
 TileSet::TileSet(
-        PointTableRef table,
         uint32_t maxLevel,
         LogPtr log) :
-    m_table(table),
     m_sourceView(NULL),
     m_outputSet(NULL),
     m_maxLevel(maxLevel),
@@ -63,7 +61,7 @@ TileSet::TileSet(
 }
 
 
-TileSet::~TileSet() 
+TileSet::~TileSet()
 {
     if (m_roots) {
         delete m_roots[0];
@@ -96,26 +94,22 @@ void TileSet::addPoint(PointId idx, double lon, double lat)
 }
 
 
-void TileSet::setMasks()
+void TileSet::setMetadata(MetadataNode& root)
 {
-    m_roots[0]->setMasks();
-    m_roots[1]->setMasks();
+    assert(root.valid());
+    MetadataNode tileSetNode = root.addList("tileSet");
+    assert(tileSetNode.valid());
+
+    m_roots[0]->setMetadata(tileSetNode);
+    m_roots[1]->setMetadata(tileSetNode);
 }
 
 
 PointViewPtr TileSet::createPointView()
 {
-    PointViewPtr p = m_sourceView->makeNew();    
+    PointViewPtr p = m_sourceView->makeNew();
     m_outputSet->insert(p);
 
-    if (!m_metadata.valid()) {
-        MetadataNode node = p->metadata();
-        assert(node.valid());
-        node = node.add("tiles");
-        assert(node.valid());
-        m_metadata = node;
-    }
-    
     return p;
 }
 
@@ -135,6 +129,9 @@ Tile::Tile(
     m_skip(0),
     m_pointView(NULL)
 {
+    static int lastId = 0;
+    m_id = lastId++;
+
     assert(m_level <= m_tileSet.getMaxLevel());
 
     log()->get(LogLevel::Debug1) << "created tb (l=" << m_level
@@ -181,27 +178,36 @@ Tile::~Tile()
 }
 
 
-void Tile::setMasks()
+void Tile::setMetadata(MetadataNode& tileSetNode)
 {
-    // child mask
-    uint8_t mask = 0x0;
-    if (m_children)
-    {
-        if (m_children[Rectangle::QuadrantSW]) mask += 1;
-        if (m_children[Rectangle::QuadrantSE]) mask += 2;
-        if (m_children[Rectangle::QuadrantNE]) mask += 4;
-        if (m_children[Rectangle::QuadrantNW]) mask += 8;
-    }
+  // child mask
+  uint8_t mask = 0x0;
+  if (m_children)
+  {
+      if (m_children[Rectangle::QuadrantSW]) mask += 1;
+      if (m_children[Rectangle::QuadrantSE]) mask += 2;
+      if (m_children[Rectangle::QuadrantNE]) mask += 4;
+      if (m_children[Rectangle::QuadrantNW]) mask += 8;
+  }
 
-    {
-        metadata().addOrUpdate("mask", mask);
-    }
+  const std::string idString = std::to_string(m_id);
+  MetadataNode tileNode = tileSetNode.addList(idString);
 
-    if (m_children) {
-        if (m_children[0]) m_children[0]->setMasks();
-        if (m_children[1]) m_children[1]->setMasks();
-        if (m_children[2]) m_children[2]->setMasks();
-        if (m_children[3]) m_children[3]->setMasks();
+  tileNode.add("level", m_level);
+  tileNode.add("tileX", m_tileX);
+  tileNode.add("tileY", m_tileY);
+  tileNode.add("mask", mask);
+
+  if (m_pointView)
+  {
+    tileNode.add("pointView", m_pointView->id());
+  }
+
+  if (m_children) {
+      if (m_children[0]) m_children[0]->setMetadata(tileSetNode);
+      if (m_children[1]) m_children[1]->setMetadata(tileSetNode);
+      if (m_children[2]) m_children[2]->setMetadata(tileSetNode);
+      if (m_children[3]) m_children[3]->setMetadata(tileSetNode);
     }
 }
 
@@ -219,24 +225,9 @@ void Tile::add(const PointView* sourcePointView, PointId pointNumber, double lon
     {
         if (!m_pointView) {
             m_pointView = m_tileSet.createPointView();
-
-            const std::string idString = std::to_string(m_pointView->id());
-
-            MetadataNode& node = m_tileSet.metadata();    
-
-            m_metadata = node.add(idString);
-            assert(m_metadata.valid());
-
-            metadata().add("level", m_level);
-            metadata().add("tileX", m_tileX);
-            metadata().add("tileY", m_tileY);
-            metadata().add("mask", 0u);
-
-            //printf("made view for %u %u %u\n", m_level, m_tileX, m_tileY);
         }
         assert(m_pointView);
-        
-        //printf("%u:  to %u,%u,%u   ===   %u   ===   %lf %lf\n", m_pointView->id(), m_level, m_tileX, m_tileY, pointNumber, lon, lat);
+
         m_pointView->appendPoint(*sourcePointView, pointNumber);
     }
 
@@ -365,7 +356,7 @@ char* Tile::getPointData(const PointView& buf, PointId& idx) const
 void Tile::writeData(FILE* fp) const
 {
     //const PointLayoutPtr layout(m_pointView.layout());
-    
+
     for (size_t i=0; i<m_pointView->size(); ++i)
     {
         PointId idx = i;
