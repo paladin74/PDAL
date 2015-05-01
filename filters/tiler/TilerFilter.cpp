@@ -53,8 +53,6 @@ std::string TilerFilter::getName() const { return s_info.name; }
 
 void TilerFilter::processOptions(const Options& options)
 {
-    m_tileSet = NULL;
-
     m_maxLevel = options.getValueOrDefault<uint32_t>("maxLevel");
 
     // TODO: make these be options
@@ -70,25 +68,9 @@ Options TilerFilter::getDefaultOptions()
 {
     Options options;
 
-    options.add("maxLevel", 23, "Number of levels"); // yields 0..23
+    options.add("maxLevel", 23, "Number of highest level"); // yields 0..23
 
     return options;
-}
-
-
-void TilerFilter::ready(PointTableRef table)
-{
-    assert(!m_tileSet);
-    m_tileSet = new tilercommon::TileSet(m_maxLevel, log());
-}
-
-
-void TilerFilter::done(PointTableRef table)
-{
-    if (m_tileSet) {
-        delete m_tileSet;
-        m_tileSet = NULL;
-    }
 }
 
 
@@ -96,33 +78,40 @@ PointViewSet TilerFilter::run(PointViewPtr sourceView)
 {
     // TODO: assert the input is ESPG:4326
 
-    assert(m_tileSet);
-
     PointViewSet outputSet;
     const PointView& sourceViewRef(*sourceView.get());
-    m_tileSet->prep(sourceView.get(), &outputSet);
 
-    // build the tiles
+    tilercommon::TileSet tileSet(sourceViewRef, outputSet, m_maxLevel, log());
+
+    // enter each point into the tile set
     for (PointId idx = 0; idx < sourceViewRef.size(); ++idx)
     {
         const double lon = sourceViewRef.getFieldAs<double>(Dimension::Id::X, idx);
         const double lat = sourceViewRef.getFieldAs<double>(Dimension::Id::Y, idx);
-        m_tileSet->addPoint(idx, lon, lat);
+        tileSet.addPoint(idx, lon, lat);
     }
 
-    // set the metadata
+    // Set the metadata for the tile set
+    //    tileset:
+    //        <tile id>:
+    //            level = <l>
+    //            tileX = <x>
+    //            tileY = <y>
+    //            mask = <m>
+    //            pointView = <point view id>  # optional
+    //        <tile id>:
+    //            ...
+    //
+    // Note the point view node will only be present if the tile contains
+    // any points.
     {
       assert(outputSet.size() != 0);
       PointViewPtr tmp = *(outputSet.begin());
       MetadataNode root = tmp->metadata();
       assert(root.valid());
 
-      m_tileSet->setMetadata(root);
+      tileSet.setMetadata(root);
     }
-
-    // cleanup
-    delete m_tileSet;
-    m_tileSet = NULL;
 
     return outputSet;
 }

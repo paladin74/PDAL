@@ -133,22 +133,27 @@ private:
 class Tile;
 
 
+// the tile set holds all the tiles that make up the tile tree
+//
+// (note the tree is not technically a tree as it has two roots,
+// one on each side of Greenwich)
 class TileSet
 {
     public:
-        TileSet(uint32_t maxLevel, LogPtr log);
+        TileSet(const PointView& sourceView, PointViewSet& outputSet, uint32_t maxLevel, LogPtr log);
         ~TileSet();
 
-        void prep(const PointView* sourceView, PointViewSet* outputSet);
-        void addPoint(PointId, double lon, double lat);
         uint32_t getMaxLevel() const { return m_maxLevel; }
-        LogPtr log() { return m_log; }
-        void setMetadata(MetadataNode&);
+
+        void addPoint(PointId, double lon, double lat);
         PointViewPtr createPointView();
+        void setMetadata(MetadataNode&);
+
+        LogPtr log() { return m_log; }
 
     private:
-        const PointView* m_sourceView;
-        PointViewSet* m_outputSet;
+        const PointView& m_sourceView;
+        PointViewSet& m_outputSet;
         uint32_t m_maxLevel;
         LogPtr m_log;
         Tile** m_roots;
@@ -156,13 +161,18 @@ class TileSet
 };
 
 
+// A node of the tile tree
+//
+// Tiles are identified by level, column (x), and row (y)
+// A tile may contain points; if so, m_pointView will be set.
+// A tile may have 0..3 children.
 class Tile
 {
 public:
     Tile(TileSet& tileSet, uint32_t level, uint32_t tx, uint32_t ty, Rectangle r);
     ~Tile();
 
-    void add(const PointView* pointView, PointId pointNumber, double lon, double lat);
+    void add(const PointView& pointView, PointId pointNumber, double lon, double lat);
 
     void collectStats(std::vector<uint32_t> numTilesPerLevel,
         std::vector<uint64_t> numPointsPerLevel) const;

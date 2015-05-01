@@ -48,16 +48,25 @@ namespace tilercommon
 
 
 TileSet::TileSet(
+        const PointView& sourceView,
+        PointViewSet& outputSet,
         uint32_t maxLevel,
         LogPtr log) :
-    m_sourceView(NULL),
-    m_outputSet(NULL),
+    m_sourceView(sourceView),
+    m_outputSet(outputSet),
     m_maxLevel(maxLevel),
     m_log(log),
     m_roots(NULL)
 
 {
     assert(m_maxLevel <= 32);
+
+    // TODO: for now, we only support two tiles at the root
+    m_roots = new tilercommon::Tile*[2];
+    const tilercommon::Rectangle r00(-180.0, -90.0, 0.0, 90.0); // wsen
+    const tilercommon::Rectangle r10(0.0, -90.0, 180.0, 90.0);
+    m_roots[0] = new tilercommon::Tile(*this, 0, 0, 0, r00);
+    m_roots[1] = new tilercommon::Tile(*this, 0, 1, 0, r10);
 }
 
 
@@ -71,20 +80,16 @@ TileSet::~TileSet()
 }
 
 
-void TileSet::prep(const PointView* sourceView, PointViewSet* outputSet)
+PointViewPtr TileSet::createPointView()
 {
-    m_sourceView = sourceView;
-    m_outputSet = outputSet;
+    PointViewPtr p = m_sourceView.makeNew();
+    m_outputSet.insert(p);
 
-    m_roots = new tilercommon::Tile*[2];
-
-    const tilercommon::Rectangle r00(-180.0, -90.0, 0.0, 90.0); // wsen
-    const tilercommon::Rectangle r10(0.0, -90.0, 180.0, 90.0);
-    m_roots[0] = new tilercommon::Tile(*this, 0, 0, 0, r00);
-    m_roots[1] = new tilercommon::Tile(*this, 0, 1, 0, r10);
+    return p;
 }
 
 
+// enter the point into the tree
 void TileSet::addPoint(PointId idx, double lon, double lat)
 {
     if (lon < 0)
@@ -94,6 +99,7 @@ void TileSet::addPoint(PointId idx, double lon, double lat)
 }
 
 
+// set the metadata for each tree node
 void TileSet::setMetadata(MetadataNode& root)
 {
     assert(root.valid());
@@ -102,15 +108,6 @@ void TileSet::setMetadata(MetadataNode& root)
 
     m_roots[0]->setMetadata(tileSetNode);
     m_roots[1]->setMetadata(tileSetNode);
-}
-
-
-PointViewPtr TileSet::createPointView()
-{
-    PointViewPtr p = m_sourceView->makeNew();
-    m_outputSet->insert(p);
-
-    return p;
 }
 
 
@@ -178,6 +175,7 @@ Tile::~Tile()
 }
 
 
+// set the metaadata for this node, and then recurse down
 void Tile::setMetadata(MetadataNode& tileSetNode)
 {
   // child mask
@@ -212,7 +210,13 @@ void Tile::setMetadata(MetadataNode& tileSetNode)
 }
 
 
-void Tile::add(const PointView* sourcePointView, PointId pointNumber, double lon, double lat)
+// Add the point to this tile.
+//
+// If we're not a leaf tile, add the point only if we're a module-N numbered
+// point, where N is based on the level.
+//
+// If we're not a leaf tile, add the node to one of our child tiles.
+void Tile::add(const PointView& sourcePointView, PointId pointNumber, double lon, double lat)
 {
     assert(m_rect.contains(lon, lat));
 
@@ -228,7 +232,7 @@ void Tile::add(const PointView* sourcePointView, PointId pointNumber, double lon
         }
         assert(m_pointView);
 
-        m_pointView->appendPoint(*sourcePointView, pointNumber);
+        m_pointView->appendPoint(sourcePointView, pointNumber);
     }
 
     if (m_level == m_tileSet.getMaxLevel()) return;

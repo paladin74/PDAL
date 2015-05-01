@@ -53,18 +53,13 @@ public:
     static int32_t destroy(void *);
     std::string getName() const;
 
-    void ready(PointTableRef table);
-    void done(PointTableRef table);
-
     Options getDefaultOptions();
 
 private:
-    int32_t m_maxLevel;
-    int32_t m_numTilesX;
-    int32_t m_numTilesY;
-    tilercommon::Rectangle m_rectangle;
-
-    tilercommon::TileSet *m_tileSet;
+    int32_t m_maxLevel; // number of highest level
+    int32_t m_numTilesX; // number of tile rows at level 0
+    int32_t m_numTilesY; // number of tile columns at level 0
+    tilercommon::Rectangle m_rectangle; // bbox of tile tree
 
     virtual void processOptions(const Options& options);
     virtual PointViewSet run(PointViewPtr view);

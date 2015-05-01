@@ -42,7 +42,7 @@
 using namespace pdal;
 
 
-const struct {
+const struct Data {
     double x;
     double y;
     double z;
@@ -60,7 +60,8 @@ const struct {
 typedef std::map<uint32_t, PointView*> ViewsMap;
 
 
-static void testPoint(PointView* view, uint32_t idx)
+// verify point view has the correct data
+static void testPoint(PointView* view, const Data& data)
 {
     EXPECT_EQ(view->size(), 1u);
 
@@ -68,12 +69,13 @@ static void testPoint(PointView* view, uint32_t idx)
     const double y = view->getFieldAs<double>(Dimension::Id::Y, 0);
     const double z = view->getFieldAs<double>(Dimension::Id::Z, 0);
 
-    EXPECT_FLOAT_EQ(x, data[idx].x);
-    EXPECT_FLOAT_EQ(y, data[idx].y);
-    EXPECT_FLOAT_EQ(z, data[idx].z);
+    EXPECT_FLOAT_EQ(x, data.x);
+    EXPECT_FLOAT_EQ(y, data.y);
+    EXPECT_FLOAT_EQ(z, data.z);
 }
 
 
+// make a map from (point view id) to (point view)
 static void populateMap(ViewsMap& views, PointViewSet& outputViews)
 {
     for (auto iter=outputViews.begin(); iter != outputViews.end(); ++iter) {
@@ -82,11 +84,12 @@ static void populateMap(ViewsMap& views, PointViewSet& outputViews)
         views[p->id()] = &(*p);
     }
     
-    testPoint(views[3], 0); // quick sanity check
+    testPoint(views[3], data[0]); // quick sanity check
 }
 
 
-static void testNodeDetails(uint32_t tileId, double l, double x, double y, uint8_t m, uint32_t v, ViewsMap& views)
+// verify tile is correct, both the metadata and the point view
+static void testTileDetails(uint32_t tileId, double l, double x, double y, uint8_t m, uint32_t v, ViewsMap& views)
 {
     switch (tileId) {
 
@@ -94,7 +97,7 @@ static void testNodeDetails(uint32_t tileId, double l, double x, double y, uint8
         EXPECT_TRUE(l==0 && x == 0 && y == 0);
         EXPECT_TRUE(m == 15);
         EXPECT_TRUE(v == 3);
-        testPoint(views[v], 0);
+        testPoint(views[v], data[0]);
         break;
 
       case 1:
@@ -107,14 +110,14 @@ static void testNodeDetails(uint32_t tileId, double l, double x, double y, uint8
         EXPECT_TRUE(l==1 && x == 0 && y == 0);
         EXPECT_TRUE(m == 8);
         EXPECT_TRUE(v == 4);
-        testPoint(views[v], 0);
+        testPoint(views[v], data[0]);
         break;
 
       case 3:
         EXPECT_TRUE(l==2 && x == 0 && y == 0);
         EXPECT_TRUE(m == 0);
         EXPECT_TRUE(v == 5);
-        testPoint(views[v], 0);
+        testPoint(views[v], data[0]);
         break;
 
       case 4:
@@ -127,7 +130,7 @@ static void testNodeDetails(uint32_t tileId, double l, double x, double y, uint8
         EXPECT_TRUE(l==2 && x == 3 && y == 0);
         EXPECT_TRUE(m == 0);
         EXPECT_TRUE(v == 6);
-        testPoint(views[v], 1);
+        testPoint(views[v], data[1]);
         break;
 
       case 6:
@@ -140,7 +143,7 @@ static void testNodeDetails(uint32_t tileId, double l, double x, double y, uint8
         EXPECT_TRUE(l==2 && x == 0 && y == 3);
         EXPECT_TRUE(m == 0);
         EXPECT_TRUE(v == 7);
-        testPoint(views[v], 2);
+        testPoint(views[v], data[2]);
         break;
 
       case 8:
@@ -153,21 +156,21 @@ static void testNodeDetails(uint32_t tileId, double l, double x, double y, uint8
         EXPECT_TRUE(l==2 && x == 3 && y == 3);
         EXPECT_TRUE(m == 0);
         EXPECT_TRUE(v == 8);
-        testPoint(views[v], 3);
+        testPoint(views[v], data[3]);
         break;
 
       case 10:
         EXPECT_TRUE(l==1 && x == 2 && y == 0);
         EXPECT_TRUE(m == 2);
         EXPECT_TRUE(v == 9);
-        testPoint(views[v], 4);
+        testPoint(views[v], data[4]);
         break;
 
       case 11:
         EXPECT_TRUE(l==2 && x == 5 && y == 1);
         EXPECT_TRUE(m == 0);
         EXPECT_TRUE(v == 10);
-        testPoint(views[v], 4);
+        testPoint(views[v], data[4]);
         break;
 
       case 12:
@@ -180,7 +183,7 @@ static void testNodeDetails(uint32_t tileId, double l, double x, double y, uint8
         EXPECT_TRUE(l==2 && x == 6 && y == 1);
         EXPECT_TRUE(m == 0);
         EXPECT_TRUE(v == 11);
-        testPoint(views[v], 5);
+        testPoint(views[v], data[5]);
         break;
 
       case 14:
@@ -193,7 +196,7 @@ static void testNodeDetails(uint32_t tileId, double l, double x, double y, uint8
         EXPECT_TRUE(l==2 && x == 5 && y == 2);
         EXPECT_TRUE(m == 0);
         EXPECT_TRUE(v == 12);
-        testPoint(views[v], 6);
+        testPoint(views[v], data[6]);
         break;
 
       case 16:
@@ -206,7 +209,7 @@ static void testNodeDetails(uint32_t tileId, double l, double x, double y, uint8
         EXPECT_TRUE(l==2 && x == 6 && y == 2);
         EXPECT_TRUE(m == 0);
         EXPECT_TRUE(v == 13);
-        testPoint(views[v], 7);
+        testPoint(views[v], data[7]);
         break;
 
       default:
@@ -215,7 +218,8 @@ static void testNodeDetails(uint32_t tileId, double l, double x, double y, uint8
 }
 
 
-static void testNode(MetadataNode tileNode, ViewsMap& views)
+// verify the tile has the right contents
+static void testTile(MetadataNode tileNode, ViewsMap& views)
 {
     const uint32_t tileId = boost::lexical_cast<uint32_t>(tileNode.name());
 
@@ -239,13 +243,13 @@ static void testNode(MetadataNode tileNode, ViewsMap& views)
       v = boost::lexical_cast<uint32_t>(nodeP.value());
     }
 
-    testNodeDetails(tileId, l, x, y, m, v, views);
+    testTileDetails(tileId, l, x, y, m, v, views);
 }
 
 
 TEST(TilerTest, test_tiler_filter)
 {
-    // test data
+    // set up test data
     PointTable inputTable;
     PointViewPtr inputView(new PointView(inputTable));
 
@@ -263,7 +267,6 @@ TEST(TilerTest, test_tiler_filter)
 
     // options
     Options readerOptions;
-
     Options tilerOptions;
     tilerOptions.add("maxLevel", 2);
 
@@ -284,7 +287,7 @@ TEST(TilerTest, test_tiler_filter)
     PointViewSet outputViews = tiler.execute(outputTable);
 
 
-    // testing
+    // prepare for testing
     PointViewPtr tmp = *outputViews.begin();
     const MetadataNode root = tmp->metadata();
     EXPECT_TRUE(root.valid());
@@ -300,11 +303,12 @@ TEST(TilerTest, test_tiler_filter)
     ViewsMap viewsMap;
     populateMap(viewsMap, outputViews);
     
+    // real testing
     for (auto iter = tileSetNodes.begin(); iter != tileSetNodes.end(); ++iter)
     {
         MetadataNode tileNode = *iter;
         EXPECT_TRUE(tileNode.valid());
         
-        testNode(tileNode, viewsMap);
+        testTile(tileNode, viewsMap);
     }
 }
