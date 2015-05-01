@@ -48,12 +48,10 @@ namespace tilercommon
 
 
 TileSet::TileSet(
-        const PointView& sourceView,
-        PointViewSet& outputSet,
         uint32_t maxLevel,
         LogPtr log) :
-    m_sourceView(sourceView),
-    m_outputSet(outputSet),
+    m_sourceView(NULL),
+    m_outputSet(NULL),
     m_maxLevel(maxLevel),
     m_log(log),
     m_roots(NULL)
@@ -80,10 +78,78 @@ TileSet::~TileSet()
 }
 
 
+void TileSet::ready(PointTableRef table)
+{
+    printf("{TileSet::ready}\n");
+    
+    MetadataNode root = table.metadata();
+    
+    assert(root.valid());
+    MetadataNode tileSetNode = root.addList("tileSet");
+    assert(tileSetNode.valid());
+
+    // TODO: hard-coded for now
+    tileSetNode.add("numCols", 2);
+    tileSetNode.add("numRows", 1);
+    tileSetNode.add("minX", -180.0);
+    tileSetNode.add("minY", -90.0);
+    tileSetNode.add("maxX", 180.0);
+    tileSetNode.add("maxY", 90.0);
+    
+    m_metadata = tileSetNode;
+
+    setStatsMetadata(table.metadata());
+}
+
+
+void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
+{
+    printf("{TileSet::run}\n");
+    
+    m_sourceView = sourceView;
+    m_outputSet = outputSet;
+    
+    // enter each point into the tile set
+    for (PointId idx = 0; idx < sourceView->size(); ++idx)
+    {
+        const double lon = sourceView->getFieldAs<double>(Dimension::Id::X, idx);
+        const double lat = sourceView->getFieldAs<double>(Dimension::Id::Y, idx);
+        addPoint(idx, lon, lat);
+    }
+    
+    setTileSetMetadata();
+}
+
+void TileSet::done(PointTableRef table)
+{
+    printf("{TileSet::done}\n");
+    return;
+}
+
+
+void TileSet::setStatsMetadata(const MetadataNode& root)
+{
+    MetadataNode node = root.findChild("filters.stats");
+    assert(node.valid());
+    
+    for (auto node1 : node.children("statistic"))
+    {    
+        assert(node1.valid());
+        printf("=>%s %s\n", node1.name().c_str(), node1.value().c_str());
+
+        for (auto node2 : node1.children())
+        {    
+            assert(node2.valid());
+            printf("==>>%s %s\n", node2.name().c_str(), node2.value().c_str());
+        }
+    }
+}
+
+
 PointViewPtr TileSet::createPointView()
 {
-    PointViewPtr p = m_sourceView.makeNew();
-    m_outputSet.insert(p);
+    PointViewPtr p = m_sourceView->makeNew();
+    m_outputSet->insert(p);
 
     return p;
 }
@@ -100,14 +166,23 @@ void TileSet::addPoint(PointId idx, double lon, double lat)
 
 
 // set the metadata for each tree node
-void TileSet::setMetadata(MetadataNode& root)
+void TileSet::setTileSetMetadata()
 {
-    assert(root.valid());
-    MetadataNode tileSetNode = root.addList("tileSet");
-    assert(tileSetNode.valid());
+    assert(m_metadata.valid());
+    
+    // TODO: hard-coded for now
+    m_metadata.add("numCols", 2);
+    m_metadata.add("numRows", 1);
+    m_metadata.add("minX", -180.0);
+    m_metadata.add("minY", -90.0);
+    m_metadata.add("maxX", 180.0);
+    m_metadata.add("maxY", 90.0);
 
-    m_roots[0]->setMetadata(tileSetNode);
-    m_roots[1]->setMetadata(tileSetNode);
+    MetadataNode tilesNode = m_metadata.addList("tiles");
+    assert(tilesNode.valid());
+
+    m_roots[0]->setMetadata(tilesNode);
+    m_roots[1]->setMetadata(tilesNode);
 }
 
 
@@ -216,7 +291,7 @@ void Tile::setMetadata(MetadataNode& tileSetNode)
 // point, where N is based on the level.
 //
 // If we're not a leaf tile, add the node to one of our child tiles.
-void Tile::add(const PointView& sourcePointView, PointId pointNumber, double lon, double lat)
+void Tile::add(PointViewPtr sourcePointView, PointId pointNumber, double lon, double lat)
 {
     assert(m_rect.contains(lon, lat));
 
@@ -232,7 +307,7 @@ void Tile::add(const PointView& sourcePointView, PointId pointNumber, double lon
         }
         assert(m_pointView);
 
-        m_pointView->appendPoint(sourcePointView, pointNumber);
+        m_pointView->appendPoint(*sourcePointView, pointNumber);
     }
 
     if (m_level == m_tileSet.getMaxLevel()) return;
@@ -291,91 +366,6 @@ void Tile::collectStats(std::vector<uint32_t> numTilesPerLevel, std::vector<uint
     }
 }
 
-
-// TODO: not const due to use of log()
-void Tile::write(const char* prefix)
-{
-    char* filename = new char[strlen(prefix) + 1024];
-
-    sprintf(filename, "%s", prefix);
-    FileUtils::createDirectory(filename);
-
-    sprintf(filename, "%s/%d", prefix, m_level);
-    FileUtils::createDirectory(filename);
-
-    sprintf(filename, "%s/%d/%d", prefix, m_level, m_tileX);
-    FileUtils::createDirectory(filename);
-
-    sprintf(filename, "%s/%d/%d/%d.ria", prefix, m_level, m_tileX, m_tileY);
-
-    log()->get(LogLevel::Debug1) << "--> " << filename << "\n";
-
-    FILE* fp = fopen(filename, "wb");
-
-    writeData(fp);
-
-    // child mask
-    uint8_t mask = 0x0;
-    if (m_children)
-    {
-        if (m_children[Rectangle::QuadrantSW]) mask += 1;
-        if (m_children[Rectangle::QuadrantSE]) mask += 2;
-        if (m_children[Rectangle::QuadrantNE]) mask += 4;
-        if (m_children[Rectangle::QuadrantNW]) mask += 8;
-    }
-    fwrite(&mask, 1, 1, fp);
-
-    fclose(fp);
-
-    if (m_children)
-    {
-        for (int i=0; i<4; ++i)
-        {
-            if (m_children[i])
-            {
-                m_children[i]->write(prefix);
-            }
-        }
-    }
-
-    delete[] filename;
-}
-
-
-char* Tile::getPointData(const PointView& buf, PointId& idx) const
-{
-    char* p = new char[buf.pointSize()];
-    char* q = p;
-
-    for (const auto& dim : buf.dims())
-    {
-        buf.getRawField(dim, idx, q);
-        q += buf.dimSize(dim);
-    }
-
-    return p;
-}
-
-
-void Tile::writeData(FILE* fp) const
-{
-    //const PointLayoutPtr layout(m_pointView.layout());
-
-    for (size_t i=0; i<m_pointView->size(); ++i)
-    {
-        PointId idx = i;
-        char* p = getPointData(*m_pointView, idx);
-
-        for (const auto& dim : m_pointView->dimTypes())
-        {
-            size_t size = Dimension::size(dim.m_type);
-
-            fwrite(p, size, 1, fp);
-
-            p += size;
-        }
-    }
-}
 
 } // namespace tilercommon
 

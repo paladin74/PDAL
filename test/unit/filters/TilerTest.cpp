@@ -35,7 +35,9 @@
 #include <pdal/pdal_test_main.hpp>
 
 #include <pdal/BufferReader.hpp>
+#include <LasReader.hpp>
 #include <TilerFilter.hpp>
+#include <StatsFilter.hpp>
 
 #include "Support.hpp"
 
@@ -247,6 +249,22 @@ static void testTile(MetadataNode tileNode, ViewsMap& views)
 }
 
 
+static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name) {
+    const MetadataNode node = parent.findChild(name);
+    if (!node.valid()) return std::numeric_limits<uint32_t>::max();
+    uint32_t v = boost::lexical_cast<uint32_t>(node.value());
+    return v;
+}
+
+
+static double getMetadataF64(const MetadataNode& parent, const std::string& name) {
+    const MetadataNode node = parent.findChild(name);
+    if (!node.valid()) return std::numeric_limits<double>::infinity();
+    double v = boost::lexical_cast<double>(node.value());
+    return v;
+}
+
+
 TEST(TilerTest, test_tiler_filter)
 {
     // set up test data
@@ -267,18 +285,24 @@ TEST(TilerTest, test_tiler_filter)
 
     // options
     Options readerOptions;
+
     Options tilerOptions;
     tilerOptions.add("maxLevel", 2);
 
-
+    Options statsOptions;
+    
     // stages
     BufferReader reader;
     reader.setOptions(readerOptions);
     reader.addView(inputView);
 
+    StatsFilter stats;
+    stats.setOptions(statsOptions);
+    stats.setInput(reader);
+
     TilerFilter tiler;
     tiler.setOptions(tilerOptions);
-    tiler.setInput(reader);
+    tiler.setInput(stats);
 
 
     // execution
@@ -288,15 +312,24 @@ TEST(TilerTest, test_tiler_filter)
 
 
     // prepare for testing
-    PointViewPtr tmp = *outputViews.begin();
-    const MetadataNode root = tmp->metadata();
+    const MetadataNode root = outputTable.metadata();
     EXPECT_TRUE(root.valid());
 
     const MetadataNode tileSetNode = root.findChild("tileSet");
     EXPECT_TRUE(tileSetNode.valid());
 
-    const MetadataNodeList tileSetNodes = tileSetNode.children();
-    EXPECT_EQ(tileSetNodes.size(), 18u);
+    EXPECT_EQ(getMetadataU32(tileSetNode, "numCols"), 2u);
+    EXPECT_EQ(getMetadataU32(tileSetNode, "numRows"), 1u);
+    EXPECT_EQ(getMetadataF64(tileSetNode, "minX"), -180.0);
+    EXPECT_EQ(getMetadataF64(tileSetNode, "minY"), -90.0);
+    EXPECT_EQ(getMetadataF64(tileSetNode, "maxX"), 180.0);
+    EXPECT_EQ(getMetadataF64(tileSetNode, "maxY"), 90.0);
+
+    const MetadataNode tilesNode = tileSetNode.findChild("tiles");
+    EXPECT_TRUE(tilesNode.valid());
+
+    const MetadataNodeList tileNodes = tilesNode.children();
+    EXPECT_EQ(tileNodes.size(), 18u);
 
     EXPECT_EQ(outputViews.size(), 2u + 8u + 1u);
 
@@ -304,7 +337,7 @@ TEST(TilerTest, test_tiler_filter)
     populateMap(viewsMap, outputViews);
     
     // real testing
-    for (auto iter = tileSetNodes.begin(); iter != tileSetNodes.end(); ++iter)
+    for (auto iter = tileNodes.begin(); iter != tileNodes.end(); ++iter)
     {
         MetadataNode tileNode = *iter;
         EXPECT_TRUE(tileNode.valid());

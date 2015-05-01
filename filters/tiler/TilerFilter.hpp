@@ -44,15 +44,42 @@ extern "C" PF_ExitFunc TilerFilter_InitPlugin();
 namespace pdal
 {
 
+// The layout of the metadata for the tile set looks like this:
+//
+//    tileset:
+//        numCols:
+//        numRows:
+//        minX:
+//        minY:
+//        maxX:
+//        maxY:
+//        tiles:
+//            <tile id>:
+//                level = <l>
+//                tileX = <x>
+//                tileY = <y>
+//                mask = <m>
+//                pointView = <point view id>  # optional
+//            <tile id>:
+//                ...
+//
+// Note the point view node will only be present if the tile contains
+// any points.
+
 class PDAL_DLL TilerFilter : public pdal::Filter
 {
 public:
-    TilerFilter() : Filter() {}
+    TilerFilter() : Filter(),
+        m_tileSet(NULL)
+    {}
 
     static void * create();
     static int32_t destroy(void *);
     std::string getName() const;
 
+    void ready(PointTableRef table);
+    void done(PointTableRef table);
+    
     Options getDefaultOptions();
 
 private:
@@ -60,6 +87,8 @@ private:
     int32_t m_numTilesX; // number of tile rows at level 0
     int32_t m_numTilesY; // number of tile columns at level 0
     tilercommon::Rectangle m_rectangle; // bbox of tile tree
+
+    tilercommon::TileSet* m_tileSet;
 
     virtual void processOptions(const Options& options);
     virtual PointViewSet run(PointViewPtr view);

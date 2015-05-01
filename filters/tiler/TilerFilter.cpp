@@ -74,44 +74,43 @@ Options TilerFilter::getDefaultOptions()
 }
 
 
+void TilerFilter::ready(PointTableRef table)
+{
+    printf("{TileFilter::ready}\n");
+    
+    assert(m_tileSet == NULL);
+
+    m_tileSet = new tilercommon::TileSet(m_maxLevel, log());
+    
+    m_tileSet->ready(table);
+}
+
+
+void TilerFilter::done(PointTableRef table)
+{
+    printf("{TileFilter::done}\n");
+
+    m_tileSet->done(table);
+
+    if (m_tileSet)
+    {
+        delete m_tileSet;
+        m_tileSet = NULL;
+    }
+}
+
+
 PointViewSet TilerFilter::run(PointViewPtr sourceView)
 {
+    printf("{TileFilter::run}\n");
+
     // TODO: assert the input is ESPG:4326
+    // TODO: assert that the stats filter has been run
 
     PointViewSet outputSet;
     const PointView& sourceViewRef(*sourceView.get());
 
-    tilercommon::TileSet tileSet(sourceViewRef, outputSet, m_maxLevel, log());
-
-    // enter each point into the tile set
-    for (PointId idx = 0; idx < sourceViewRef.size(); ++idx)
-    {
-        const double lon = sourceViewRef.getFieldAs<double>(Dimension::Id::X, idx);
-        const double lat = sourceViewRef.getFieldAs<double>(Dimension::Id::Y, idx);
-        tileSet.addPoint(idx, lon, lat);
-    }
-
-    // Set the metadata for the tile set
-    //    tileset:
-    //        <tile id>:
-    //            level = <l>
-    //            tileX = <x>
-    //            tileY = <y>
-    //            mask = <m>
-    //            pointView = <point view id>  # optional
-    //        <tile id>:
-    //            ...
-    //
-    // Note the point view node will only be present if the tile contains
-    // any points.
-    {
-      assert(outputSet.size() != 0);
-      PointViewPtr tmp = *(outputSet.begin());
-      MetadataNode root = tmp->metadata();
-      assert(root.valid());
-
-      tileSet.setMetadata(root);
-    }
+    m_tileSet->run(sourceView, &outputSet);
 
     return outputSet;
 }

@@ -140,20 +140,25 @@ class Tile;
 class TileSet
 {
     public:
-        TileSet(const PointView& sourceView, PointViewSet& outputSet, uint32_t maxLevel, LogPtr log);
+        TileSet(uint32_t maxLevel, LogPtr log);
         ~TileSet();
+
+        void ready(PointTableRef);
+        void done(PointTableRef);
+        void run(PointViewPtr sourceView, PointViewSet* outputSet);
 
         uint32_t getMaxLevel() const { return m_maxLevel; }
 
-        void addPoint(PointId, double lon, double lat);
         PointViewPtr createPointView();
-        void setMetadata(MetadataNode&);
-
         LogPtr log() { return m_log; }
 
     private:
-        const PointView& m_sourceView;
-        PointViewSet& m_outputSet;
+        void addPoint(PointId, double lon, double lat);
+        void setTileSetMetadata();
+        void setStatsMetadata(const MetadataNode& root);
+
+        PointViewPtr m_sourceView;
+        PointViewSet* m_outputSet;
         uint32_t m_maxLevel;
         LogPtr m_log;
         Tile** m_roots;
@@ -172,15 +177,12 @@ public:
     Tile(TileSet& tileSet, uint32_t level, uint32_t tx, uint32_t ty, Rectangle r);
     ~Tile();
 
-    void add(const PointView& pointView, PointId pointNumber, double lon, double lat);
+    void add(PointViewPtr pointView, PointId pointNumber, double lon, double lat);
 
     void collectStats(std::vector<uint32_t> numTilesPerLevel,
         std::vector<uint64_t> numPointsPerLevel) const;
 
     void setMetadata(MetadataNode&);
-
-    void write(const char* dir);
-    void writeData(FILE*) const;
 
 private:
     LogPtr log() { return m_tileSet.log(); }
