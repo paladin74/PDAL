@@ -49,14 +49,6 @@ public:
     void addView(const PointViewPtr& view)
         { m_views.insert(view); }
     std::string getName() const { return "readers.buffer"; }
-    
-    virtual void addDimensions(PointLayoutPtr layout)
-    {
-        for (auto v : m_views) {
-            Dimension::IdList d = v->dims();
-            layout->registerDims(d);
-        }
-    }
 
 private:
     PointViewSet m_views;

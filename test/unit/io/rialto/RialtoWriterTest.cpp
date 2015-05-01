@@ -50,12 +50,12 @@ TEST(RialtoWriterTest, testWriter)
     //FileUtils::deleteFile(Support::temppath("RialtoTest/header.json"));
 
     // set up test data
-    PointTable inputTable;
-    PointViewPtr inputView(new PointView(inputTable));
+    PointTable table;
+    PointViewPtr inputView(new PointView(table));
 
-    inputTable.layout()->registerDim(Dimension::Id::X);
-    inputTable.layout()->registerDim(Dimension::Id::Y);
-    inputTable.layout()->registerDim(Dimension::Id::Z);
+    table.layout()->registerDim(Dimension::Id::X);
+    table.layout()->registerDim(Dimension::Id::Y);
+    table.layout()->registerDim(Dimension::Id::Z);
 
     for (int i=0; i<8; i++)
     {
@@ -67,14 +67,14 @@ TEST(RialtoWriterTest, testWriter)
 
     // options
     Options readerOptions;
-    
+
     Options tilerOptions;
     tilerOptions.add("maxLevel", 2);
-    
+
     Options writerOptions;
     writerOptions.add("filename", Support::temppath("RialtoTest"));
     writerOptions.add("overwrite", true);
-    
+
     Options statsOptions;
 
     // stages
@@ -96,9 +96,8 @@ TEST(RialtoWriterTest, testWriter)
 
 
     // execution
-    PointTable outputTable;
-    writer.prepare(outputTable);
-    PointViewSet outputViews = writer.execute(outputTable);
+    writer.prepare(table);
+    PointViewSet outputViews = writer.execute(table);
 
     /*bool ok = Support::compare_text_files(Support::temppath("RialtoTest/header.json"),
                                           Support::datapath("io/header.json"));

@@ -84,7 +84,7 @@ static void populateMap(ViewsMap& views, PointViewSet& outputViews)
         PointView* p = ptr.get();
         views[p->id()] = &(*p);
     }
-    
+
     testPoint(views[3], data[0]); // quick sanity check
 }
 
@@ -267,12 +267,12 @@ static double getMetadataF64(const MetadataNode& parent, const std::string& name
 TEST(TilerTest, test_tiler_filter)
 {
     // set up test data
-    PointTable inputTable;
-    PointViewPtr inputView(new PointView(inputTable));
+    PointTable table;
+    PointViewPtr inputView(new PointView(table));
 
-    inputTable.layout()->registerDim(Dimension::Id::X);
-    inputTable.layout()->registerDim(Dimension::Id::Y);
-    inputTable.layout()->registerDim(Dimension::Id::Z);
+    table.layout()->registerDim(Dimension::Id::X);
+    table.layout()->registerDim(Dimension::Id::Y);
+    table.layout()->registerDim(Dimension::Id::Z);
 
     for (int i=0; i<8; i++)
     {
@@ -289,7 +289,7 @@ TEST(TilerTest, test_tiler_filter)
     tilerOptions.add("maxLevel", 2);
 
     Options statsOptions;
-    
+
     // stages
     BufferReader reader;
     reader.setOptions(readerOptions);
@@ -305,13 +305,12 @@ TEST(TilerTest, test_tiler_filter)
 
 
     // execution
-    PointTable outputTable;
-    tiler.prepare(outputTable);
-    PointViewSet outputViews = tiler.execute(outputTable);
+    tiler.prepare(table);
+    PointViewSet outputViews = tiler.execute(table);
 
 
     // prepare for testing
-    const MetadataNode root = outputTable.metadata();
+    const MetadataNode root = table.metadata();
     EXPECT_TRUE(root.valid());
 
     // sanity check the stats metadata
@@ -356,16 +355,16 @@ TEST(TilerTest, test_tiler_filter)
 
     ViewsMap viewsMap;
     populateMap(viewsMap, outputViews);
-    
+
     // real testing
     for (auto iter = tileNodes.begin(); iter != tileNodes.end(); ++iter)
     {
         MetadataNode tileNode = *iter;
         EXPECT_TRUE(tileNode.valid());
-        
+
         testTile(tileNode, viewsMap);
     }
-    
+
     // finally, check the tile set's stats metadata
     {
         MetadataNode statsNode = tileSetNode.findChild("stats");
