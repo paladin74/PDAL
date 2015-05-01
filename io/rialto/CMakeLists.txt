@@ -1,10 +1,8 @@
 set(srcs
-    RialtoCommon.cpp
     RialtoWriter.cpp
 )
 
 set(incs
-    RialtoCommon.hpp
     RialtoWriter.hpp
 )
 
