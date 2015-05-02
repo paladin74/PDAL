@@ -68,12 +68,9 @@ private:
     virtual void write(const PointViewPtr view);
     virtual void done(PointTableRef table);
 
-    uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name) const;
-    double getMetadataF64(const MetadataNode& parent, const std::string& name) const;
-    
-    bool m_overwrite;
     BasePointTable *m_table;
-    
+    std::string m_directory;
+
     RialtoWriter& operator=(const RialtoWriter&); // not implemented
     RialtoWriter(const RialtoWriter&); // not implemented
 };

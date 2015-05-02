@@ -58,35 +58,52 @@ CREATE_STATIC_PLUGIN(1, 0, RialtoWriter, Writer, s_info)
 
 namespace
 {
+    static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name)
+    {
+        const MetadataNode node = parent.findChild(name);
+        if (!node.valid()) {
+            throw pdal_error("RialtoWriter: required metadata item not found");
+        }
+        uint32_t v = boost::lexical_cast<uint32_t>(node.value());
+        return v;
+    }
+
+
+    static double getMetadataF64(const MetadataNode& parent, const std::string& name)
+    {
+        const MetadataNode node = parent.findChild(name);
+        if (!node.valid()) {
+            throw pdal_error("RialtoWriter: required metadata item not found");
+        }
+        double v = boost::lexical_cast<double>(node.value());
+        return v;
+    }
+
     static void writeHeader(
-            std::string dir,
-            PointTableRef table,
-            int32_t xt,
-            int32_t yt,
+            const std::string& directory,
+            PointLayoutPtr layout,
+            int32_t numCols,
+            int32_t numRows,
             double minx,
             double miny,
             double maxx,
             double maxy)
     {
-        std::string filename(dir + "/header.json");
+        const std::string filename(directory + "/header.json");
         FILE* fp = fopen(filename.c_str(), "wt");
 
         fprintf(fp, "{\n");
-        fprintf(fp, "    \"version\": 3,\n");
+        fprintf(fp, "    \"version\": 4,\n");
 
-        fprintf(fp, "    \"tilebbox\": [%f, %f, %f, %f],\n",
+        fprintf(fp, "    \"bbox\": [%lf, %lf, %lf, %lf],\n",
                 minx, miny, maxx, maxy);
 
-        fprintf(fp, "    \"numTilesX\": %d,\n", xt);
-        fprintf(fp, "    \"numTilesY\": %d,\n", yt);
+        fprintf(fp, "    \"numCols\": %d,\n", numCols);
+        fprintf(fp, "    \"numRows\": %d,\n", numRows);
 
-        fprintf(fp, "    \"databbox\": [%f, %f, %f, %f],\n",
-                minx, miny, maxx, maxy);
-
-        const PointLayoutPtr layout(table.layout());
-        const size_t numDims = layout->dims().size();
         fprintf(fp, "    \"dimensions\": [\n");
 
+        const size_t numDims = layout->dims().size();
         size_t i = 0;
         for (const auto& dim : layout->dims())
         {
@@ -94,6 +111,7 @@ namespace
             std::string dataTypeName = Dimension::interpretationName(dataType);
             std::string name = Dimension::name(dim);
 
+            // TODO: these will be optional
             double mind, meand, maxd;
 //            const stats::Summary& d_stats = stats->getStats(dim);
 //            mind = d_stats.minimum();
@@ -113,11 +131,11 @@ namespace
 
         fclose(fp);
     }
-    
-    
-    char* getPointData(PointViewPtr view, PointId& idx)
+
+
+    static void fillBuffer(const PointViewPtr view, const PointId& idx, char* buf)
     {
-        char* p = new char[view->pointSize()];
+        char* p = buf;
         char* q = p;
 
         for (const auto& dim : view->dims())
@@ -125,111 +143,75 @@ namespace
             view->getRawField(dim, idx, q);
             q += view->dimSize(dim);
         }
-
-        return p;
     }
 
 
     static void writeDataForOneTile(FILE* fp, PointViewPtr view)
     {
-        //const PointLayoutPtr layout(view.layout());
+        const size_t len = view->pointSize();
+        char* buf = new char[len];
 
         for (size_t i=0; i<view->size(); ++i)
         {
-            PointId idx = i;
-            char* p = getPointData(view, idx);
-
-            for (const auto& dim : view->dimTypes())
-            {
-                size_t size = Dimension::size(dim.m_type);
-
-                fwrite(p, size, 1, fp);
-
-                p += size;
-            }
+            const PointId idx = i;
+            fillBuffer(view, idx, buf);
+            fwrite(buf, len, 1, fp);
         }
+
+        delete[] buf;
     }
 
 
-    static void writeOneTile(MetadataNode& tileNode, PointViewPtr view, const char* prefix)
+    static void writeOneTile(MetadataNode& tileNode, PointViewPtr view, const std::string& directory)
     {
-        const MetadataNode nodeL = tileNode.findChild("level");
-        const MetadataNode nodeX = tileNode.findChild("tileX");
-        const MetadataNode nodeY = tileNode.findChild("tileY");
-        const MetadataNode nodeM = tileNode.findChild("mask");
-        assert(nodeL.valid());
-        assert(nodeX.valid());
-        assert(nodeY.valid());
-        assert(nodeM.valid());
-        const uint32_t level = boost::lexical_cast<uint32_t>(nodeL.value());
-        const uint32_t tileX = boost::lexical_cast<uint32_t>(nodeX.value());
-        const uint32_t tileY = boost::lexical_cast<uint32_t>(nodeY.value());
-        const uint8_t mask = boost::lexical_cast<uint32_t>(nodeM.value());
+        const uint32_t level = getMetadataU32(tileNode, "level");
+        const uint32_t tileX = getMetadataU32(tileNode, "tileX");
+        const uint32_t tileY = getMetadataU32(tileNode, "tileY");
+        const uint8_t mask = getMetadataU32(tileNode, "mask");;
 
-        char* filename = new char[strlen(prefix) + 1024];
+        std::ostringstream os;
 
-        sprintf(filename, "%s", prefix);
-        FileUtils::createDirectory(filename);
+        os << directory;
+        FileUtils::createDirectory(os.str());
 
-        sprintf(filename, "%s/%d", prefix, level);
-        FileUtils::createDirectory(filename);
+        os << "/" << level;
+        FileUtils::createDirectory(os.str());
 
-        sprintf(filename, "%s/%d/%d", prefix, level, tileX);
-        FileUtils::createDirectory(filename);
+        os << "/" << tileX;
+        FileUtils::createDirectory(os.str());
 
-        sprintf(filename, "%s/%d/%d/%d.ria", prefix, level, tileX, tileY);
-
-        printf("FILENAME: %s\n", filename);
-        
-        FILE* fp = fopen(filename, "wb");
+        os << "/" << tileY << ".ria";
+        printf("FILENAME: %s\n", os.str().c_str());
+        FILE* fp = fopen(os.str().c_str(), "wb");
 
         writeDataForOneTile(fp, view);
 
         fwrite(&mask, 1, 1, fp);
 
         fclose(fp);
-
-        delete[] filename;
     }
 
 } // anonymous namespace
+
 
 std::string RialtoWriter::getName() const
 {
     return s_info.name;
 }
 
+
 void RialtoWriter::processOptions(const Options& options)
 {
-    m_overwrite = options.getValueOrDefault<bool>("overwrite", false);
+    // we treat the target "filename" as the output directory,
+    // so we'll use a differently named variable to make it clear
+    m_directory = m_filename;
 }
+
 
 Options RialtoWriter::getDefaultOptions()
 {
     Options options;
-    options.add("max_level", 16, "Max number of levels");
-    options.add("overwrite", false, "Overwrite existing files?");
     return options;
-}
-
-
-uint32_t RialtoWriter::getMetadataU32(const MetadataNode& parent, const std::string& name) const {
-    const MetadataNode node = parent.findChild(name);
-    if (!node.valid()) {
-        throw pdal_error("RialtoWriter: required metadata item not found");
-    }
-    uint32_t v = boost::lexical_cast<uint32_t>(node.value());
-    return v;
-}
-
-
-double RialtoWriter::getMetadataF64(const MetadataNode& parent, const std::string& name) const {
-    const MetadataNode node = parent.findChild(name);
-    if (!node.valid()) {
-        throw pdal_error("RialtoWriter: required metadata item not found");
-    }
-    double v = boost::lexical_cast<double>(node.value());
-    return v;
 }
 
 
@@ -239,26 +221,25 @@ void RialtoWriter::ready(PointTableRef table)
 
     m_table = &table;
 
+    // pdal writers always clobber their output file, so we follow
+    // the same convention here -- even though we're dealing with
+    // an output "directory" instead of and output "file"
+    if (FileUtils::directoryExists(m_filename))
+    {
+      FileUtils::deleteDirectory(m_filename);
+    }
+
+    if (!FileUtils::createDirectory(m_filename)) {
+        throw pdal_error("RialtoWriter: Error creating directory");
+    }
+
     MetadataNode tileSetNode = m_table->metadata().findChild("tileSet");
     if (!tileSetNode.valid()) {
         throw pdal_error("RialtoWriter: required TileFilter metadata \"tileSet\" not found (1)");
     }
 
-
-    if (FileUtils::directoryExists(m_filename))
-    {
-        if (!m_overwrite)
-            throw pdal_error("RialtoWriter: Requested directory already exists. "\
-                "Use writers.rialto.overwrite to delete the existing directory.\n");
-        else
-            FileUtils::deleteDirectory(m_filename);
-    }
-
-    if (!FileUtils::createDirectory(m_filename))
-        throw pdal_error("RialtoWriter: Error creating directory.\n");
-        
-    uint32_t numTilesX = getMetadataU32(tileSetNode, "numCols");
-    uint32_t numTilesY = getMetadataU32(tileSetNode, "numRows");
+    const uint32_t numTilesX = getMetadataU32(tileSetNode, "numCols");
+    const uint32_t numTilesY = getMetadataU32(tileSetNode, "numRows");
 
     const double minx = getMetadataF64(tileSetNode, "minX");
     const double miny = getMetadataF64(tileSetNode, "minY");
@@ -268,19 +249,16 @@ void RialtoWriter::ready(PointTableRef table)
     // TODO: hard-coded for now
     assert(minx==-180.0 && miny==-90.0 && maxx==180.0 && maxy==90.0);
 
-    writeHeader(
-            m_filename,
-            *m_table,
-            numTilesX,
-            numTilesY,
-            minx, miny, maxx, maxy);
+    writeHeader(m_directory, m_table->layout(),
+                numTilesX, numTilesY,
+                minx, miny, maxx, maxy);
 }
 
 
 void RialtoWriter::write(const PointViewPtr view)
 {
     printf("{RialtoWriter::write}\n");
-    
+
     printf("view %d\n", view->id());
 
     const PointView& viewRef(*view.get());
@@ -307,7 +285,7 @@ void RialtoWriter::write(const PointViewPtr view)
         m_roots[1]->collectStats(numTilesPerLevel, numPointsPerLevel);
 #endif
 
-    writeOneTile(tileNode, view, m_filename.c_str());
+    writeOneTile(tileNode, view, m_directory);
 }
 
 void RialtoWriter::done(PointTableRef table)
