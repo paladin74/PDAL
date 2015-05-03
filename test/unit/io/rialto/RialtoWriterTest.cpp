@@ -45,6 +45,30 @@ const struct Data {
 };
 
 
+static void readBytes(const std::string& filename, uint8_t* buf, uint32_t len)
+{
+    const char* name = Support::temppath(filename).c_str();
+    FILE* fp = fopen(name, "rb");
+    EXPECT_TRUE(fp != NULL);
+    size_t cnt = fread(buf, 1, len, fp);
+    EXPECT_EQ(cnt, len);
+    fclose(fp);
+}
+
+
+static void verify(const std::string& filename, uint8_t expectedSize, uint8_t expectedMask, int dataIndex)
+{
+  uint32_t actualSize = FileUtils::fileSize(Support::temppath(filename));
+  EXPECT_EQ(actualSize, expectedSize);
+
+  if (actualSize != 1) return;
+
+  uint8_t actualMask;
+  readBytes(filename, &actualMask, 1);
+  EXPECT_EQ(actualMask, expectedMask);
+}
+
+
 TEST(RialtoWriterTest, testWriter)
 {
     //FileUtils::deleteFile(Support::temppath("RialtoTest/header.json"));
@@ -72,7 +96,7 @@ TEST(RialtoWriterTest, testWriter)
     tilerOptions.add("maxLevel", 2);
 
     Options writerOptions;
-    writerOptions.add("filename", Support::temppath("RialtoTest"));
+    writerOptions.add("filename", Support::temppath("rialto1"));
     writerOptions.add("overwrite", true);
 
     Options statsOptions;
@@ -99,78 +123,33 @@ TEST(RialtoWriterTest, testWriter)
     writer.prepare(table);
     PointViewSet outputViews = writer.execute(table);
 
-    /*bool ok = Support::compare_text_files(Support::temppath("RialtoTest/header.json"),
-                                          Support::datapath("io/header.json"));
-    if (ok)
-        FileUtils::deleteFile(Support::temppath("RialtoTest/header.json"));
-    EXPECT_TRUE(ok);*/
-}
-
-
-/*
-TEST(RialtoWriterTest, testWriteHeaderOverwrite)
-{
-    FileUtils::deleteFile(Support::temppath("RialtoTest/header.json"));
-
-    BOX3D bounds(1.0, 2.0, 3.0, 11.0, 12.0, 13.0);
-
-    Options ro;
-    ro.add("bounds", bounds);
-    ro.add("count", 10);
-    ro.add("mode", "ramp");
-
-    StageFactory f;
-    std::unique_ptr<Stage> reader(f.createStage("readers.faux"));
-    reader->setOptions(ro);
-
-    Options wo;
-    wo.add("filename", Support::temppath("RialtoTest"));
-    wo.add("max_level", 0);
-    wo.add("overwrite", true);
-
-    std::unique_ptr<Stage> writer(f.createStage("writers.rialto"));
-    writer->setOptions(wo);
-    writer->setInput(*reader);
-
-    PointTable table;
-    writer->prepare(table);
-    writer->execute(table);
-
-    bool ok = Support::compare_text_files(Support::temppath("RialtoTest/header.json"),
-                                          Support::datapath("io/header.json"));
-
-    if (ok)
-        FileUtils::deleteFile(Support::temppath("RialtoTest/header.json"));
-
+    bool ok = Support::compare_text_files(Support::temppath("rialto1/header.json"),
+                                          Support::datapath("io/rialto-header.json"));
     EXPECT_TRUE(ok);
+
+    // TODO: add actual point checks
+    verify("rialto1/0/0/0.ria", 25, 15, 0);
+    verify("rialto1/0/1/0.ria", 1, 15, -1);
+
+    verify("rialto1/1/0/0.ria", 25, 8, 0);
+    verify("rialto1/1/0/1.ria", 1, 1, -1);
+    verify("rialto1/1/1/0.ria", 1, 4, -1);
+    verify("rialto1/1/1/1.ria", 1, 2, -1);
+    verify("rialto1/1/2/0.ria", 25, 3, 4);
+    verify("rialto1/1/2/1.ria", 1, 4, -1);
+    verify("rialto1/1/3/0.ria", 1, 1, -1);
+    verify("rialto1/1/3/1.ria", 1, 8, -1);
+
+    verify("rialto1/2/0/0.ria", 25, 5, 0);
+    verify("rialto1/2/0/3.ria", 25, 7, 2);
+    verify("rialto1/2/3/0.ria", 25, 6, 1);
+    verify("rialto1/2/3/3.ria", 25, 8, 3);
+    verify("rialto1/2/5/1.ria", 25, 10, 4);
+    verify("rialto1/2/5/2.ria", 25, 12, 6);
+    verify("rialto1/2/6/1.ria", 25, 11, 5);
+    verify("rialto1/2/6/2.ria", 25, 13, 7);
+
+    if (ok) {
+        //FileUtils::deleteDirectory(Support::temppath("rialto1"));
+    }
 }
-
-TEST(RialtoWriterTest, testWriteHeaderNoOverwrite)
-{
-    FileUtils::deleteFile(Support::temppath("RialtoTest/header.json"));
-
-    BOX3D bounds(1.0, 2.0, 3.0, 11.0, 12.0, 13.0);
-
-    Options ro;
-    ro.add("bounds", bounds);
-    ro.add("count", 10);
-    ro.add("mode", "ramp");
-
-    StageFactory f;
-    std::unique_ptr<Stage> reader(f.createStage("readers.faux"));
-    reader->setOptions(ro);
-
-    Options wo;
-    wo.add("filename", Support::temppath("RialtoTest"));
-    wo.add("max_level", 0);
-    wo.add("overwrite", false);
-
-    std::unique_ptr<Stage> writer(f.createStage("writers.rialto"));
-    writer->setOptions(wo);
-    writer->setInput(*reader);
-
-    PointTable table;
-    writer->prepare(table);
-    EXPECT_THROW(writer->execute(table), pdal_error);
-}
-*/

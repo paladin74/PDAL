@@ -71,6 +71,8 @@ private:
     BasePointTable *m_table;
     std::string m_directory;
 
+    std::map<uint32_t, MetadataNode> m_dataMap;
+
     RialtoWriter& operator=(const RialtoWriter&); // not implemented
     RialtoWriter(const RialtoWriter&); // not implemented
 };

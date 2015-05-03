@@ -90,7 +90,7 @@ static void populateMap(ViewsMap& views, PointViewSet& outputViews)
 
 
 // verify tile is correct, both the metadata and the point view
-static void testTileDetails(uint32_t tileId, double l, double x, double y, uint8_t m, uint32_t v, ViewsMap& views)
+static void testTileDetails(uint32_t tileId, double l, double x, double y, uint32_t m, uint32_t v, ViewsMap& views)
 {
     switch (tileId) {
 
@@ -236,7 +236,7 @@ static void testTile(MetadataNode tileNode, ViewsMap& views)
     const uint32_t l = boost::lexical_cast<uint32_t>(nodeL.value());
     const uint32_t x = boost::lexical_cast<uint32_t>(nodeX.value());
     const uint32_t y = boost::lexical_cast<uint32_t>(nodeY.value());
-    const uint8_t m = boost::lexical_cast<uint32_t>(nodeM.value());
+    const uint32_t m = boost::lexical_cast<uint32_t>(nodeM.value());
 
     const MetadataNode nodeP = tileNode.findChild("pointView");
     uint32_t v = 999;

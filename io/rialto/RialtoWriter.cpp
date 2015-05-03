@@ -133,7 +133,7 @@ namespace
     }
 
 
-    static void fillBuffer(const PointViewPtr view, const PointId& idx, char* buf)
+    static void fillBuffer(const PointView* view, const PointId& idx, char* buf)
     {
         char* p = buf;
         char* q = p;
@@ -146,7 +146,7 @@ namespace
     }
 
 
-    static void writeDataForOneTile(FILE* fp, PointViewPtr view)
+    static void writeDataForOneTile(FILE* fp, PointView* view)
     {
         const size_t len = view->pointSize();
         char* buf = new char[len];
@@ -162,12 +162,12 @@ namespace
     }
 
 
-    static void writeOneTile(MetadataNode& tileNode, PointViewPtr view, const std::string& directory)
+    static void writeOneTile(MetadataNode& tileNode, PointView* view, const std::string& directory)
     {
         const uint32_t level = getMetadataU32(tileNode, "level");
         const uint32_t tileX = getMetadataU32(tileNode, "tileX");
         const uint32_t tileY = getMetadataU32(tileNode, "tileY");
-        const uint8_t mask = getMetadataU32(tileNode, "mask");;
+        const uint32_t mask = getMetadataU32(tileNode, "mask");
 
         std::ostringstream os;
 
@@ -181,12 +181,16 @@ namespace
         FileUtils::createDirectory(os.str());
 
         os << "/" << tileY << ".ria";
-        printf("FILENAME: %s\n", os.str().c_str());
         FILE* fp = fopen(os.str().c_str(), "wb");
 
-        writeDataForOneTile(fp, view);
+        printf("tile %d/%d/%d  m%d\n", level, tileX, tileY, mask);
+        if (view)
+        {
+          writeDataForOneTile(fp, view);
+        }
 
-        fwrite(&mask, 1, 1, fp);
+        uint8_t mask8 = mask;
+        fwrite(&mask8, 1, 1, fp);
 
         fclose(fp);
     }
@@ -252,44 +256,54 @@ void RialtoWriter::ready(PointTableRef table)
     writeHeader(m_directory, m_table->layout(),
                 numTilesX, numTilesY,
                 minx, miny, maxx, maxy);
-}
 
-
-void RialtoWriter::write(const PointViewPtr view)
-{
-    printf("{RialtoWriter::write}\n");
-
-    printf("view %d\n", view->id());
-
-    const PointView& viewRef(*view.get());
-
-    MetadataNode tileSetNode = m_table->metadata().findChild("tileSet");
-
+    // the metadata nodea are listed by tile id, not by point view id,
+    // so we need make to make a map from point view id to metadata node
     const MetadataNode tilesNode = tileSetNode.findChild("tiles");
     if (!tilesNode.valid()) {
         throw pdal_error("RialtoWriter: required TileFilter metadata \"tiles\" not found");
     }
     const MetadataNodeList tileNodes = tilesNode.children();
-
-    const std::string idString = std::to_string(view->id());
-    MetadataNode tileNode = tilesNode.findChild(idString);
-    assert(tileNode.valid());
-
-#if 0
-    // dump tile info
-        int32_t num_levels = m_maxLevel+1;
-        std::vector<int32_t> numTilesPerLevel(num_levels, 0);
-        std::vector<int64_t> numPointsPerLevel(num_levels, 0);
-
-        m_roots[0]->collectStats(numTilesPerLevel, numPointsPerLevel);
-        m_roots[1]->collectStats(numTilesPerLevel, numPointsPerLevel);
-#endif
-
-    writeOneTile(tileNode, view, m_directory);
+    for (auto node: tileNodes)
+    {
+        MetadataNode n = node.findChild("pointView");
+        if (n.valid()) {
+          const uint32_t viewId = boost::lexical_cast<uint32_t>(n.value());
+          m_dataMap[viewId] = node;
+        }
+    }
 }
 
+
+// write out the tile with this pointview
+void RialtoWriter::write(const PointViewPtr view)
+{
+    printf("{RialtoWriter::write}\n");
+
+    MetadataNode tileNode = m_dataMap[view->id()];
+    assert(tileNode.valid());
+
+    PointView* viewptr = view.get();
+    writeOneTile(tileNode, viewptr, m_directory);
+}
+
+
+// write out all the remaining tiles: those without point views
 void RialtoWriter::done(PointTableRef table)
 {
+  const MetadataNode tileSetNode = m_table->metadata().findChild("tileSet");
+  const MetadataNode tilesNode = tileSetNode.findChild("tiles");
+  const MetadataNodeList tileNodes = tilesNode.children();
+
+  for (auto iter = tileNodes.begin(); iter != tileNodes.end(); ++iter)
+  {
+      MetadataNode tileNode = *iter;
+      const MetadataNode nodeP = tileNode.findChild("pointView");
+      if (!nodeP.valid()) {
+        writeOneTile(tileNode, NULL, m_directory);
+      }
+  }
+
 }
 
 

@@ -81,9 +81,9 @@ TileSet::~TileSet()
 void TileSet::ready(PointTableRef table)
 {
     printf("{TileSet::ready}\n");
-    
+
     MetadataNode root = table.metadata();
-    
+
     assert(root.valid());
     MetadataNode tileSetNode = root.addList("tileSet");
     assert(tileSetNode.valid());
@@ -96,7 +96,7 @@ void TileSet::ready(PointTableRef table)
     tileSetNode.add("minY", -90.0);
     tileSetNode.add("maxX", 180.0);
     tileSetNode.add("maxY", 90.0);
-    
+
     m_metadata = tileSetNode;
 
     setStatsMetadata(table.metadata());
@@ -106,10 +106,10 @@ void TileSet::ready(PointTableRef table)
 void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
 {
     printf("{TileSet::run}\n");
-    
+
     m_sourceView = sourceView;
     m_outputSet = outputSet;
-    
+
     // enter each point into the tile set
     for (PointId idx = 0; idx < sourceView->size(); ++idx)
     {
@@ -117,12 +117,12 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
         const double lat = sourceView->getFieldAs<double>(Dimension::Id::Y, idx);
         addPoint(idx, lon, lat);
     }
-    
+
     //std::vector<uint32_t> numTilesPerLevel(m_maxLevel+1);
     //std::vector<uint64_t> numPointsPerLevel(m_maxLevel+1);
     //m_roots[0]->collectCounts(numTilesPerLevel, numPointsPerLevel);
     //m_roots[1]->collectCounts(numTilesPerLevel, numPointsPerLevel);
-    
+
     setTileSetMetadata();
 }
 
@@ -137,17 +137,17 @@ void TileSet::setStatsMetadata(const MetadataNode& root)
 {
     assert(m_metadata.valid());
     MetadataNode records = m_metadata.addList("stats");
-    
+
     MetadataNode statsNode = root.findChild("filters.stats");
     assert(statsNode.valid());
-    
+
     for (auto node1 : statsNode.children("statistic"))
-    {    
+    {
         assert(node1.valid());
         //printf("=>%s %s\n", node1.name().c_str(), node1.value().c_str());
 
         for (auto node2 : node1.children())
-        {    
+        {
             assert(node2.valid());
             //printf("==>>%s %s\n", node2.name().c_str(), node2.value().c_str());
 
@@ -163,7 +163,7 @@ void TileSet::setStatsMetadata(const MetadataNode& root)
                 std::string minS = min.value();
                 std::string maxS = max.value();
                 //printf("%s: %s / %s / %s\n", name.c_str(), minS.c_str(), avgS.c_str(), maxS.c_str());
-                
+
                 MetadataNode thisRecord = records.addList(name);
                 thisRecord.add("min", minS);
                 thisRecord.add("avg", avgS);
@@ -197,7 +197,7 @@ void TileSet::addPoint(PointId idx, double lon, double lat)
 void TileSet::setTileSetMetadata()
 {
     assert(m_metadata.valid());
-    
+
     // TODO: hard-coded for now
     m_metadata.add("numCols", 2);
     m_metadata.add("numRows", 1);
@@ -282,7 +282,7 @@ Tile::~Tile()
 void Tile::setTileMetadata(MetadataNode& tileSetNode)
 {
   // child mask
-  uint8_t mask = 0x0;
+  uint32_t mask = 0x0;
   if (m_children)
   {
       if (m_children[Rectangle::QuadrantSW]) mask += 1;
