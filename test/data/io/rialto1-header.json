@@ -1,20 +1,30 @@
 {
     "version": 4,
     "bbox": [-180.000000, -90.000000, 180.000000, 90.000000],
+    "maxLevel": 2,
     "numCols": 2,
     "numRows": 1,
     "dimensions": [
         {
             "datatype": "double",
             "name": "X",
+            "minimum": -179.000000,
+            "mean": -0.000000,
+            "maximum": 91.000000
         },
         {
             "datatype": "double",
             "name": "Y",
+            "minimum": -89.000000,
+            "mean": 0.000000,
+            "maximum": 89.000000
         },
         {
             "datatype": "double",
             "name": "Z",
+            "minimum": 0.000000,
+            "mean": 38.500000,
+            "maximum": 77.000000
         }
     ]
 }

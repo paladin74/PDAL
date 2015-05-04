@@ -62,7 +62,9 @@ namespace
     {
         const MetadataNode node = parent.findChild(name);
         if (!node.valid()) {
-            throw pdal_error("RialtoWriter: required metadata item not found");
+            std::ostringstream oss;
+            oss << "RialtoWriter: required metadata item not found: " << name;
+            throw pdal_error(oss.str());
         }
         uint32_t v = boost::lexical_cast<uint32_t>(node.value());
         return v;
@@ -73,22 +75,52 @@ namespace
     {
         const MetadataNode node = parent.findChild(name);
         if (!node.valid()) {
-            throw pdal_error("RialtoWriter: required metadata item not found");
+            std::ostringstream oss;
+            oss << "RialtoWriter: required metadata item not found: " << name;
+            throw pdal_error(oss.str());
         }
         double v = boost::lexical_cast<double>(node.value());
         return v;
     }
 
+    void extractStatistics(MetadataNode& tileSetNode, const std::string& dimName,
+                           double& minimum, double& mean, double& maximum)
+    {
+        MetadataNode statisticNodes = tileSetNode.findChild("statistics");
+        assert(statisticNodes.valid());
+        
+        MetadataNode dimNode = statisticNodes.findChild(dimName);
+        if (!dimNode.valid())
+        {
+            std::ostringstream oss;
+            oss << "RialtoWriter: statistics not found for dimension: " << dimName;
+            throw pdal_error(oss.str());
+        }
+        
+        minimum = getMetadataF64(dimNode, "minimum");
+        mean = getMetadataF64(dimNode, "mean");
+        maximum = getMetadataF64(dimNode, "maximum");
+    }
+    
     static void writeHeader(
             const std::string& directory,
-            PointLayoutPtr layout,
-            int32_t numCols,
-            int32_t numRows,
-            double minx,
-            double miny,
-            double maxx,
-            double maxy)
-    {
+            MetadataNode tileSetNode,
+            PointLayoutPtr layout)
+    {        
+        MetadataNode headerNode = tileSetNode.findChild("header");
+        assert(headerNode.valid());
+        const uint32_t maxLevel = getMetadataU32(headerNode, "maxLevel");
+
+        const uint32_t numCols = getMetadataU32(headerNode, "numCols");
+        const uint32_t numRows = getMetadataU32(headerNode, "numRows");
+        assert(numCols == 2 && numRows == 1);
+        
+        const double minx = getMetadataF64(headerNode, "minX");
+        const double miny = getMetadataF64(headerNode, "minY");
+        const double maxx = getMetadataF64(headerNode, "maxX");
+        const double maxy = getMetadataF64(headerNode, "maxY");
+        assert(minx==-180.0 && miny==-90.0 && maxx==180.0 && maxy==90.0);
+
         const std::string filename(directory + "/header.json");
         FILE* fp = fopen(filename.c_str(), "wt");
 
@@ -98,6 +130,7 @@ namespace
         fprintf(fp, "    \"bbox\": [%lf, %lf, %lf, %lf],\n",
                 minx, miny, maxx, maxy);
 
+        fprintf(fp, "    \"maxLevel\": %d,\n", maxLevel);
         fprintf(fp, "    \"numCols\": %d,\n", numCols);
         fprintf(fp, "    \"numRows\": %d,\n", numRows);
 
@@ -108,22 +141,18 @@ namespace
         for (const auto& dim : layout->dims())
         {
             const Dimension::Type::Enum dataType = layout->dimType(dim);
-            std::string dataTypeName = Dimension::interpretationName(dataType);
-            std::string name = Dimension::name(dim);
+            const std::string& dataTypeName = Dimension::interpretationName(dataType);
+            const std::string& name = Dimension::name(dim);
 
-            // TODO: these will be optional
-            double mind, meand, maxd;
-//            const stats::Summary& d_stats = stats->getStats(dim);
-//            mind = d_stats.minimum();
-//            meand = d_stats.average();
-//            maxd = d_stats.maximum();
+            double minimum, mean, maximum;
+            extractStatistics(tileSetNode, name, minimum, mean, maximum);
 
             fprintf(fp, "        {\n");
             fprintf(fp, "            \"datatype\": \"%s\",\n", dataTypeName.c_str());
             fprintf(fp, "            \"name\": \"%s\",\n", name.c_str());
-//            fprintf(fp, "            \"min\": %f,\n", mind);
-//            fprintf(fp, "            \"mean\": %f,\n", meand);
-//            fprintf(fp, "            \"max\": %f\n", maxd);
+            fprintf(fp, "            \"minimum\": %f,\n", minimum);
+            fprintf(fp, "            \"mean\": %f,\n", mean);
+            fprintf(fp, "            \"maximum\": %f\n", maximum);
             fprintf(fp, "        }%s\n", i++==numDims-1 ? "" : ",");
         }
         fprintf(fp, "    ]\n");
@@ -183,7 +212,6 @@ namespace
         os << "/" << tileY << ".ria";
         FILE* fp = fopen(os.str().c_str(), "wb");
 
-        printf("tile %d/%d/%d  m%d\n", level, tileX, tileY, mask);
         if (view)
         {
           writeDataForOneTile(fp, view);
@@ -221,8 +249,6 @@ Options RialtoWriter::getDefaultOptions()
 
 void RialtoWriter::ready(PointTableRef table)
 {
-    printf("{RialtoWriter::ready}\n");
-
     m_table = &table;
 
     // pdal writers always clobber their output file, so we follow
@@ -237,31 +263,18 @@ void RialtoWriter::ready(PointTableRef table)
         throw pdal_error("RialtoWriter: Error creating directory");
     }
 
-    MetadataNode tileSetNode = m_table->metadata().findChild("tileSet");
+    MetadataNode tileSetNode = m_table->metadata().findChild("filters.tiler");
     if (!tileSetNode.valid()) {
-        throw pdal_error("RialtoWriter: required TileFilter metadata \"tileSet\" not found (1)");
+        throw pdal_error("RialtoWriter: \"filters.tiler\" metadata not found");
     }
 
-    const uint32_t numTilesX = getMetadataU32(tileSetNode, "numCols");
-    const uint32_t numTilesY = getMetadataU32(tileSetNode, "numRows");
+    writeHeader(m_directory, tileSetNode, m_table->layout());
 
-    const double minx = getMetadataF64(tileSetNode, "minX");
-    const double miny = getMetadataF64(tileSetNode, "minY");
-    const double maxx = getMetadataF64(tileSetNode, "maxX");
-    const double maxy = getMetadataF64(tileSetNode, "maxY");
-
-    // TODO: hard-coded for now
-    assert(minx==-180.0 && miny==-90.0 && maxx==180.0 && maxy==90.0);
-
-    writeHeader(m_directory, m_table->layout(),
-                numTilesX, numTilesY,
-                minx, miny, maxx, maxy);
-
-    // the metadata nodea are listed by tile id, not by point view id,
+    // the metadata nodes are listed by tile id, not by point view id,
     // so we need make to make a map from point view id to metadata node
     const MetadataNode tilesNode = tileSetNode.findChild("tiles");
     if (!tilesNode.valid()) {
-        throw pdal_error("RialtoWriter: required TileFilter metadata \"tiles\" not found");
+        throw pdal_error("RialtoWriter: \"filters.tiler/tiles\" metadata not found");
     }
     const MetadataNodeList tileNodes = tilesNode.children();
     for (auto node: tileNodes)
@@ -278,8 +291,6 @@ void RialtoWriter::ready(PointTableRef table)
 // write out the tile with this pointview
 void RialtoWriter::write(const PointViewPtr view)
 {
-    printf("{RialtoWriter::write}\n");
-
     MetadataNode tileNode = m_dataMap[view->id()];
     assert(tileNode.valid());
 
@@ -291,7 +302,7 @@ void RialtoWriter::write(const PointViewPtr view)
 // write out all the remaining tiles: those without point views
 void RialtoWriter::done(PointTableRef table)
 {
-  const MetadataNode tileSetNode = m_table->metadata().findChild("tileSet");
+  const MetadataNode tileSetNode = m_table->metadata().findChild("filters.tiler");
   const MetadataNode tilesNode = tileSetNode.findChild("tiles");
   const MetadataNodeList tileNodes = tilesNode.children();
 

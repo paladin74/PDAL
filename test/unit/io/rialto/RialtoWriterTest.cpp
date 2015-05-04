@@ -137,6 +137,7 @@ TEST(RialtoWriterTest, testWriter)
     BufferReader reader;
     reader.setOptions(readerOptions);
     reader.addView(inputView);
+    reader.setSpatialReference(SpatialReference("EPSG:4326"));
 
     StatsFilter stats;
     stats.setOptions(statsOptions);
@@ -156,7 +157,7 @@ TEST(RialtoWriterTest, testWriter)
     PointViewSet outputViews = writer.execute(table);
 
     bool ok = Support::compare_text_files(Support::temppath("rialto1/header.json"),
-                                          Support::datapath("io/rialto-header.json"));
+                                          Support::datapath("io/rialto1-header.json"));
     EXPECT_TRUE(ok);
 
     verify("rialto1/0/0/0.ria", &data[0], 15);

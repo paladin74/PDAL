@@ -154,15 +154,18 @@ class TileSet
 
     private:
         void addPoint(PointId, double lon, double lat);
-        void setTileSetMetadata();
-        void setStatsMetadata(const MetadataNode& root);
+
+        void setHeaderMetadata();
+        void setStatisticsMetadata();
 
         PointViewPtr m_sourceView;
         PointViewSet* m_outputSet;
         uint32_t m_maxLevel;
         LogPtr m_log;
         Tile** m_roots;
-        MetadataNode m_metadata;
+
+        MetadataNode m_tableMetadata;
+        MetadataNode m_tileSetMetadata;
 };
 
 
@@ -174,14 +177,10 @@ class TileSet
 class Tile
 {
 public:
-    Tile(TileSet& tileSet, uint32_t level, uint32_t tx, uint32_t ty, Rectangle r);
+    Tile(TileSet& tileSet, uint32_t level, uint32_t tileX, uint32_t tileY, Rectangle r);
     ~Tile();
 
     void add(PointViewPtr pointView, PointId pointNumber, double lon, double lat);
-
-    void collectCounts(std::vector<uint32_t>& numTilesPerLevel,
-                       std::vector<uint64_t>& numPointsPerLevel) const;
-
     void setTileMetadata(MetadataNode&);
 
 private:

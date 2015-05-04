@@ -294,7 +294,8 @@ TEST(TilerTest, test_tiler_filter)
     BufferReader reader;
     reader.setOptions(readerOptions);
     reader.addView(inputView);
-
+    reader.setSpatialReference(SpatialReference("EPSG:4326"));
+    
     StatsFilter stats;
     stats.setOptions(statsOptions);
     stats.setInput(reader);
@@ -334,32 +335,32 @@ TEST(TilerTest, test_tiler_filter)
         EXPECT_TRUE(statsOkay);
     }
 
-    const MetadataNode tileSetNode = root.findChild("tileSet");
+    const MetadataNode tileSetNode = root.findChild("filters.tiler");
     EXPECT_TRUE(tileSetNode.valid());
 
-    EXPECT_EQ(getMetadataU32(tileSetNode, "maxLevel"), 2u);
-    EXPECT_EQ(getMetadataU32(tileSetNode, "numCols"), 2u);
-    EXPECT_EQ(getMetadataU32(tileSetNode, "numRows"), 1u);
-    EXPECT_EQ(getMetadataF64(tileSetNode, "minX"), -180.0);
-    EXPECT_EQ(getMetadataF64(tileSetNode, "minY"), -90.0);
-    EXPECT_EQ(getMetadataF64(tileSetNode, "maxX"), 180.0);
-    EXPECT_EQ(getMetadataF64(tileSetNode, "maxY"), 90.0);
+    const MetadataNode headerNode = tileSetNode.findChild("header");
+    EXPECT_TRUE(headerNode.valid());
 
-    const MetadataNode tilesNode = tileSetNode.findChild("tiles");
-    EXPECT_TRUE(tilesNode.valid());
+    EXPECT_EQ(getMetadataU32(headerNode, "maxLevel"), 2u);
+    EXPECT_EQ(getMetadataU32(headerNode, "numCols"), 2u);
+    EXPECT_EQ(getMetadataU32(headerNode, "numRows"), 1u);
+    EXPECT_EQ(getMetadataF64(headerNode, "minX"), -180.0);
+    EXPECT_EQ(getMetadataF64(headerNode, "minY"), -90.0);
+    EXPECT_EQ(getMetadataF64(headerNode, "maxX"), 180.0);
+    EXPECT_EQ(getMetadataF64(headerNode, "maxY"), 90.0);
 
-    const MetadataNodeList tileNodes = tilesNode.children();
-    EXPECT_EQ(tileNodes.size(), 18u);
+    const MetadataNode tileNodes = tileSetNode.findChild("tiles");
+    EXPECT_TRUE(tileNodes.valid());
 
     EXPECT_EQ(outputViews.size(), 2u + 8u + 1u);
+    EXPECT_EQ(tileNodes.children().size(), 18u);
 
     ViewsMap viewsMap;
     populateMap(viewsMap, outputViews);
 
     // real testing
-    for (auto iter = tileNodes.begin(); iter != tileNodes.end(); ++iter)
+    for (auto tileNode: tileNodes.children())
     {
-        MetadataNode tileNode = *iter;
         EXPECT_TRUE(tileNode.valid());
 
         testTile(tileNode, viewsMap);
@@ -367,12 +368,107 @@ TEST(TilerTest, test_tiler_filter)
 
     // finally, check the tile set's stats metadata
     {
-        MetadataNode statsNode = tileSetNode.findChild("stats");
-        EXPECT_TRUE(statsNode.valid());
-        MetadataNode zNode = statsNode.findChild("Z");
+        MetadataNode statisticsNode = tileSetNode.findChild("statistics");
+        EXPECT_TRUE(statisticsNode.valid());
+        EXPECT_EQ(statisticsNode.children().size(), 3u);
+        MetadataNode zNode = statisticsNode.findChild("Z");
         EXPECT_TRUE(zNode.valid());
-        EXPECT_EQ(getMetadataF64(zNode, "min"), 0.0);
-        EXPECT_EQ(getMetadataF64(zNode, "avg"), 38.5);
-        EXPECT_EQ(getMetadataF64(zNode, "max"), 77.0);
+        EXPECT_EQ(getMetadataF64(zNode, "minimum"), 0.0);
+        EXPECT_EQ(getMetadataF64(zNode, "mean"), 38.5);
+        EXPECT_EQ(getMetadataF64(zNode, "maximum"), 77.0);
     }
+}
+
+
+TEST(TilerTest, test_tiler_filter_not4326)
+{
+    // set up test data
+    PointTable table;
+    PointViewPtr inputView(new PointView(table));
+
+    table.layout()->registerDim(Dimension::Id::X);
+    table.layout()->registerDim(Dimension::Id::Y);
+    table.layout()->registerDim(Dimension::Id::Z);
+
+    for (int i=0; i<8; i++)
+    {
+        inputView->setField(Dimension::Id::X, i, data[i].x);
+        inputView->setField(Dimension::Id::Y, i, data[i].y);
+        inputView->setField(Dimension::Id::Z, i, data[i].z);
+    }
+
+
+    // options
+    Options readerOptions;
+
+    Options tilerOptions;
+    tilerOptions.add("maxLevel", 2);
+
+    Options statsOptions;
+
+    // stages
+    BufferReader reader;
+    reader.setOptions(readerOptions);
+    reader.addView(inputView);
+    //reader.setSpatialReference(SpatialReference("EPSG:4326"));
+    
+    StatsFilter stats;
+    stats.setOptions(statsOptions);
+    stats.setInput(reader);
+
+    TilerFilter tiler;
+    tiler.setOptions(tilerOptions);
+    tiler.setInput(stats);
+
+
+    // execution
+    EXPECT_NO_THROW(tiler.prepare(table));
+    EXPECT_THROW(tiler.execute(table), pdal_error);
+}
+
+
+TEST(TilerTest, test_tiler_filter_nostats)
+{
+    // set up test data
+    PointTable table;
+    PointViewPtr inputView(new PointView(table));
+
+    table.layout()->registerDim(Dimension::Id::X);
+    table.layout()->registerDim(Dimension::Id::Y);
+    table.layout()->registerDim(Dimension::Id::Z);
+
+    for (int i=0; i<8; i++)
+    {
+        inputView->setField(Dimension::Id::X, i, data[i].x);
+        inputView->setField(Dimension::Id::Y, i, data[i].y);
+        inputView->setField(Dimension::Id::Z, i, data[i].z);
+    }
+
+
+    // options
+    Options readerOptions;
+
+    Options tilerOptions;
+    tilerOptions.add("maxLevel", 2);
+
+    Options statsOptions;
+
+    // stages
+    BufferReader reader;
+    reader.setOptions(readerOptions);
+    reader.addView(inputView);
+    reader.setSpatialReference(SpatialReference("EPSG:4326"));
+    
+    //StatsFilter stats;
+    //stats.setOptions(statsOptions);
+    //stats.setInput(reader);
+
+    TilerFilter tiler;
+    tiler.setOptions(tilerOptions);
+    tiler.setInput(reader);
+
+
+    // execution
+    EXPECT_NO_THROW(tiler.prepare(table));
+    EXPECT_THROW(tiler.execute(table), pdal_error);
 }
