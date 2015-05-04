@@ -8,14 +8,14 @@ set(srcsF
     io/RialtoWriter.cpp
     io/RialtoFileWriter.cpp)
     
-set(srcsD
-    io/RialtoWriter.cpp
-    io/RialtoDbWriter.cpp)
-
 set(incsF
     io/RialtoWriter.hpp
     io/RialtoFileWriter.hpp
 )
+
+set(srcsD
+    io/RialtoWriter.cpp
+    io/RialtoDbWriter.cpp)
 
 set(incsD
     io/RialtoWriter.hpp
@@ -36,9 +36,9 @@ if(BUILD_RIALTO_TESTS)
 	PDAL_ADD_TEST(rialtofiletest
         FILES test/RialtoFileWriterTest.cpp
         LINK_WITH ${filewriter_libname}
-)
-PDAL_ADD_TEST(rialtodbtest
-    FILES test/RialtoDbWriterTest.cpp
-    LINK_WITH ${dbwriter_libname}
-)
+    )
+    PDAL_ADD_TEST(rialtodbtest
+        FILES test/RialtoDb.cpp test/RialtoDbTest.cpp test/RialtoDbWriterTest.cpp
+        LINK_WITH ${dbwriter_libname}
+    )
 endif()
