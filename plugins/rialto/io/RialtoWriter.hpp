@@ -40,14 +40,10 @@
 #include <cstdint>
 #include <string>
 
-extern "C" int32_t RialtoWriter_ExitFunc();
-extern "C" PF_ExitFunc RialtoWriter_InitPlugin();
-
 namespace pdal
 {
 
 class Options;
-class Tile;
 
 class PDAL_DLL RialtoWriter : public Writer
 {
@@ -58,20 +54,43 @@ public:
 
     static void * create();
     static int32_t destroy(void *);
-    std::string getName() const;
+    
+    // implemented in derived classes
+    virtual std::string getName() const=0;
+    virtual Options getDefaultOptions()=0;
 
-    Options getDefaultOptions();
+protected:
+    
+    // implemented in derived classes
+    virtual void processOptions(const Options& options)=0;
+    
+    // implemented in derived classes
+    virtual void localStart() = 0;
+    virtual void writeHeader(MetadataNode tileSetNode,
+                             PointLayoutPtr layout) = 0;
+    virtual void writeTile(MetadataNode, PointView*) = 0;
+    virtual void localFinish() = 0;
+    
+    // helper functions
+    static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name);
+    static double getMetadataF64(const MetadataNode& parent, const std::string& name);
+    static void extractStatistics(MetadataNode& tileSetNode, const std::string& dimName,
+                                  double& minimum, double& mean, double& maximum);
+    static char* createBlob(PointView* view, size_t& buflen);
 
 private:
-    virtual void processOptions(const Options& options);
     virtual void ready(PointTableRef table);
     virtual void write(const PointViewPtr view);
     virtual void done(PointTableRef table);
 
+    char* makeBuffer(PointView*);
+    void makePointViewMap(MetadataNode tileSetNode);
+    void writeEmptyTiles();
+    
     BasePointTable *m_table;
     std::string m_directory;
 
-    std::map<uint32_t, MetadataNode> m_dataMap;
+    std::map<uint32_t, MetadataNode> m_pointViewMap;
 
     RialtoWriter& operator=(const RialtoWriter&); // not implemented
     RialtoWriter(const RialtoWriter&); // not implemented

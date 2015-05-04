@@ -58,3 +58,6 @@ if(BUILD_PLUGIN_SQLITE)
     add_subdirectory(sqlite)
 endif()
 
+if(BUILD_PLUGIN_RIALTO)
+    add_subdirectory(rialto)
+endif()

@@ -66,7 +66,6 @@
 // writers
 #include <bpf/BpfWriter.hpp>
 #include <las/LasWriter.hpp>
-#include <rialto/RialtoWriter.hpp>
 #include <sbet/SbetWriter.hpp>
 #include <text/TextWriter.hpp>
 #include <null/NullWriter.hpp>
@@ -133,7 +132,6 @@ std::string StageFactory::inferWriterDriver(const std::string& filename)
     drivers["ntf"] = "writers.nitf";
     drivers["pcd"] = "writers.pcd";
     drivers["pclviz"] = "writers.pclvisualizer";
-    drivers["ria"] = "writers.rialto";
     drivers["sbet"] = "writers.sbet";
     drivers["sqlite"] = "writers.sqlite";
     drivers["txt"] = "writers.text";
@@ -214,7 +212,6 @@ StageFactory::StageFactory(bool no_plugins)
     // writers
     PluginManager::initializePlugin(BpfWriter_InitPlugin);
     PluginManager::initializePlugin(LasWriter_InitPlugin);
-    PluginManager::initializePlugin(RialtoWriter_InitPlugin);
     PluginManager::initializePlugin(SbetWriter_InitPlugin);
     PluginManager::initializePlugin(TextWriter_InitPlugin);
     PluginManager::initializePlugin(NullWriter_InitPlugin);

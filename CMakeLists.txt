@@ -148,6 +148,10 @@ option(BUILD_PLUGIN_SQLITE "Choose if SQLite database support should be built" F
 add_feature_info("SQLite plugin" BUILD_PLUGIN_SQLITE
     "read/write SQLite objects")
 
+option(BUILD_PLUGIN_RIALTO "Choose if Rialto (file or database) support should be built" FALSE)
+add_feature_info("Rialto plugin" BUILD_PLUGIN_RIALTO
+    "read/write Rialto files and databases")
+
 option(BUILD_PLUGIN_RIVLIB "Choose if RiVLib support should be built" FALSE)
 add_feature_info("RiVLib plugin" BUILD_PLUGIN_RIVLIB
     "read data in the RXP format")
@@ -165,11 +169,12 @@ include(CMakeDependentOption)
 
 cmake_dependent_option(BUILD_PGPOINTCLOUD_TESTS "Choose if PostgreSQL PointCloud tests should be built" ON "BUILD_PLUGIN_PGPOINTCLOUD; WITH_TESTS" OFF)
 cmake_dependent_option(BUILD_SQLITE_TESTS "Choose if SQLite tests should be built" ON "BUILD_PLUGIN_SQLITE; WITH_TESTS" OFF)
+cmake_dependent_option(BUILD_RIALTO_TESTS "Choose if Rialto tests should be built" ON "BUILD_PLUGIN_RIALTO; WITH_TESTS" OFF)
 cmake_dependent_option(BUILD_OCI_TESTS "Choose if OCI tests should be built" ON "BUILD_PLUGIN_OCI; WITH_TESTS" OFF)
 cmake_dependent_option(BUILD_RIVLIB_TESTS "Choose if RiVLib tests should be built" ON "BUILD_PLUGIN_RIVLIB; WITH_TESTS" OFF)
 cmake_dependent_option(BUILD_PIPELINE_TESTS "Choose if pipeline tests should be built" OFF "WITH_APPS; WITH_TESTS" OFF)
 
-if(BUILD_PLUGIN_PGPOINTCLOUD OR BUILD_PLUGIN_OCI OR BUILD_PLUGIN_SQLITE)
+if(BUILD_PLUGIN_PGPOINTCLOUD OR BUILD_PLUGIN_OCI OR BUILD_PLUGIN_SQLITE OR BUILD_PLUGIN_RIALTO)
     include(${PDAL_CMAKE_DIR}/libxml2.cmake)
 endif()
 if(BUILD_PLUGIN_PYTHON)
