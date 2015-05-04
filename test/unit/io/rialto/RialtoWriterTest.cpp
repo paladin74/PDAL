@@ -13,6 +13,8 @@
 #include "RialtoWriter.hpp"
 #include "Support.hpp"
 
+#include <boost/filesystem.hpp>
+
 using namespace pdal;
 
 TEST(RialtoWriterTest, createWriter)
@@ -56,16 +58,46 @@ static void readBytes(const std::string& filename, uint8_t* buf, uint32_t len)
 }
 
 
-static void verify(const std::string& filename, uint8_t expectedSize, uint8_t expectedMask, int dataIndex)
+static void verify(const std::string& filename,
+                   const Data* expectedData,
+                   uint8_t expectedMask)
 {
-  uint32_t actualSize = FileUtils::fileSize(Support::temppath(filename));
-  EXPECT_EQ(actualSize, expectedSize);
+    uint32_t actualSize = FileUtils::fileSize(Support::temppath(filename));
 
-  if (actualSize != 1) return;
+    if (expectedData) {
+        EXPECT_EQ(actualSize, 25u);
+        union {
+          uint8_t buf[25];
+          struct {
+            double x;
+            double y;
+            double z;
+            uint8_t m;
+          } actualData;
+        } u;
+        readBytes(filename, u.buf, 25);
+        EXPECT_EQ(u.actualData.x, expectedData->x);
+        EXPECT_EQ(u.actualData.y, expectedData->y);
+        EXPECT_EQ(u.actualData.z, expectedData->z);
+        EXPECT_EQ(u.actualData.m, expectedMask);
+    } else {
+        EXPECT_EQ(actualSize, 1u);
+        uint8_t actualMask;
+        readBytes(filename, &actualMask, 1);
+        EXPECT_EQ(actualMask, expectedMask);
+    }
+}
 
-  uint8_t actualMask;
-  readBytes(filename, &actualMask, 1);
-  EXPECT_EQ(actualMask, expectedMask);
+
+static void verifyDirectorySize(const std::string& path, uint32_t expectedSize)
+{
+    boost::filesystem::directory_iterator iter(Support::temppath(path));
+    uint32_t cnt = 0;
+    while (iter != boost::filesystem::directory_iterator()) {
+        ++cnt;
+        ++iter;
+    }
+    EXPECT_EQ(cnt, expectedSize);
 }
 
 
@@ -127,27 +159,41 @@ TEST(RialtoWriterTest, testWriter)
                                           Support::datapath("io/rialto-header.json"));
     EXPECT_TRUE(ok);
 
-    // TODO: add actual point checks
-    verify("rialto1/0/0/0.ria", 25, 15, 0);
-    verify("rialto1/0/1/0.ria", 1, 15, -1);
+    verify("rialto1/0/0/0.ria", &data[0], 15);
+    verify("rialto1/0/1/0.ria", NULL, 15);
 
-    verify("rialto1/1/0/0.ria", 25, 8, 0);
-    verify("rialto1/1/0/1.ria", 1, 1, -1);
-    verify("rialto1/1/1/0.ria", 1, 4, -1);
-    verify("rialto1/1/1/1.ria", 1, 2, -1);
-    verify("rialto1/1/2/0.ria", 25, 3, 4);
-    verify("rialto1/1/2/1.ria", 1, 4, -1);
-    verify("rialto1/1/3/0.ria", 1, 1, -1);
-    verify("rialto1/1/3/1.ria", 1, 8, -1);
+    verify("rialto1/1/0/0.ria", &data[0], 8);
+    verify("rialto1/1/0/1.ria", NULL, 1);
+    verify("rialto1/1/1/0.ria", NULL, 4);
+    verify("rialto1/1/1/1.ria", NULL, 2);
+    verify("rialto1/1/2/0.ria", &data[4], 2);
+    verify("rialto1/1/2/1.ria", NULL, 4);
+    verify("rialto1/1/3/0.ria", NULL, 1);
+    verify("rialto1/1/3/1.ria", NULL, 8);
 
-    verify("rialto1/2/0/0.ria", 25, 5, 0);
-    verify("rialto1/2/0/3.ria", 25, 7, 2);
-    verify("rialto1/2/3/0.ria", 25, 6, 1);
-    verify("rialto1/2/3/3.ria", 25, 8, 3);
-    verify("rialto1/2/5/1.ria", 25, 10, 4);
-    verify("rialto1/2/5/2.ria", 25, 12, 6);
-    verify("rialto1/2/6/1.ria", 25, 11, 5);
-    verify("rialto1/2/6/2.ria", 25, 13, 7);
+    verify("rialto1/2/0/0.ria", &data[0], 0);
+    verify("rialto1/2/0/3.ria", &data[2], 0);
+    verify("rialto1/2/3/0.ria", &data[1], 0);
+    verify("rialto1/2/3/3.ria", &data[3], 0);
+    verify("rialto1/2/5/1.ria", &data[4], 0);
+    verify("rialto1/2/5/2.ria", &data[6], 0);
+    verify("rialto1/2/6/1.ria", &data[5], 0);
+    verify("rialto1/2/6/2.ria", &data[7], 0);
+
+    verifyDirectorySize("rialto1", 4);
+    verifyDirectorySize("rialto1/0", 2);
+    verifyDirectorySize("rialto1/0/0", 1);
+    verifyDirectorySize("rialto1/0/1", 1);
+    verifyDirectorySize("rialto1/1", 4);
+    verifyDirectorySize("rialto1/1/0", 2);
+    verifyDirectorySize("rialto1/1/1", 2);
+    verifyDirectorySize("rialto1/1/2", 2);
+    verifyDirectorySize("rialto1/1/3", 2);
+    verifyDirectorySize("rialto1/2", 4);
+    verifyDirectorySize("rialto1/2/0", 2);
+    verifyDirectorySize("rialto1/2/3", 2);
+    verifyDirectorySize("rialto1/2/5", 2);
+    verifyDirectorySize("rialto1/2/6", 2);
 
     if (ok) {
         //FileUtils::deleteDirectory(Support::temppath("rialto1"));
