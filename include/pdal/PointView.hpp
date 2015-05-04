@@ -243,9 +243,6 @@ public:
             m_temps.pop();
     }
 
-    MetadataNode metadata()
-        { return m_pointTable.metadata(); }
-
 protected:
     PointTableRef m_pointTable;
     std::deque<PointId> m_index;
