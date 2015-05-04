@@ -33,6 +33,7 @@
 ****************************************************************************/
 
 #include "RialtoDb.hpp"
+#include "SQLiteCommon.hpp"
 
 #include <pdal/BufferReader.hpp>
 #include <pdal/Dimension.hpp>
@@ -46,7 +47,7 @@
 
 #include <cstdint>
 
-namespace pdal
+namespace rialtosupport
 {
 
 namespace
@@ -55,7 +56,9 @@ namespace
 } // anonymous namespace
 
 
-RialtoDb::RialtoDb()
+RialtoDb::RialtoDb(const std::string& path, Mode mode) :
+    m_sqlite(NULL),
+    m_mode(mode)
 {
     printf("{RialtoDB}\n");
 }
@@ -74,4 +77,4 @@ int RialtoDb::foo()
 }
 
 
-} // namespace pdal
+} // namespace rialtosupport

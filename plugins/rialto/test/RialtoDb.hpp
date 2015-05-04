@@ -40,22 +40,73 @@
 #include <cstdint>
 #include <string>
 
-namespace pdal
-{
 
-class Options;
+// A Rialto database contains two tables:
+// 
+// DataSets
+//    id (PK)
+//    name
+//    bounds
+//    levels
+//    ...
+//
+// Tiles
+//    id (PK)
+//    dataset id (FK)
+//    x, y, level
+
+
+namespace rialtosupport
+{
+class SQLite;
+
+
 
 class PDAL_DLL RialtoDb
 {
 public:
-    RialtoDb();
+    enum Mode {
+        Invalid,
+        Create,
+        Write,
+        Read
+    };
+
+    // modes:
+    //   Create: creates a new database and sets up the required tables
+    //           it is an error if the db already exists
+    //   Write: opens the database for writing
+    //          it is an error if the db doesn't already exist
+    //          it is also an error if the db doesn't have the required tables
+    //   Read: opens an existing database
+    //         it is an error if the db doesn't already exist
+    RialtoDb(const std::string& path, Mode mode);
     ~RialtoDb();
+    
+    // construct a reader for the file, and send it to a db writer
+    // (will also create the reproj and stats filters)
+    // returns id of new data set
+    uint32_t addDataSet(const std::string& filename);
+    
+    std::vector<uint32_t> getDataSetIds();
+    std::string getDataSetInfo(uint32_t dataSetId);
+    
+    std::vector<uint32_t> getTileIds(/*bbox, levels*/);
+    void getTileInfo(uint32_t tileId);
+    
     int foo();
     
 private:
-
+    pdal::Writer* buildPipeline();
+    void executePipeline(pdal::Writer*);
+    
+    void query();
+    
+    SQLite* m_sqlite;
+    Mode m_mode;
+    
     RialtoDb& operator=(const RialtoDb&); // not implemented
     RialtoDb(const RialtoDb&); // not implemented
 };
 
-} // namespace pdal
+} // namespace rialtosupport

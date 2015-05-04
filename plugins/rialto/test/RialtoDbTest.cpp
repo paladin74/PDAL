@@ -15,11 +15,12 @@
 
 #include "Support.hpp"
 
-using namespace pdal;
 
 TEST(RialtoDbTest, foo)
 {
-    RialtoDb db;
+    using namespace rialtosupport;
+    
+    RialtoDb db("/tmp/foo", RialtoDb::Create);
 
     EXPECT_EQ(db.foo(), 17);
 }
