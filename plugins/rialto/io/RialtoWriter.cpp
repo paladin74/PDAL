@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2014-2015, RadiantBlue Technologies, Inc.
+* Copyright (c) 2015, RadiantBlue Technologies, Inc.
 *
 * All rights reserved.
 *
@@ -138,6 +138,8 @@ double RialtoWriter::getMetadataF64(const MetadataNode& parent, const std::strin
 
 void RialtoWriter::ready(PointTableRef table)
 {
+    log()->get(LogLevel::Debug) << "RialtoWriter::ready()" << std::endl;
+
     m_table = &table;
 
     localStart();
@@ -156,6 +158,8 @@ void RialtoWriter::ready(PointTableRef table)
 // write out the tile with this pointview
 void RialtoWriter::write(const PointViewPtr viewPtr)
 {
+    log()->get(LogLevel::Debug) << "RialtoWriter::write()" << std::endl;
+    
     MetadataNode tileNode = m_pointViewMap[viewPtr->id()];
     assert(tileNode.valid());
 

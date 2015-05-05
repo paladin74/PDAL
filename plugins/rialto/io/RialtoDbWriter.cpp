@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2014-2015, RadiantBlue Technologies, Inc.
+* Copyright (c) 2015, RadiantBlue Technologies, Inc.
 *
 * All rights reserved.
 *
@@ -44,7 +44,10 @@
 #include <pdal/util/Bounds.hpp>
 #include <pdal/util/FileUtils.hpp>
 
+#include "RialtoDb.hpp"
+
 #include <cstdint>
+
 
 namespace pdal
 {
@@ -63,7 +66,9 @@ namespace
 
 void RialtoDbWriter::writeHeader(MetadataNode tileSetNode,
                                    PointLayoutPtr layout)
-{        
+{
+    log()->get(LogLevel::Debug) << "RialtoDbWriter::writeHeader()" << std::endl;
+
     MetadataNode headerNode = tileSetNode.findChild("header");
     assert(headerNode.valid());
     const uint32_t maxLevel = getMetadataU32(headerNode, "maxLevel");
@@ -78,18 +83,10 @@ void RialtoDbWriter::writeHeader(MetadataNode tileSetNode,
     const double maxy = getMetadataF64(headerNode, "maxY");
     assert(minx==-180.0 && miny==-90.0 && maxx==180.0 && maxy==90.0);
 
-    const std::string filename(m_directory + "/header.json-db");
-    FILE* fp = fopen(filename.c_str(), "wt");
+    uint32_t id = m_rialtoDb->addTileSet("a.las");
 
-    fprintf(fp, "{\n");
+/*
     fprintf(fp, "    \"version\": 4,\n");
-
-    fprintf(fp, "    \"bbox\": [%lf, %lf, %lf, %lf],\n",
-            minx, miny, maxx, maxy);
-
-    fprintf(fp, "    \"maxLevel\": %d,\n", maxLevel);
-    fprintf(fp, "    \"numCols\": %d,\n", numCols);
-    fprintf(fp, "    \"numRows\": %d,\n", numRows);
 
     fprintf(fp, "    \"dimensions\": [\n");
 
@@ -112,33 +109,19 @@ void RialtoDbWriter::writeHeader(MetadataNode tileSetNode,
         fprintf(fp, "            \"maximum\": %f\n", maximum);
         fprintf(fp, "        }%s\n", i++==numDims-1 ? "" : ",");
     }
-    fprintf(fp, "    ]\n");
-    fprintf(fp, "}\n");
-
-    fclose(fp);
+*/
 }
 
 void RialtoDbWriter::writeTile(MetadataNode tileNode, PointView* view)
 {
+    log()->get(LogLevel::Debug) << "RialtoDbWriter::writeTile()" << std::endl;
+
     const uint32_t level = getMetadataU32(tileNode, "level");
     const uint32_t tileX = getMetadataU32(tileNode, "tileX");
     const uint32_t tileY = getMetadataU32(tileNode, "tileY");
     const uint32_t mask = getMetadataU32(tileNode, "mask");
 
-    std::ostringstream os;
-
-    os << m_directory;
-    FileUtils::createDirectory(os.str());
-
-    os << "/" << level;
-    FileUtils::createDirectory(os.str());
-
-    os << "/" << tileX;
-    FileUtils::createDirectory(os.str());
-
-    os << "/" << tileY << ".ria-db";
-    FILE* fp = fopen(os.str().c_str(), "wb");
-
+/*
     if (view)
     {
         size_t bufsiz;
@@ -148,8 +131,8 @@ void RialtoDbWriter::writeTile(MetadataNode tileNode, PointView* view)
 
     uint8_t mask8 = mask;
     fwrite(&mask8, 1, 1, fp);
+*/
 
-    fclose(fp);
 }
 
 
@@ -161,37 +144,38 @@ std::string RialtoDbWriter::getName() const
 
 void RialtoDbWriter::processOptions(const Options& options)
 {
-    // we treat the target "filename" as the output directory,
+    // we treat the target "filename" as the database name,
     // so we'll use a differently named variable to make it clear
-    m_directory = m_filename;
+    m_connection = m_filename;
 }
 
 
 Options RialtoDbWriter::getDefaultOptions()
-{
+{    
     Options options;
+    options.add("verbose", 10);
     return options;
 }
 
 
 void RialtoDbWriter::localStart()
 {
+    log()->get(LogLevel::Debug) << "RialtoDbWriter::localStart()" << std::endl;
+
     // pdal writers always clobber their output file, so we follow
     // the same convention here -- even though we're dealing with
-    // an output "directory" instead of and output "file"
-    if (FileUtils::directoryExists(m_filename))
-    {
-      FileUtils::deleteDirectory(m_filename);
-    }
-
-    if (!FileUtils::createDirectory(m_filename)) {
-        throw pdal_error("RialtoFileWriter: Error creating directory");
-    }
+    // an output "database" instead of an output "file"
+  
+    FileUtils::deleteFile(m_connection);
+    
+    RialtoDb db(m_connection);
+    db.open(true);
 }
 
 
 void RialtoDbWriter::localFinish()
 {
+    log()->get(LogLevel::Debug) << "RialtoDbWriter::localFinish()" << std::endl;
 }
 
 

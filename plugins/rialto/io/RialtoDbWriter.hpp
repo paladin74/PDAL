@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2014-2015, RadiantBlue Technologies, Inc.
+* Copyright (c) 2015, RadiantBlue Technologies, Inc.
 *
 * All rights reserved.
 *
@@ -43,8 +43,14 @@
 extern "C" int32_t RialtoDbWriter_ExitFunc();
 extern "C" PF_ExitFunc RialtoDbWriter_InitPlugin();
 
+namespace rialtosupport
+{
+    class RialtoDb;
+}
+
 namespace pdal
 {
+    using namespace rialtosupport;
 
 class Options;
 
@@ -69,8 +75,9 @@ public:
 private:
     virtual void processOptions(const Options& options);
 
-    std::string m_directory;
-
+    std::string m_connection;
+    RialtoDb* m_rialtoDb;
+    
     RialtoDbWriter& operator=(const RialtoDbWriter&); // not implemented
     RialtoDbWriter(const RialtoDbWriter&); // not implemented
 };

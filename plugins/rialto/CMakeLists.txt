@@ -4,30 +4,34 @@
 
 include (${PDAL_CMAKE_DIR}/sqlite.cmake)
 
-set(srcsF
+set(file_srcs
     io/RialtoWriter.cpp
-    io/RialtoFileWriter.cpp)
+    io/RialtoFileWriter.cpp
+    )
     
-set(incsF
+set(file_incs
     io/RialtoWriter.hpp
     io/RialtoFileWriter.hpp
-)
+    )
 
-set(srcsD
+set(db_srcs
     io/RialtoWriter.cpp
-    io/RialtoDbWriter.cpp)
+    io/RialtoDbWriter.cpp
+    io/RialtoDb.cpp
+    )
 
-set(incsD
+set(db_incs
     io/RialtoWriter.hpp
     io/RialtoDbWriter.hpp
+    io/RialtoDb.hpp
 )
 
 PDAL_ADD_PLUGIN(dbwriter_libname writer rialtodb
-    FILES "${srcsD}" "${incsD}"
+    FILES "${db_srcs}" "${db_incs}"
     LINK_WITH ${SQLITE3_LIBRARY})
 
 PDAL_ADD_PLUGIN(filewriter_libname writer rialtofile
-    FILES "${srcsF}" "${incsF}")
+    FILES "${file_srcs}" "${file_incs}")
 
 #
 # Rialto tests
@@ -38,7 +42,7 @@ if(BUILD_RIALTO_TESTS)
         LINK_WITH ${filewriter_libname}
     )
     PDAL_ADD_TEST(rialtodbtest
-        FILES test/RialtoDb.cpp test/RialtoDbTest.cpp test/RialtoDbWriterTest.cpp
+        FILES test/RialtoDbWriterTest.cpp
         LINK_WITH ${dbwriter_libname}
     )
 endif()

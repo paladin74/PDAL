@@ -43,7 +43,7 @@
 
 // A Rialto database contains two tables:
 // 
-// DataSets
+// TileSets
 //    id (PK)
 //    name
 //    bounds
@@ -52,26 +52,55 @@
 //
 // Tiles
 //    id (PK)
-//    dataset id (FK)
+//    yileset id (FK)
 //    x, y, level
 
+namespace pdal {
+class Log;
+class SQLite;
+
+}
 
 namespace rialtosupport
 {
-class SQLite;
+
+using namespace pdal;
 
 
 
 class PDAL_DLL RialtoDb
 {
 public:
-    enum Mode {
-        Invalid,
-        Create,
-        Write,
-        Read
+    enum DataType {
+        Uint8, Uint16, Uint32, Uint64,
+        Int8, Int16, Int32, Int64,
+        Float32, Float64
     };
-
+    
+    // note we always use EPSG:4325
+    struct TileSetInfo {
+        std::string name; // aka filename
+        uint32_t maxLevel;
+        uint32_t numCols;
+        uint32_t numRows;
+        double xmin, ymin, xmax, ymax; // tile set extents (not extents of actual data)
+        uint32_t numDimensions;
+    };
+    
+    struct DimensionInfo {
+        DataType datatype;
+        std::string name;
+        double minimum;
+        double mean;
+        double maximum;
+    };
+    
+    struct TileInfo {
+        uint32_t level;
+        uint32_t x; // col
+        uint32_t y; // row
+    };
+    
     // modes:
     //   Create: creates a new database and sets up the required tables
     //           it is an error if the db already exists
@@ -80,30 +109,61 @@ public:
     //          it is also an error if the db doesn't have the required tables
     //   Read: opens an existing database
     //         it is an error if the db doesn't already exist
-    RialtoDb(const std::string& path, Mode mode);
+    RialtoDb(const std::string& connection);
+
     ~RialtoDb();
     
+    void open(bool writable=false);
+
+    void close();
+    
+    // adds a tile set to the database
+    //
     // construct a reader for the file, and send it to a db writer
     // (will also create the reproj and stats filters)
     // returns id of new data set
-    uint32_t addDataSet(const std::string& filename);
+    uint32_t addTileSet(const std::string& filename);
+
+    // remove a tile set from the database
+    void deleteTileSet(uint32_t tileSetId);
     
-    std::vector<uint32_t> getDataSetIds();
-    std::string getDataSetInfo(uint32_t dataSetId);
+    // get list all the tile sets in the database, as a list of its
+    std::vector<uint32_t> getTileSetIds();
     
-    std::vector<uint32_t> getTileIds(/*bbox, levels*/);
-    void getTileInfo(uint32_t tileId);
+    // get info about a specific tile set
+    TileSetInfo getTileSetInfo(uint32_t tileSetId);
     
-    int foo();
+    // get info about one of the dimensions of a tile set
+    DimensionInfo getDimensionInfo(uint32_t tileSetId, uint32_t dimension);
     
+    // get info about a tile
+    TileInfo getTileInfo(uint32_t tileId);
+    
+    // query for all the points of a tile set, bounded by bbox region
+    // returns a pipeline made up of a BufferReader and a CropFilter
+    Stage* query(uint32_t tileSetId,
+                 double minx, double miny,
+                 double max, double maxy,
+                 uint32_t minLevel, uint32_t maxLevel);
+
 private:
-    pdal::Writer* buildPipeline();
-    void executePipeline(pdal::Writer*);
+    // query for all the tiles of a tile set, bounded by bbox region
+    std::vector<uint32_t> getTileSets(uint32_t tileSetId,
+                                      double minx, double miny,
+                                      double max, double maxy,
+                                      uint32_t minLevel, uint32_t maxLevel);
+
+    void createTileSetsTable();
+    void createTilesTable();
     
     void query();
     
-    SQLite* m_sqlite;
-    Mode m_mode;
+    LogPtr log() const { return m_log; }
+    
+    std::string m_connection;
+    std::unique_ptr<SQLite> m_session;
+    LogPtr m_log;
+    int m_srid;
     
     RialtoDb& operator=(const RialtoDb&); // not implemented
     RialtoDb(const RialtoDb&); // not implemented

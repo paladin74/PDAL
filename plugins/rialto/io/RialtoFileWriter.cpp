@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2014-2015, RadiantBlue Technologies, Inc.
+* Copyright (c) 2015, RadiantBlue Technologies, Inc.
 *
 * All rights reserved.
 *
@@ -63,7 +63,9 @@ namespace
 
 void RialtoFileWriter::writeHeader(MetadataNode tileSetNode,
                                    PointLayoutPtr layout)
-{        
+{
+    log()->get(LogLevel::Debug) << "RialtoFileWriter::writeHeader()" << std::endl;
+
     MetadataNode headerNode = tileSetNode.findChild("header");
     assert(headerNode.valid());
     const uint32_t maxLevel = getMetadataU32(headerNode, "maxLevel");
@@ -120,6 +122,8 @@ void RialtoFileWriter::writeHeader(MetadataNode tileSetNode,
 
 void RialtoFileWriter::writeTile(MetadataNode tileNode, PointView* view)
 {
+    log()->get(LogLevel::Debug) << "RialtoFileWriter::writeTile()" << std::endl;
+    
     const uint32_t level = getMetadataU32(tileNode, "level");
     const uint32_t tileX = getMetadataU32(tileNode, "tileX");
     const uint32_t tileY = getMetadataU32(tileNode, "tileY");
@@ -176,6 +180,8 @@ Options RialtoFileWriter::getDefaultOptions()
 
 void RialtoFileWriter::localStart()
 {
+    log()->get(LogLevel::Debug) << "RialtoFileWriter::localStart()" << std::endl;
+    
     // pdal writers always clobber their output file, so we follow
     // the same convention here -- even though we're dealing with
     // an output "directory" instead of and output "file"
@@ -192,6 +198,7 @@ void RialtoFileWriter::localStart()
 
 void RialtoFileWriter::localFinish()
 {
+    log()->get(LogLevel::Debug) << "RialtoFileWriter::localFinish()" << std::endl;
 }
 
 
