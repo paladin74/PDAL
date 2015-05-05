@@ -69,21 +69,26 @@ void RialtoDbWriter::writeHeader(MetadataNode tileSetNode,
 {
     log()->get(LogLevel::Debug) << "RialtoDbWriter::writeHeader()" << std::endl;
 
+    RialtoDb::TileSetInfo data;
+    data.name = "a.las";
+
     MetadataNode headerNode = tileSetNode.findChild("header");
     assert(headerNode.valid());
-    const uint32_t maxLevel = getMetadataU32(headerNode, "maxLevel");
+    data.maxLevel = getMetadataU32(headerNode, "maxLevel");
 
-    const uint32_t numCols = getMetadataU32(headerNode, "numCols");
-    const uint32_t numRows = getMetadataU32(headerNode, "numRows");
-    assert(numCols == 2 && numRows == 1);
+    data.numCols = getMetadataU32(headerNode, "numCols");
+    data.numRows = getMetadataU32(headerNode, "numRows");
+    assert(data.numCols == 2 && data.numRows == 1);
     
-    const double minx = getMetadataF64(headerNode, "minX");
-    const double miny = getMetadataF64(headerNode, "minY");
-    const double maxx = getMetadataF64(headerNode, "maxX");
-    const double maxy = getMetadataF64(headerNode, "maxY");
-    assert(minx==-180.0 && miny==-90.0 && maxx==180.0 && maxy==90.0);
+    data.minx = getMetadataF64(headerNode, "minX");
+    data.miny = getMetadataF64(headerNode, "minY");
+    data.maxx = getMetadataF64(headerNode, "maxX");
+    data.maxy = getMetadataF64(headerNode, "maxY");
+    assert(data.minx==-180.0 && data.miny==-90.0 && data.maxx==180.0 && data.maxy==90.0);
 
-    uint32_t id = m_rialtoDb->addTileSet("a.las");
+    data.numDimensions = 0;
+
+    uint32_t id = m_rialtoDb->addTileSet(data);
 
 /*
     fprintf(fp, "    \"version\": 4,\n");
@@ -116,10 +121,14 @@ void RialtoDbWriter::writeTile(MetadataNode tileNode, PointView* view)
 {
     log()->get(LogLevel::Debug) << "RialtoDbWriter::writeTile()" << std::endl;
 
-    const uint32_t level = getMetadataU32(tileNode, "level");
-    const uint32_t tileX = getMetadataU32(tileNode, "tileX");
-    const uint32_t tileY = getMetadataU32(tileNode, "tileY");
+    RialtoDb::TileInfo data;
+    data.tileSetId = 0;
+    data.level = getMetadataU32(tileNode, "level");
+    data.x = getMetadataU32(tileNode, "tileX");
+    data.y = getMetadataU32(tileNode, "tileY");
     const uint32_t mask = getMetadataU32(tileNode, "mask");
+
+    uint32_t id = m_rialtoDb->addTile(data, NULL);
 
 /*
     if (view)
@@ -168,14 +177,16 @@ void RialtoDbWriter::localStart()
   
     FileUtils::deleteFile(m_connection);
     
-    RialtoDb db(m_connection);
-    db.open(true);
+    m_rialtoDb = new RialtoDb(m_connection);
+    m_rialtoDb->open(true);
 }
 
 
 void RialtoDbWriter::localFinish()
 {
     log()->get(LogLevel::Debug) << "RialtoDbWriter::localFinish()" << std::endl;
+
+    m_rialtoDb->close();
 }
 
 

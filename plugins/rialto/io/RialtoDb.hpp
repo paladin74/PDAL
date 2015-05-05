@@ -83,7 +83,10 @@ public:
         uint32_t maxLevel;
         uint32_t numCols;
         uint32_t numRows;
-        double xmin, ymin, xmax, ymax; // tile set extents (not extents of actual data)
+        double minx; // tile set extents (not extents of actual data)
+        double miny;
+        double maxx;
+        double maxy;
         uint32_t numDimensions;
     };
     
@@ -96,6 +99,7 @@ public:
     };
     
     struct TileInfo {
+        uint32_t tileSetId;
         uint32_t level;
         uint32_t x; // col
         uint32_t y; // row
@@ -119,10 +123,8 @@ public:
     
     // adds a tile set to the database
     //
-    // construct a reader for the file, and send it to a db writer
-    // (will also create the reproj and stats filters)
     // returns id of new data set
-    uint32_t addTileSet(const std::string& filename);
+    uint32_t addTileSet(const RialtoDb::TileSetInfo& data);
 
     // remove a tile set from the database
     void deleteTileSet(uint32_t tileSetId);
@@ -136,6 +138,9 @@ public:
     // get info about one of the dimensions of a tile set
     DimensionInfo getDimensionInfo(uint32_t tileSetId, uint32_t dimension);
     
+    // returns id of new tile
+    uint32_t addTile(const RialtoDb::TileInfo& data, char* buf);
+
     // get info about a tile
     TileInfo getTileInfo(uint32_t tileId);
     

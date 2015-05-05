@@ -118,7 +118,8 @@ void RialtoDb::createTileSetsTable()
         << "miny DOUBLE,"
         << "maxx DOUBLE,"
         << "maxy DOUBLE,"
-        << "maxLevels INTEGER"
+        << "maxLevel INTEGER,"
+        << "numDims INTEGER"
         << ")";
         
     m_session->execute(oss1.str());
@@ -160,28 +161,54 @@ void RialtoDb::createTilesTable()
 }
 
 
-uint32_t RialtoDb::addTileSet(const std::string& name)
+uint32_t RialtoDb::addTileSet(const RialtoDb::TileSetInfo& data)
 {
     std::ostringstream oss;
     oss << "INSERT INTO TileSets "
-        << "(name, minx, miny, maxx, maxy, maxLevels) "
+        << "(name, minx, miny, maxx, maxy, maxLevel) "
         << "VALUES (?, ?, ?, ?, ?, ?)";
 
     records rs;
     row r;
     
-    r.push_back(column(name));
-    r.push_back(column(22));
-    r.push_back(column(33));
-    r.push_back(column(44));
-    r.push_back(column(55));
-    r.push_back(column(66));
+    r.push_back(column(data.name));
+    r.push_back(column(data.minx));
+    r.push_back(column(data.miny));
+    r.push_back(column(data.maxx));
+    r.push_back(column(data.maxy));
+    r.push_back(column(data.maxLevel));
+    //r.push_back(column(data.numDimensions));
     rs.push_back(r);
 
-//    m_session->insert(oss.str(), rs);
+    m_session->insert(oss.str(), rs);
 
-    long id = 0;//m_session->last_row_id();
-//    log()->get(LogLevel::Debug) << "inserted id=" << id << std::endl;
+    long id = m_session->last_row_id();
+    log()->get(LogLevel::Debug) << "inserted id=" << id << std::endl;
+    
+    return id;
+}
+
+
+uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data, char* buf)
+{
+    std::ostringstream oss;
+    oss << "INSERT INTO Tiles "
+        << "(tile_set_id, level, x, y) "
+        << "VALUES (?, ?, ?, ?)";
+
+    records rs;
+    row r;
+    
+    r.push_back(column(data.tileSetId));
+    r.push_back(column(data.level));
+    r.push_back(column(data.x));
+    r.push_back(column(data.y));
+    rs.push_back(r);
+
+    m_session->insert(oss.str(), rs);
+
+    long id = m_session->last_row_id();
+    log()->get(LogLevel::Debug) << "inserted id=" << id << std::endl;
     
     return id;
 }
