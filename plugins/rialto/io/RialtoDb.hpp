@@ -133,8 +133,14 @@ public:
     uint32_t addTile(const RialtoDb::TileInfo& data, char* buf, uint32_t buflen);
 
     // get info about a tile
-    TileInfo getTileInfo(uint32_t tileId);
+    TileInfo getTileInfo(uint32_t tileSetId, uint32_t tileId);
 
+    // get the raw buffer with the points
+    void getTileData(uint32_t tileId, char*& buf, uint32_t& buflen);
+    
+    // use with caution for levels greater than 16 or so
+    std::vector<uint32_t> getTileIdsAtLevel(uint32_t tileSetId, uint32_t level);
+    
     // query for all the points of a tile set, bounded by bbox region
     // returns a pipeline made up of a BufferReader and a CropFilter
     Stage* query(uint32_t tileSetId,

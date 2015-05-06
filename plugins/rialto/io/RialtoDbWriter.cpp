@@ -130,28 +130,23 @@ void RialtoDbWriter::writeTile(MetadataNode tileNode, PointView* view)
     data.y = getMetadataU32(tileNode, "tileY");
     const uint32_t mask = getMetadataU32(tileNode, "mask");
 
+    log()->get(LogLevel::Debug) << "RialtoDbWriter::writeTile for "
+        << data.level << "," << data.x << "," << data.y << " "
+        << (view==0 ? "no" : "yes")
+        << std::endl;
+
     char* buf = NULL;
     size_t bufsiz = 0;
     if (view)
     {
-        char* buf = createBlob(view, bufsiz);
+        buf = createBlob(view, bufsiz);
     }
 
-    uint32_t id = m_rialtoDb->addTile(data, buf, (uint32_t)bufsiz);
-    delete[] buf; // TODO
-
-/*
-    if (view)
+    if (buf)
     {
-        size_t bufsiz;
-        char* buf = createBlob(view, bufsiz);
-        fwrite(buf, bufsiz, 1, fp);
+        uint32_t id = m_rialtoDb->addTile(data, buf, (uint32_t)bufsiz);
+        delete[] buf; // TODO
     }
-
-    uint8_t mask8 = mask;
-    fwrite(&mask8, 1, 1, fp);
-*/
-
 }
 
 

@@ -292,6 +292,104 @@ RialtoDb::TileSetInfo RialtoDb::getTileSetInfo(uint32_t tileSetId)
 }
 
 
+RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileSetId, uint32_t tileId)
+{
+    TileInfo info;
+    
+    std::ostringstream oss;
+    oss << "SELECT tile_id,tile_set_id,level,x,y "
+        << "FROM Tiles WHERE tile_set_id=" << tileSetId
+        << " AND tile_id=" << tileId;
+
+    log()->get(LogLevel::Debug) << "SELECT for tile" << std::endl;
+
+    m_session->query(oss.str());
+
+    // should get exactly one row back
+    const row* r = m_session->get();
+    assert(r);
+
+    assert(tileId == boost::lexical_cast<uint32_t>(r->at(0).data));
+    assert(tileSetId == boost::lexical_cast<uint32_t>(r->at(1).data));
+    info.level = boost::lexical_cast<double>(r->at(2).data);
+    info.x = boost::lexical_cast<double>(r->at(3).data);
+    info.y = boost::lexical_cast<double>(r->at(4).data);
+    
+    assert(!m_session->next());
+
+    return info;
+}
+
+
+std::vector<uint32_t> RialtoDb::getTileIdsAtLevel(uint32_t tileSetId, uint32_t level)
+{
+    std::vector<uint32_t> ids;
+
+    std::ostringstream oss;
+    oss << "SELECT tile_id FROM Tiles"
+        << " WHERE tile_set_id=" << tileSetId
+        << " AND level=" << level;
+
+    log()->get(LogLevel::Debug) << "SELECT for tile ids at level: " << level << std::endl;
+
+    m_session->query(oss.str());
+
+    do {
+        const row* r = m_session->get();
+        if (!r) break;
+
+        uint32_t id = boost::lexical_cast<uint32_t>(r->at(0).data);
+        log()->get(LogLevel::Debug) << "  got tile id=" << id << std::endl;
+        ids.push_back(id);
+    } while (m_session->next());
+
+    return ids;
+}
+
+
+void RialtoDb::getTileData(uint32_t tileId, char*& buf, uint32_t& bufLen)
+{
+    buf = NULL;
+    bufLen = 0;
+    
+    std::ostringstream oss;
+    oss << "SELECT points "
+        << "FROM Tiles "
+        << "WHERE tile_id=" << tileId;
+
+    log()->get(LogLevel::Debug) << "SELECT for data for tile: " << tileId << std::endl;
+
+    m_session->query(oss.str());
+
+    // should get exactly one row back
+    const row* r = m_session->get();
+    assert(r);
+
+    double* x = (double*)(&r->at(0).blobBuf[0]);
+    double* y = (double*)(&r->at(0).blobBuf[8]);
+    double* z = (double*)(&r->at(0).blobBuf[16]);
+    log()->get(LogLevel::Debug) << "   x: " << *x << std::endl;
+    log()->get(LogLevel::Debug) << "   y: " << *y << std::endl;
+    log()->get(LogLevel::Debug) << "   z: " << *z << std::endl;
+    
+    char* p = (char*)(&r->at(0).blobBuf[0]);
+
+    bufLen = (r->at(0)).blobLen;
+    buf = new char[bufLen];
+    for (uint32_t i=0; i<bufLen; i++)
+        buf[i] = p[i];      // TODO
+    buf=p;
+    double* xx = (double*)(buf + 0);
+    double* yy = (double*)(buf + 8);
+    double* zz = (double*)(buf + 16);
+    log()->get(LogLevel::Debug) << "   xx: " << *xx << std::endl;
+    log()->get(LogLevel::Debug) << "   yy: " << *yy << std::endl;
+    log()->get(LogLevel::Debug) << "   zz: " << *zz << std::endl;
+    assert(buf);
+    assert(bufLen);    
+}
+
+
 RialtoDb::DimensionInfo RialtoDb::getDimensionInfo(uint32_t tileSetId, uint32_t position)
 {
     DimensionInfo info;
@@ -390,6 +488,9 @@ void RialtoDb::addDimensions(uint32_t tileSetId,
 
 uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data, char* buf, uint32_t buflen)
 {
+    assert(buf);
+    assert(buflen);
+    
     std::ostringstream oss;
     oss << "INSERT INTO Tiles "
         << "(tile_set_id, level, x, y, points) "
@@ -402,16 +503,13 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data, char* buf, uint32_t b
     r.push_back(column(data.level));
     r.push_back(column(data.x));
     r.push_back(column(data.y));
-    if (buf)
-        r.push_back(blob(buf, buflen));
-    else
-        r.push_back(column('NULL'));
+    r.push_back(blob(buf, buflen));
     rs.push_back(r);
 
     m_session->insert(oss.str(), rs);
 
     long id = m_session->last_row_id();
-    log()->get(LogLevel::Debug1) << "inserted Tile, id=" << id << std::endl;
+    log()->get(LogLevel::Debug) << "inserted Tile, id=" << id << std::endl;
 
     return id;
 }
