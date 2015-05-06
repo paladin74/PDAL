@@ -41,20 +41,6 @@
 #include <string>
 
 
-// A Rialto database contains two tables:
-//
-// TileSets
-//    id (PK)
-//    name
-//    bounds
-//    levels
-//    ...
-//
-// Tiles
-//    id (PK)
-//    yileset id (FK)
-//    x, y, level
-
 namespace pdal {
 class Log;
 class SQLite;
@@ -115,14 +101,6 @@ public:
         uint32_t y; // row
     };
 
-    // modes:
-    //   Create: creates a new database and sets up the required tables
-    //           it is an error if the db already exists
-    //   Write: opens the database for writing
-    //          it is an error if the db doesn't already exist
-    //          it is also an error if the db doesn't have the required tables
-    //   Read: opens an existing database
-    //         it is an error if the db doesn't already exist
     RialtoDb(const std::string& connection);
 
     ~RialtoDb();
@@ -152,7 +130,7 @@ public:
     DimensionInfo getDimensionInfo(uint32_t tileSetId, uint32_t dimension);
 
     // returns id of new tile
-    uint32_t addTile(const RialtoDb::TileInfo& data, char* buf);
+    uint32_t addTile(const RialtoDb::TileInfo& data, char* buf, uint32_t buflen);
 
     // get info about a tile
     TileInfo getTileInfo(uint32_t tileId);

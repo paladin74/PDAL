@@ -49,6 +49,36 @@
 #include <pdal/../../plugins/sqlite/io/SQLiteCommon.hpp> // TODO: fix path
 
 
+// A Rialto database contains these tables:
+//
+// TileSets
+//    tile_set_id (PK)
+//    name
+//    minx
+//    miny
+//    maxx
+//    maxy
+//    maxLevel
+//    numDims
+//
+// Tiles
+//    tile_id (PK)
+//    tile_set_id (FK)
+//    level
+//    x
+//    y
+//    points
+//
+// Dimensions
+//    tile_set_id (FK)
+//    name
+//    position
+//    datatype
+//    minimum
+//    mean
+//    maximum
+        
+
 namespace rialtosupport
 {
 
@@ -93,9 +123,19 @@ void RialtoDb::open(bool writable)
     }
 #endif
 
-    createTileSetsTable();
-    createTilesTable();
-    createDimensionsTable();
+    if (writable) {
+        createTileSetsTable();
+        createTilesTable();
+        createDimensionsTable();
+    } else {
+        assert(m_session->doesTableExist("TileSets"));
+        if (!m_session->doesTableExist("TileSets"))
+            throw pdal_error("RialtoDb: required table 'TileSets' not found");
+        if (!m_session->doesTableExist("Tiles"))
+            throw pdal_error("RialtoDb: required table 'Tiles' not found");
+        if (!m_session->doesTableExist("Dimensions"))
+            throw pdal_error("RialtoDb: required table 'Dimensions' not found");
+    }
 }
 
 
@@ -144,8 +184,8 @@ void RialtoDb::createTilesTable()
         << "tile_id INTEGER PRIMARY KEY AUTOINCREMENT,"
         << "tile_set_id INTEGER, "
         << "level INTEGER,"
-        << "x DOUBLE,"
-        << "y DOUBLE,"
+        << "x INTEGER,"
+        << "y INTEGER,"
         << "points BLOB, "
         << "FOREIGN KEY(tile_set_id) REFERENCES TileSets(tile_set_id)"
         << ")";
@@ -170,10 +210,10 @@ void RialtoDb::createDimensionsTable()
     std::ostringstream oss2;
 
     oss1 << "CREATE TABLE Dimensions("
-        << "tile_set_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        << "tile_set_id INTEGER,"
         << "name VARCHAR(64),"           // TODO
         << "position INTEGER,"
-        << "datatype INTEGER,"
+        << "dataType INTEGER,"
         << "minimum DOUBLE,"
         << "mean DOUBLE,"
         << "maximum DOUBLE,"
@@ -181,6 +221,41 @@ void RialtoDb::createDimensionsTable()
         << ")";
 
     m_session->execute(oss1.str());
+}
+
+std::vector<uint32_t> RialtoDb::getTileSetIds()
+{
+    std::ostringstream oss;
+    oss << "SELECT * from TileSets";
+    
+    m_session->query(oss.str());
+    
+    while (m_session->next()) {
+        const row* r = m_session->get();
+        if (!r) break;
+
+        int i=0;
+        for (auto c: *r)
+        {
+            log()->get(LogLevel::Debug) << "SELECT " << i << " " << c.data << std::endl;
+        //column const& c = r->at(0);
+            ++i;
+        }
+    }
+}
+
+
+RialtoDb::TileSetInfo RialtoDb::getTileSetInfo(uint32_t tileSetId)
+{
+    TileSetInfo info;
+    return info;
+}
+
+
+RialtoDb::DimensionInfo RialtoDb::getDimensionInfo(uint32_t tileSetId, uint32_t position)
+{
+    DimensionInfo info;
+    return info;
 }
 
 
@@ -206,7 +281,7 @@ uint32_t RialtoDb::addTileSet(const RialtoDb::TileSetInfo& data)
     m_session->insert(oss.str(), rs);
 
     long id = m_session->last_row_id();
-    log()->get(LogLevel::Debug) << "inserted id=" << id << std::endl;
+    log()->get(LogLevel::Debug1) << "inserted TileSet, id=" << id << std::endl;
 
     //log()->get(LogLevel::Debug) << "dimensions count: "
     //  << data.numDimensions << " " << data.dimensions.size() << std::endl;
@@ -222,14 +297,15 @@ void RialtoDb::addDimensions(uint32_t tileSetId,
 {
   std::ostringstream oss;
   oss << "INSERT INTO Dimensions "
-      << "(tile_set_id, name, position, datatype, minimum, mean, maximum) "
+      << "(tile_set_id, name, position, dataType, minimum, mean, maximum) "
       << "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-  records rs;
-  row r;
 
   for (auto dim: dims)
   {
+    records rs;
+    row r;
+
     log()->get(LogLevel::Debug) << "INSERT for dim: " << dim.name << std::endl;
 
     r.push_back(column(tileSetId));
@@ -240,18 +316,19 @@ void RialtoDb::addDimensions(uint32_t tileSetId,
     r.push_back(column(dim.mean));
     r.push_back(column(dim.maximum));
     rs.push_back(r);
+
+    m_session->insert(oss.str(), rs);
   }
 
-  m_session->insert(oss.str(), rs);
 }
 
 
-uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data, char* buf)
+uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data, char* buf, uint32_t buflen)
 {
     std::ostringstream oss;
     oss << "INSERT INTO Tiles "
         << "(tile_set_id, level, x, y, points) "
-        << "VALUES (?, ?, ?, ?)";
+        << "VALUES (?, ?, ?, ?, ?)";
 
     records rs;
     row r;
@@ -260,13 +337,16 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data, char* buf)
     r.push_back(column(data.level));
     r.push_back(column(data.x));
     r.push_back(column(data.y));
-    r.push_back(column(buf));
+    if (buf)
+        r.push_back(blob(buf, buflen));
+    else
+        r.push_back(column('NULL'));
     rs.push_back(r);
 
     m_session->insert(oss.str(), rs);
 
     long id = m_session->last_row_id();
-    log()->get(LogLevel::Debug) << "inserted id=" << id << std::endl;
+    log()->get(LogLevel::Debug1) << "inserted Tile, id=" << id << std::endl;
 
     return id;
 }

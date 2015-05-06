@@ -146,7 +146,7 @@ static void verifyDirectorySize(const std::string& path, uint32_t expectedSize)
 
 
 TEST(RialtoDbWriterTest, testWriter)
-{return;
+{
     FileUtils::deleteFile(Support::temppath("rialto2.sqlite"));
 
     // set up test data
@@ -164,7 +164,7 @@ TEST(RialtoDbWriterTest, testWriter)
         inputView->setField(Dimension::Id::Z, i, data[i].z);
     }
 
-
+{
     // stages
     Options readerOptions;
     BufferReader reader;
@@ -189,18 +189,51 @@ TEST(RialtoDbWriterTest, testWriter)
     writerOptions.add("overwrite", true);
     writerOptions.add("verbose", LogLevel::Debug);
     StageFactory f;
-    std::unique_ptr<Stage> writer(f.createStage("writers.rialtodb"));
+    Stage* writer = f.createStage("writers.rialtodb");
     writer->setOptions(writerOptions);
     writer->setInput(tiler);
 
     // execution
     writer->prepare(table);
     PointViewSet outputViews = writer->execute(table);
-return;
-    bool ok = Support::compare_text_files(Support::temppath("rialto1/header.json-db"),
-                                          Support::datapath("io/rialto1-header.json"));
-    EXPECT_TRUE(ok);
+    delete writer;
+}
+    rialtosupport::RialtoDb db(Support::temppath("rialto2.sqlite"));
+    db.open(false);
+    
+    std::vector<uint32_t> tileSetIds = db.getTileSetIds();
+    EXPECT_EQ(tileSetIds.size(), 1u);
+    
+    rialtosupport::RialtoDb::TileSetInfo tileSetInfo = db.getTileSetInfo(tileSetIds[0]);
+    EXPECT_EQ(tileSetInfo.minx, -180.0);
+    EXPECT_EQ(tileSetInfo.miny, -90.0);
+    EXPECT_EQ(tileSetInfo.maxx, 180.0);
+    EXPECT_EQ(tileSetInfo.maxy, 90.0);
+    EXPECT_EQ(tileSetInfo.maxLevel, 2u);
+    EXPECT_EQ(tileSetInfo.numCols, 2u);
+    EXPECT_EQ(tileSetInfo.numRows, 1u);
+    EXPECT_EQ(tileSetInfo.numDimensions, 3u);
 
+    rialtosupport::RialtoDb::DimensionInfo dimensionInfo;
+    dimensionInfo = db.getDimensionInfo(tileSetIds[0], 0);
+    EXPECT_EQ(dimensionInfo.name, "X");
+    EXPECT_EQ(dimensionInfo.dataType, rialtosupport::RialtoDb::Float64);
+    EXPECT_EQ(dimensionInfo.minimum, -179.0);
+    EXPECT_EQ(dimensionInfo.mean, 0.0);
+    EXPECT_EQ(dimensionInfo.maximum, 91.0);
+    dimensionInfo = db.getDimensionInfo(tileSetIds[0], 1);
+    EXPECT_EQ(dimensionInfo.name, "Y");
+    EXPECT_EQ(dimensionInfo.dataType, rialtosupport::RialtoDb::Float64);
+    EXPECT_EQ(dimensionInfo.minimum, -89.0);
+    EXPECT_EQ(dimensionInfo.mean, 0.0);
+    EXPECT_EQ(dimensionInfo.maximum, 89.0);
+    dimensionInfo = db.getDimensionInfo(tileSetIds[0], 2);
+    EXPECT_EQ(dimensionInfo.name, "Z");
+    EXPECT_EQ(dimensionInfo.dataType, rialtosupport::RialtoDb::Float64);
+    EXPECT_EQ(dimensionInfo.minimum, 0.0);
+    EXPECT_EQ(dimensionInfo.mean, 38.5);
+    EXPECT_EQ(dimensionInfo.maximum, 77.0);
+return;
 
     verify("rialto1/0/0/0.ria-db", &data[0], 15);
     verify("rialto1/0/1/0.ria-db", NULL, 15);
@@ -238,7 +271,7 @@ return;
     verifyDirectorySize("rialto1/2/5", 2);
     verifyDirectorySize("rialto1/2/6", 2);
 
-    if (ok) {
+    //if (ok) {
         //FileUtils::deleteDirectory(Support::temppath("rialto2.sqlite"));
-    }
+    //}
 }

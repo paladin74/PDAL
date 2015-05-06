@@ -158,7 +158,7 @@ void RialtoWriter::ready(PointTableRef table)
 // write out the tile with this pointview
 void RialtoWriter::write(const PointViewPtr viewPtr)
 {
-    log()->get(LogLevel::Debug) << "RialtoWriter::write()" << std::endl;
+    log()->get(LogLevel::Debug1) << "RialtoWriter::write()" << std::endl;
     
     MetadataNode tileNode = m_pointViewMap[viewPtr->id()];
     assert(tileNode.valid());

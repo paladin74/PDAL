@@ -93,7 +93,7 @@ void RialtoDbWriter::writeHeader(MetadataNode tileSetNode,
     data.dimensions.clear();
     data.dimensions.resize(data.numDimensions);
 
-    log()->get(LogLevel::Debug) << "numdims: " << data.dimensions.size() << std::endl;
+    log()->get(LogLevel::Debug1) << "num dims: " << data.dimensions.size() << std::endl;
 
     size_t i = 0;
     for (const auto& dim : layout->dims())
@@ -112,9 +112,6 @@ void RialtoDbWriter::writeHeader(MetadataNode tileSetNode,
         dimData.mean = mean;
         dimData.maximum = maximum;
 
-        log()->get(LogLevel::Debug) << "name: " << name << std::endl;
-        log()->get(LogLevel::Debug) << "    : " << dimData.name << std::endl;
-
         ++i;
     }
 
@@ -124,7 +121,7 @@ void RialtoDbWriter::writeHeader(MetadataNode tileSetNode,
 
 void RialtoDbWriter::writeTile(MetadataNode tileNode, PointView* view)
 {
-    log()->get(LogLevel::Debug) << "RialtoDbWriter::writeTile()" << std::endl;
+    log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
 
     RialtoDb::TileInfo data;
     data.tileSetId = 0;
@@ -134,13 +131,13 @@ void RialtoDbWriter::writeTile(MetadataNode tileNode, PointView* view)
     const uint32_t mask = getMetadataU32(tileNode, "mask");
 
     char* buf = NULL;
+    size_t bufsiz = 0;
     if (view)
     {
-        size_t bufsiz;
         char* buf = createBlob(view, bufsiz);
     }
 
-    uint32_t id = m_rialtoDb->addTile(data, buf);
+    uint32_t id = m_rialtoDb->addTile(data, buf, (uint32_t)bufsiz);
     delete[] buf; // TODO
 
 /*
