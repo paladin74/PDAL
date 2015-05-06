@@ -144,6 +144,7 @@ protected:
     bool m_usestdin;
     int m_argc;
     const char** m_argv;
+    Log m_log;
 
 private:
     int innerRun();

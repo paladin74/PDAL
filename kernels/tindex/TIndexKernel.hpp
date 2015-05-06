@@ -1,4 +1,3 @@
-#include <pdal/Kernel.hpp>
 /******************************************************************************
 * Copyright (c) 2015, Howard Butler (howard@hobu.co)
 *
@@ -57,6 +56,9 @@ namespace tindex
         int mtime;
     };
 }
+
+class KernelFactory;
+
 class PDAL_DLL TIndexKernel : public Kernel
 {
 public:
@@ -73,8 +75,9 @@ private:
 
     void* fetchGeometry(MetadataNode metadata);
     void createDS(std::string const& filename);
-    MetadataNode fetchInfo(std::string const& filename);
-    tindex::FieldIndexes createLayer(std::string const& filename, std::string const& srs_wkt);
+    MetadataNode fetchInfo(KernelFactory& factory, std::string const& filename);
+    tindex::FieldIndexes createLayer(std::string const& filename,
+        std::string const& srs_wkt);
     
     std::string m_outputFilename;
     std::string m_indexDirectory;
@@ -84,12 +87,9 @@ private:
     std::string m_tileIndexColumnName;
     std::string m_srsColumnName;
 
-
-    void* m_kernelFactory;
-    void* m_DS;
-    void* m_Layer;
-    void* m_fDefn;
-    bool m_bAbsolutePaths;
+    void *m_DS;
+    void *m_layer;
+    void *m_fDefn;
     std::string m_targetSRSString;
 };
 

@@ -59,6 +59,7 @@ namespace pdal
 
 Kernel::Kernel()
     : m_usestdin(false)
+    , m_log("pdal", "stderr")
     , m_isDebug(false)
     , m_verboseLevel(0)
     , m_showHelp(false)
@@ -69,7 +70,6 @@ Kernel::Kernel()
     , m_visualize(false)
 {
 }
-
 
 std::ostream& operator<<(std::ostream& ostr, const Kernel& kernel)
 {
