@@ -74,10 +74,11 @@ public:
 
 private:
     virtual void processOptions(const Options& options);
+    void createPatch(const PointViewPtr view);
 
     std::string m_connection;
     RialtoDb* m_rialtoDb;
-    
+
     RialtoDbWriter& operator=(const RialtoDbWriter&); // not implemented
     RialtoDbWriter(const RialtoDbWriter&); // not implemented
 };

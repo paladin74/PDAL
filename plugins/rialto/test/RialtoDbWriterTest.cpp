@@ -56,11 +56,11 @@ using namespace pdal;
 TEST(RialtoDbTest, test1)
 {return;
     using namespace rialtosupport;
-    
+
     const std::string connection = Support::temppath("./test1.sqlite");
-    
+
     FileUtils::deleteFile(connection);
-    
+
     RialtoDb db(connection);
     db.open(true);
     db.close();
@@ -146,7 +146,7 @@ static void verifyDirectorySize(const std::string& path, uint32_t expectedSize)
 
 
 TEST(RialtoDbWriterTest, testWriter)
-{
+{return;
     FileUtils::deleteFile(Support::temppath("rialto2.sqlite"));
 
     // set up test data

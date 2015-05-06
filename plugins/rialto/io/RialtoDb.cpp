@@ -54,7 +54,7 @@ namespace rialtosupport
 
 namespace
 {
-    
+
 } // anonymous namespace
 
 
@@ -75,7 +75,7 @@ void RialtoDb::open(bool writable)
 {
     m_log = std::shared_ptr<pdal::Log>(new pdal::Log("RialtoDB", "stdout"));
     m_log->setLevel(LogLevel::Debug);
-    
+
     log()->get(LogLevel::Debug) << "RialtoDB::open()" << std::endl;
 
     m_session = std::unique_ptr<SQLite>(new SQLite(m_connection, m_log));
@@ -83,7 +83,7 @@ void RialtoDb::open(bool writable)
 
 #if 0
     m_session->spatialite();
-    
+
     const bool hasSpatialite = m_session->doesTableExist("geometry_columns");
     if (!hasSpatialite)
     {
@@ -95,6 +95,7 @@ void RialtoDb::open(bool writable)
 
     createTileSetsTable();
     createTilesTable();
+    createDimensionsTable();
 }
 
 
@@ -121,7 +122,7 @@ void RialtoDb::createTileSetsTable()
         << "maxLevel INTEGER,"
         << "numDims INTEGER"
         << ")";
-        
+
     m_session->execute(oss1.str());
 
 #if 0
@@ -148,7 +149,7 @@ void RialtoDb::createTilesTable()
         << "points BLOB, "
         << "FOREIGN KEY(tile_set_id) REFERENCES TileSets(tile_set_id)"
         << ")";
-        
+
     m_session->execute(oss1.str());
 
 #if 0
@@ -161,31 +162,87 @@ void RialtoDb::createTilesTable()
 }
 
 
+void RialtoDb::createDimensionsTable()
+{
+    if (m_session->doesTableExist("Dimensions")) return;
+
+    std::ostringstream oss1;
+    std::ostringstream oss2;
+
+    oss1 << "CREATE TABLE Dimensions("
+        << "tile_set_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        << "name VARCHAR(64),"           // TODO
+        << "position INTEGER,"
+        << "datatype INTEGER,"
+        << "minimum DOUBLE,"
+        << "mean DOUBLE,"
+        << "maximum DOUBLE,"
+        << "FOREIGN KEY(tile_set_id) REFERENCES TileSets(tile_set_id)"
+        << ")";
+
+    m_session->execute(oss1.str());
+}
+
+
 uint32_t RialtoDb::addTileSet(const RialtoDb::TileSetInfo& data)
 {
     std::ostringstream oss;
     oss << "INSERT INTO TileSets "
-        << "(name, minx, miny, maxx, maxy, maxLevel) "
-        << "VALUES (?, ?, ?, ?, ?, ?)";
+        << "(name, minx, miny, maxx, maxy, maxLevel, numDims) "
+        << "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
     records rs;
     row r;
-    
+
     r.push_back(column(data.name));
     r.push_back(column(data.minx));
     r.push_back(column(data.miny));
     r.push_back(column(data.maxx));
     r.push_back(column(data.maxy));
     r.push_back(column(data.maxLevel));
-    //r.push_back(column(data.numDimensions));
+    r.push_back(column(data.numDimensions));
     rs.push_back(r);
 
     m_session->insert(oss.str(), rs);
 
     long id = m_session->last_row_id();
     log()->get(LogLevel::Debug) << "inserted id=" << id << std::endl;
-    
+
+    //log()->get(LogLevel::Debug) << "dimensions count: "
+    //  << data.numDimensions << " " << data.dimensions.size() << std::endl;
+    //assert(data.numDimensions == data.dimensions.size());
+    //addDimensions(id, data.dimensions);
+
     return id;
+}
+
+
+void RialtoDb::addDimensions(uint32_t tileSetId,
+                             const std::vector<DimensionInfo>& dims)
+{
+  std::ostringstream oss;
+  oss << "INSERT INTO Dimensions "
+      << "(tile_set_id, name, position, datatype, minimum, mean, maximum) "
+      << "VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+  records rs;
+  row r;
+
+  for (auto dim: dims)
+  {
+    log()->get(LogLevel::Debug) << "INSERT for dim: " << dim.name << std::endl;
+
+    r.push_back(column(tileSetId));
+    r.push_back(column(dim.name.c_str()));
+    r.push_back(column(dim.position));
+    r.push_back(column(dim.dataType));
+    r.push_back(column(dim.minimum));
+    r.push_back(column(dim.mean));
+    r.push_back(column(dim.maximum));
+    rs.push_back(r);
+  }
+
+  m_session->insert(oss.str(), rs);
 }
 
 
@@ -193,23 +250,24 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data, char* buf)
 {
     std::ostringstream oss;
     oss << "INSERT INTO Tiles "
-        << "(tile_set_id, level, x, y) "
+        << "(tile_set_id, level, x, y, points) "
         << "VALUES (?, ?, ?, ?)";
 
     records rs;
     row r;
-    
+
     r.push_back(column(data.tileSetId));
     r.push_back(column(data.level));
     r.push_back(column(data.x));
     r.push_back(column(data.y));
+    r.push_back(column(buf));
     rs.push_back(r);
 
     m_session->insert(oss.str(), rs);
 
     long id = m_session->last_row_id();
     log()->get(LogLevel::Debug) << "inserted id=" << id << std::endl;
-    
+
     return id;
 }
 

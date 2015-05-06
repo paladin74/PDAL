@@ -73,7 +73,7 @@ void RialtoFileWriter::writeHeader(MetadataNode tileSetNode,
     const uint32_t numCols = getMetadataU32(headerNode, "numCols");
     const uint32_t numRows = getMetadataU32(headerNode, "numRows");
     assert(numCols == 2 && numRows == 1);
-    
+
     const double minx = getMetadataF64(headerNode, "minX");
     const double miny = getMetadataF64(headerNode, "minY");
     const double maxx = getMetadataF64(headerNode, "maxX");
@@ -123,7 +123,7 @@ void RialtoFileWriter::writeHeader(MetadataNode tileSetNode,
 void RialtoFileWriter::writeTile(MetadataNode tileNode, PointView* view)
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::writeTile()" << std::endl;
-    
+
     const uint32_t level = getMetadataU32(tileNode, "level");
     const uint32_t tileX = getMetadataU32(tileNode, "tileX");
     const uint32_t tileY = getMetadataU32(tileNode, "tileY");
@@ -148,6 +148,7 @@ void RialtoFileWriter::writeTile(MetadataNode tileNode, PointView* view)
         size_t bufsiz;
         char* buf = createBlob(view, bufsiz);
         fwrite(buf, bufsiz, 1, fp);
+        delete[] buf; // TODO
     }
 
     uint8_t mask8 = mask;
@@ -181,7 +182,7 @@ Options RialtoFileWriter::getDefaultOptions()
 void RialtoFileWriter::localStart()
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::localStart()" << std::endl;
-    
+
     // pdal writers always clobber their output file, so we follow
     // the same convention here -- even though we're dealing with
     // an output "directory" instead of and output "file"
