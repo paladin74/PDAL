@@ -142,3 +142,5 @@ test/data/qfit/little-endian-conversion.xml
 test/data/qfit/pipeline.xml
 test/data/qfit/reader.xml
 test/data/sbet/pipeline.xml
+
+rialto2.sqlite
