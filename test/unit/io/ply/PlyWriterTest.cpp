@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2011, Michael P. Gerlek (mpg@flaxen.com)
+* Copyright (c) 2015, Peter J. Gadomski <pete.gadomski@gmail.com>
 *
 * All rights reserved.
 *
@@ -32,76 +32,46 @@
 * OF SUCH DAMAGE.
 ****************************************************************************/
 
-#include <pdal/GDALUtils.hpp>
-#include <pdal/Utils.hpp>
+#include <pdal/pdal_test_main.hpp>
 
-#include <functional>
-#include <map>
+#include <FauxReader.hpp>
+#include <PlyWriter.hpp>
+#include <pdal/StageFactory.hpp>
+#include "Support.hpp"
 
-#ifdef PDAL_COMPILER_MSVC
-#  pragma warning(disable: 4127)  // conditional expression is constant
-#endif
 
 namespace pdal
 {
-namespace gdal
+
+
+TEST(PlyWriter, Constructor)
 {
+    PlyWriter writer1;
 
-ErrorHandler::ErrorHandler(bool isDebug, pdal::LogPtr log)
-    : m_isDebug(isDebug)
-    , m_log(log)
-{
-    if (m_isDebug)
-    {
-        const char* gdal_debug = ::pdal::Utils::getenv("CPL_DEBUG");
-        if (gdal_debug == 0)
-        {
-            pdal::Utils::putenv("CPL_DEBUG=ON");
-        }
-        m_gdal_callback = std::bind(&ErrorHandler::log, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-    }
-    else
-    {
-        m_gdal_callback = std::bind(&ErrorHandler::error, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-    }
-
-    CPLPushErrorHandlerEx(&ErrorHandler::trampoline, this);
-}
-
-void ErrorHandler::log(::CPLErr code, int num, char const* msg)
-{
-    std::ostringstream oss;
-
-    if (code == CE_Failure || code == CE_Fatal)
-    {
-        oss <<"GDAL Failure number=" << num << ": " << msg;
-        throw pdal::gdal_error(oss.str());
-    }
-    else if (code == CE_Debug)
-    {
-        oss << "GDAL debug: " << msg;
-        if (m_log)
-            m_log->get(LogLevel::Debug) << oss.str() << std::endl;
-    }
+    StageFactory f;
+    std::unique_ptr<Stage> writer2(f.createStage("writers.ply"));
+    EXPECT_TRUE(writer2.get());
 }
 
 
-void ErrorHandler::error(::CPLErr code, int num, char const* msg)
+TEST(PlyWriter, Write)
 {
-    std::ostringstream oss;
-    if (code == CE_Failure || code == CE_Fatal)
-    {
-        oss <<"GDAL Failure number=" << num << ": " << msg;
-        throw pdal::gdal_error(oss.str());
-    }
+    Options readerOptions;
+    readerOptions.add("count", 750);
+    readerOptions.add("mode", "random");
+    FauxReader reader;
+    reader.setOptions(readerOptions);
+
+    Options writerOptions;
+    writerOptions.add("filename", Support::temppath("out.ply"));
+    PlyWriter writer;
+    writer.setOptions(writerOptions);
+    writer.setInput(reader);
+
+    PointTable table;
+    writer.prepare(table);
+    writer.execute(table);
 }
 
 
-ErrorHandler::~ErrorHandler()
-{
-    CPLPopErrorHandler();
 }
-
-} // namespace gdal
-} // namespace pdal
-

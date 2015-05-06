@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2011, Michael P. Gerlek (mpg@flaxen.com)
+* Copyright (c) 2015, Hobu Inc. (info@hobu.co)
 *
 * All rights reserved.
 *
@@ -32,76 +32,83 @@
 * OF SUCH DAMAGE.
 ****************************************************************************/
 
-#include <pdal/GDALUtils.hpp>
-#include <pdal/Utils.hpp>
+#include "MergeKernel.hpp"
 
-#include <functional>
-#include <map>
+#include <merge/MergeFilter.hpp>
+#include <pdal/KernelSupport.hpp>
+#include <pdal/StageFactory.hpp>
 
-#ifdef PDAL_COMPILER_MSVC
-#  pragma warning(disable: 4127)  // conditional expression is constant
-#endif
+#include <boost/program_options.hpp>
 
 namespace pdal
 {
-namespace gdal
+
+static PluginInfo const s_info = PluginInfo(
+    "kernels.merge",
+    "Merge Kernel",
+    "http://pdal.io/kernels/kernels.merge.html" );
+
+CREATE_STATIC_PLUGIN(1, 0, MergeKernel, Kernel, s_info)
+
+std::string MergeKernel::getName() const
 {
-
-ErrorHandler::ErrorHandler(bool isDebug, pdal::LogPtr log)
-    : m_isDebug(isDebug)
-    , m_log(log)
-{
-    if (m_isDebug)
-    {
-        const char* gdal_debug = ::pdal::Utils::getenv("CPL_DEBUG");
-        if (gdal_debug == 0)
-        {
-            pdal::Utils::putenv("CPL_DEBUG=ON");
-        }
-        m_gdal_callback = std::bind(&ErrorHandler::log, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-    }
-    else
-    {
-        m_gdal_callback = std::bind(&ErrorHandler::error, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-    }
-
-    CPLPushErrorHandlerEx(&ErrorHandler::trampoline, this);
-}
-
-void ErrorHandler::log(::CPLErr code, int num, char const* msg)
-{
-    std::ostringstream oss;
-
-    if (code == CE_Failure || code == CE_Fatal)
-    {
-        oss <<"GDAL Failure number=" << num << ": " << msg;
-        throw pdal::gdal_error(oss.str());
-    }
-    else if (code == CE_Debug)
-    {
-        oss << "GDAL debug: " << msg;
-        if (m_log)
-            m_log->get(LogLevel::Debug) << oss.str() << std::endl;
-    }
+    return s_info.name;
 }
 
 
-void ErrorHandler::error(::CPLErr code, int num, char const* msg)
+void MergeKernel::addSwitches()
 {
-    std::ostringstream oss;
-    if (code == CE_Failure || code == CE_Fatal)
+    po::options_description* file_options =
+        new po::options_description("file options");
+
+    file_options->add_options()
+        ("files,f", po::value<StringList>(&m_files)->multitoken(),
+         "input/output files")
+        ;
+
+    addSwitchSet(file_options);
+    addPositionalSwitch("files", 10000);
+}
+
+
+void MergeKernel::validateSwitches()
+{
+    if (m_files.size() < 2)
+        throw pdal_error("Must specify an input and output file.");
+    m_outputFile = m_files.back();
+    m_files.resize(m_files.size() - 1);
+}
+
+
+int MergeKernel::execute()
+{
+    PointTable table;
+
+    MergeFilter filter;
+
+    std::vector<std::unique_ptr<Stage>> m_readers;
+    for (size_t i = 0; i < m_files.size(); ++i)
     {
-        oss <<"GDAL Failure number=" << num << ": " << msg;
-        throw pdal::gdal_error(oss.str());
+        Options readerOpts;
+        readerOpts.add("filename", m_files[i]);
+        readerOpts.add("debug", isDebug());
+        readerOpts.add("verbose", getVerboseLevel());
+
+        Stage& reader = makeReader(m_files[i]);
+        reader.setOptions(readerOpts);
+
+        filter.setInput(reader);
     }
+
+    Options writerOpts;
+
+    Stage& writer = makeWriter(m_outputFile, filter);
+    applyExtraStageOptionsRecursive(&writer);
+
+    writer.prepare(table);
+    writer.execute(table);
+    return 0;
 }
 
-
-ErrorHandler::~ErrorHandler()
-{
-    CPLPopErrorHandler();
-}
-
-} // namespace gdal
 } // namespace pdal
 

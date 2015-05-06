@@ -58,6 +58,7 @@
 #include <las/LasReader.hpp>
 #include <optech/OptechReader.hpp>
 #include <pdal/BufferReader.hpp>
+#include <ply/PlyReader.hpp>
 #include <qfit/QfitReader.hpp>
 #include <sbet/SbetReader.hpp>
 #include <terrasolid/TerrasolidReader.hpp>
@@ -65,6 +66,7 @@
 // writers
 #include <bpf/BpfWriter.hpp>
 #include <las/LasWriter.hpp>
+#include <ply/PlyWriter.hpp>
 #include <rialto/RialtoWriter.hpp>
 #include <sbet/SbetWriter.hpp>
 #include <text/TextWriter.hpp>
@@ -102,6 +104,7 @@ std::string StageFactory::inferReaderDriver(const std::string& filename)
     drivers["nsf"] = "readers.nitf";
     drivers["ntf"] = "readers.nitf";
     drivers["pcd"] = "readers.pcd";
+    drivers["ply"] = "readers.ply";
     drivers["qi"] = "readers.qfit";
     drivers["rxp"] = "readers.rxp";
     drivers["sbet"] = "readers.sbet";
@@ -132,6 +135,7 @@ std::string StageFactory::inferWriterDriver(const std::string& filename)
     drivers["ntf"] = "writers.nitf";
     drivers["pcd"] = "writers.pcd";
     drivers["pclviz"] = "writers.pclvisualizer";
+    drivers["ply"] = "writers.ply";
     drivers["ria"] = "writers.rialto";
     drivers["sbet"] = "writers.sbet";
     drivers["sqlite"] = "writers.sqlite";
@@ -205,6 +209,7 @@ StageFactory::StageFactory(bool no_plugins)
     PluginManager::initializePlugin(FauxReader_InitPlugin);
     PluginManager::initializePlugin(LasReader_InitPlugin);
     PluginManager::initializePlugin(OptechReader_InitPlugin);
+    PluginManager::initializePlugin(PlyReader_InitPlugin);
     PluginManager::initializePlugin(QfitReader_InitPlugin);
     PluginManager::initializePlugin(SbetReader_InitPlugin);
     PluginManager::initializePlugin(TerrasolidReader_InitPlugin);
@@ -212,6 +217,7 @@ StageFactory::StageFactory(bool no_plugins)
     // writers
     PluginManager::initializePlugin(BpfWriter_InitPlugin);
     PluginManager::initializePlugin(LasWriter_InitPlugin);
+    PluginManager::initializePlugin(PlyWriter_InitPlugin);
     PluginManager::initializePlugin(RialtoWriter_InitPlugin);
     PluginManager::initializePlugin(SbetWriter_InitPlugin);
     PluginManager::initializePlugin(TextWriter_InitPlugin);

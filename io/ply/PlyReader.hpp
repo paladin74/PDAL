@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2011, Michael P. Gerlek (mpg@flaxen.com)
+* Copyright (c) 2015, Peter J. Gadomski <pete.gadomski@gmail.com>
 *
 * All rights reserved.
 *
@@ -32,76 +32,49 @@
 * OF SUCH DAMAGE.
 ****************************************************************************/
 
-#include <pdal/GDALUtils.hpp>
-#include <pdal/Utils.hpp>
+#pragma once
 
-#include <functional>
-#include <map>
+#include <string>
 
-#ifdef PDAL_COMPILER_MSVC
-#  pragma warning(disable: 4127)  // conditional expression is constant
-#endif
+#include "rply.h"
+
+#include <pdal/Dimension.hpp>
+#include <pdal/Reader.hpp>
+#include <pdal/StageFactory.hpp>
+
+
+extern "C" int32_t PlyReader_ExitFunc();
+extern "C" PF_ExitFunc PlyReader_InitPlugin();
+
 
 namespace pdal
 {
-namespace gdal
-{
 
-ErrorHandler::ErrorHandler(bool isDebug, pdal::LogPtr log)
-    : m_isDebug(isDebug)
-    , m_log(log)
-{
-    if (m_isDebug)
-    {
-        const char* gdal_debug = ::pdal::Utils::getenv("CPL_DEBUG");
-        if (gdal_debug == 0)
-        {
-            pdal::Utils::putenv("CPL_DEBUG=ON");
-        }
-        m_gdal_callback = std::bind(&ErrorHandler::log, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-    }
-    else
-    {
-        m_gdal_callback = std::bind(&ErrorHandler::error, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-    }
 
-    CPLPushErrorHandlerEx(&ErrorHandler::trampoline, this);
+typedef std::map<std::string, Dimension::Id::Enum> DimensionMap;
+
+
+class PDAL_DLL PlyReader : public Reader
+{
+public:
+    static void *create();
+    static int32_t destroy(void *);
+    std::string getName() const;
+
+    PlyReader();
+
+    static Dimension::IdList getDefaultDimensions();
+
+private:
+    virtual void initialize();
+    virtual void addDimensions(PointLayoutPtr layout);
+    virtual void ready(PointTableRef table);
+    virtual point_count_t read(PointViewPtr view, point_count_t num);
+    virtual void done(PointTableRef table);
+
+    p_ply m_ply;
+    DimensionMap m_vertexDimensions;
+
+};
 }
-
-void ErrorHandler::log(::CPLErr code, int num, char const* msg)
-{
-    std::ostringstream oss;
-
-    if (code == CE_Failure || code == CE_Fatal)
-    {
-        oss <<"GDAL Failure number=" << num << ": " << msg;
-        throw pdal::gdal_error(oss.str());
-    }
-    else if (code == CE_Debug)
-    {
-        oss << "GDAL debug: " << msg;
-        if (m_log)
-            m_log->get(LogLevel::Debug) << oss.str() << std::endl;
-    }
-}
-
-
-void ErrorHandler::error(::CPLErr code, int num, char const* msg)
-{
-    std::ostringstream oss;
-    if (code == CE_Failure || code == CE_Fatal)
-    {
-        oss <<"GDAL Failure number=" << num << ": " << msg;
-        throw pdal::gdal_error(oss.str());
-    }
-}
-
-
-ErrorHandler::~ErrorHandler()
-{
-    CPLPopErrorHandler();
-}
-
-} // namespace gdal
-} // namespace pdal
 
