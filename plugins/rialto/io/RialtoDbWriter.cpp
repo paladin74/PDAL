@@ -65,7 +65,7 @@ namespace
 
 
 
-void RialtoDbWriter::writeHeader(const std::string& tileSetName,
+uint32_t RialtoDbWriter::writeHeader(const std::string& tileSetName,
                                  MetadataNode tileSetNode,
                                  PointLayoutPtr layout)
 {
@@ -77,18 +77,20 @@ void RialtoDbWriter::writeHeader(const std::string& tileSetName,
     std::vector<RialtoDb::DimensionInfo> dimsInfo;
     serializeToDimensionInfo(tileSetNode, layout, dimsInfo);
     
-    const uint32_t id = m_rialtoDb->addTileSet(tileSetInfo);
+    const uint32_t tileSetId = m_rialtoDb->addTileSet(tileSetInfo);
 
-    m_rialtoDb->addDimensions(id, dimsInfo);
+    m_rialtoDb->addDimensions(tileSetId, dimsInfo);
+    
+    return tileSetId;
 }
 
 
-void RialtoDbWriter::writeTile(MetadataNode tileNode, PointView* view)
+void RialtoDbWriter::writeTile(uint32_t tileSetId, MetadataNode tileNode, PointView* view)
 {
     log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
 
     RialtoDb::TileInfo tileInfo;
-    serializeToTileInfo(tileNode, view, tileInfo);
+    serializeToTileInfo(tileSetId, tileNode, view, tileInfo);
 
     if (tileInfo.patch.buf.size())
     {

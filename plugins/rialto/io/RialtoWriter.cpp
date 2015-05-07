@@ -131,9 +131,9 @@ void RialtoWriter::serializeToPatch(const PointView& view, Patch& patch)
 }
 
 
-void RialtoWriter::serializeToTileInfo(MetadataNode tileNode, PointView* view, rialtosupport::RialtoDb::TileInfo& tileInfo)
+void RialtoWriter::serializeToTileInfo(uint32_t tileSetId, MetadataNode tileNode, PointView* view, rialtosupport::RialtoDb::TileInfo& tileInfo)
 {
-    tileInfo.tileSetId = 0; // not used in writing
+    tileInfo.tileSetId = tileSetId;
     
     tileInfo.level = RialtoWriter::getMetadataU32(tileNode, "level");
     tileInfo.x = RialtoWriter::getMetadataU32(tileNode, "tileX");
@@ -220,7 +220,7 @@ void RialtoWriter::ready(PointTableRef table)
         throw pdal_error("RialtoWriter: \"filters.tiler\" metadata not found");
     }
 
-    writeHeader(m_tileSetName, tileSetNode, m_table->layout());
+    m_tileSetId = writeHeader(m_tileSetName, tileSetNode, m_table->layout());
 
     makePointViewMap(tileSetNode);
 }
@@ -235,7 +235,7 @@ void RialtoWriter::write(const PointViewPtr viewPtr)
     assert(tileNode.valid());
 
     PointView* view = viewPtr.get();
-    writeTile(tileNode, view);
+    writeTile(m_tileSetId, tileNode, view);
 }
 
 
@@ -283,7 +283,7 @@ void RialtoWriter::writeEmptyTiles()
         MetadataNode tileNode = *iter;
         const MetadataNode nodeP = tileNode.findChild("pointView");
         if (!nodeP.valid()) {
-          writeTile(tileNode, NULL);
+          writeTile(m_tileSetId, tileNode, NULL);
         }
     }
 }

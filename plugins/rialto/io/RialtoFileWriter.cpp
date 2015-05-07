@@ -61,7 +61,7 @@ namespace
 } // anonymous namespace
 
 
-void RialtoFileWriter::writeHeader(const std::string& tileSetName,
+uint32_t RialtoFileWriter::writeHeader(const std::string& tileSetName,
                                    MetadataNode tileSetNode,
                                    PointLayoutPtr layout)
 {
@@ -105,14 +105,16 @@ void RialtoFileWriter::writeHeader(const std::string& tileSetName,
     fprintf(fp, "}\n");
 
     fclose(fp);
+    
+    return 0; // tile set id not used for files
 }
 
-void RialtoFileWriter::writeTile(MetadataNode tileNode, PointView* view)
+void RialtoFileWriter::writeTile(uint32_t tileSetId, MetadataNode tileNode, PointView* view)
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::writeTile()" << std::endl;
 
     rialtosupport::RialtoDb::TileInfo tileInfo;
-    serializeToTileInfo(tileNode, view, tileInfo);
+    serializeToTileInfo(tileSetId, tileNode, view, tileInfo);
 
     std::ostringstream os;
 

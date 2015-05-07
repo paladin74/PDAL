@@ -44,6 +44,7 @@
 #include <pdal/util/Bounds.hpp>
 #include <pdal/util/FileUtils.hpp>
 #include <pdal/BufferReader.hpp>
+#include <../filters/crop/CropFilter.hpp> // TODO: fix path
 
 #include <cstdint>
 
@@ -373,7 +374,7 @@ RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
     TileInfo info;
 
     std::ostringstream oss;
-    oss << "SELECT tile_id,level,x,y,numPoints"
+    oss << "SELECT tile_id,tile_set_id,level,x,y,numPoints"
         << (withPoints ? ",points " : " ")
         << "FROM Tiles "
         << "WHERE tile_id=" << tileId;
@@ -387,16 +388,17 @@ RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
     assert(r);
 
     assert(tileId == boost::lexical_cast<uint32_t>(r->at(0).data));
-    info.level = boost::lexical_cast<double>(r->at(1).data);
-    info.x = boost::lexical_cast<double>(r->at(2).data);
-    info.y = boost::lexical_cast<double>(r->at(3).data);
-    info.numPoints = boost::lexical_cast<double>(r->at(4).data);
+    info.tileSetId = boost::lexical_cast<uint32_t>(r->at(1).data);
+    info.level = boost::lexical_cast<double>(r->at(2).data);
+    info.x = boost::lexical_cast<double>(r->at(3).data);
+    info.y = boost::lexical_cast<double>(r->at(4).data);
+    info.numPoints = boost::lexical_cast<double>(r->at(5).data);
 
     info.patch.buf.clear();
     if (withPoints)
     {
-      const uint32_t blobLen = r->at(5).blobLen;
-      const std::vector<uint8_t>& blobBuf = r->at(5).blobBuf;
+      const uint32_t blobLen = r->at(6).blobLen;
+      const std::vector<uint8_t>& blobBuf = r->at(6).blobBuf;
       const unsigned char *pos = (const unsigned char *)&(blobBuf[0]);
       info.patch.putBytes(pos, blobLen);
     }
@@ -580,7 +582,8 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data)
     m_session->insert(oss.str(), rs);
 
     long id = m_session->last_row_id();
-    log()->get(LogLevel::Debug) << "inserted Tile, id=" << id << std::endl;
+    log()->get(LogLevel::Debug) << "inserted for tile set " << data.tileSetId
+                                << ": tile id " << id << std::endl;
 
     return id;
 }
@@ -606,6 +609,9 @@ std::vector<uint32_t> RialtoDb::queryForTileIds(uint32_t tileSetId,
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
+    log()->get(LogLevel::Debug) << "Querying tile set " << tileSetId
+                                << " for some tile ids" << std::endl;
+
     std::vector<uint32_t> ids;
 
     // for now, just return all the tiles at the level
@@ -614,8 +620,6 @@ std::vector<uint32_t> RialtoDb::queryForTileIds(uint32_t tileSetId,
     oss << "SELECT tile_id FROM Tiles"
         << " WHERE tile_set_id=" << tileSetId
         << " AND level=" << level;
-
-    log()->get(LogLevel::Debug) << "SELECT for tile query" << std::endl;
 
     m_session->query(oss.str());
 
@@ -666,9 +670,17 @@ Stage* RialtoDb::query(PointTable& table,
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
+    log()->get(LogLevel::Debug) << "RialtoDb::querying tile set " << tileSetId
+                                << "  at level " << level
+                                << " with bounds ("
+                                << minx << ","
+                                << miny << ","
+                                << maxx << ","
+                                << maxy << ")"
+                                << std::endl;
+
     std::vector<uint32_t> ids = queryForTileIds(tileSetId, minx, miny,
                                                 maxx, maxy, level);
-    if (!ids.size()) return NULL;
 
     table.layout()->registerDim(Dimension::Id::X);  // TODO
     table.layout()->registerDim(Dimension::Id::Y);
@@ -687,12 +699,25 @@ Stage* RialtoDb::query(PointTable& table,
     }
     
     Options readerOptions;
-    BufferReader* reader = new BufferReader(); // TODO: need ptr
+    BufferReader* reader = new BufferReader(); // TODO: needs ptr
     reader->setOptions(readerOptions);
     reader->addView(view);
     reader->setSpatialReference(SpatialReference("EPSG:4326"));
 
-    return reader;
+    // TODO: we set Z bounds because BOX3D::compare(), used inside the crop
+    // filter, will get it wrong if we don't
+    const double minz = (std::numeric_limits<double>::lowest)();
+    const double maxz = (std::numeric_limits<double>::max)();
+    BOX3D dstBounds(minx, miny, minz, maxx, maxy, maxz);
+    Options cropOpts;
+    cropOpts.add("bounds", dstBounds);
+    cropOpts.add("verbose", LogLevel::Debug5);
+
+    CropFilter* cropper = new CropFilter(); // TODO: needs ptr
+    cropper->setOptions(cropOpts);
+    cropper->setInput(*reader);
+
+    return cropper;
 }
 
 

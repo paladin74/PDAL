@@ -217,13 +217,13 @@ TEST(RialtoDbWriterTest, testWriter)
     EXPECT_DOUBLE_EQ(dimensionInfo.mean+100.0, 38.5+100.0); // TODO
     EXPECT_DOUBLE_EQ(dimensionInfo.maximum, 77.0);
 
-    std::vector<uint32_t> tilesAt0 = db.getTileIdsAtLevel(0, 0);
+    std::vector<uint32_t> tilesAt0 = db.getTileIdsAtLevel(tileSetIds[0], 0);
     EXPECT_EQ(tilesAt0.size(), 1u);
-    std::vector<uint32_t> tilesAt1 = db.getTileIdsAtLevel(0, 1);
+    std::vector<uint32_t> tilesAt1 = db.getTileIdsAtLevel(tileSetIds[0], 1);
     EXPECT_EQ(tilesAt1.size(), 2u);
-    std::vector<uint32_t> tilesAt2 = db.getTileIdsAtLevel(0, 2);
+    std::vector<uint32_t> tilesAt2 = db.getTileIdsAtLevel(tileSetIds[0], 2);
     EXPECT_EQ(tilesAt2.size(), 8u);
-    std::vector<uint32_t> tilesAt3 = db.getTileIdsAtLevel(0, 3);
+    std::vector<uint32_t> tilesAt3 = db.getTileIdsAtLevel(tileSetIds[0], 3);
     EXPECT_EQ(tilesAt3.size(), 0u);
 
     rialtosupport::RialtoDb::TileInfo info;
@@ -294,41 +294,147 @@ TEST(RialtoDbWriterTest, testWriter)
     {
         std::vector<uint32_t> ids;
 
-        ids = db.queryForTileIds(0, 0.0, 0.0, 180.0, 90.0, 0);
-        EXPECT_EQ(ids.size(), 1u); // should be 0
+        ids = db.queryForTileIds(tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 0);
+        EXPECT_EQ(ids.size(), 1u); // TODO: will be 0 when turn on spatialite
 
-        ids = db.queryForTileIds(0, 0.0, 0.0, 180.0, 90.0, 1);
-        EXPECT_EQ(ids.size(), 2u); // should be 1
+        ids = db.queryForTileIds(tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 1);
+        EXPECT_EQ(ids.size(), 2u); // TODO: will be 1 when turn on spatialite
 
-        ids = db.queryForTileIds(0, 0.0, 0.0, 180.0, 90.0, 2);
-        EXPECT_EQ(ids.size(), 8u); // should be 2
+        ids = db.queryForTileIds(tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 2);
+        EXPECT_EQ(ids.size(), 8u); // TODO: will be 2 when turn on spatialite
     }
     
     {
         PointTable table;
         PointViewPtr view(new PointView(table));
 
-        Stage* stage = db.query(table, view, 0, 0.0, 0.0, 180.0, 90.0, 2);
+        Stage* stage = db.query(table, view, tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 2);
         
         // execution
         stage->prepare(table);
         PointViewSet outputViews = stage->execute(table);
-        EXPECT_EQ(outputViews.size(), 1u);
-        for (auto outView: outputViews)
-        {
-            EXPECT_EQ(outView->size(), 8u);
-        }
         
+        EXPECT_EQ(outputViews.size(), 1u);
         PointViewPtr outView = *(outputViews.begin());
-        testPoint(outView, 0, data[0]);
-        testPoint(outView, 1, data[1]);
-        testPoint(outView, 2, data[2]);
-        testPoint(outView, 3, data[3]);
-        testPoint(outView, 4, data[4]);
-        testPoint(outView, 5, data[5]);
-        testPoint(outView, 6, data[6]);
-        testPoint(outView, 7, data[7]);
+        EXPECT_EQ(outView->size(), 2u);
+        testPoint(outView, 0, data[4]);
+        testPoint(outView, 1, data[5]);
     }
 
     //FileUtils::deleteDirectory(Support::temppath("rialto2.sqlite"));
+}
+
+
+TEST(RialtoDbWriterTest, testOscar)
+{
+    const std::string filename(Support::temppath("oscar.sqlite"));
+    FileUtils::deleteFile(filename);
+
+    // make a test database
+    {
+        PointTable table;
+        PointViewPtr inputView(new PointView(table));
+
+        table.layout()->registerDim(Dimension::Id::X);
+        table.layout()->registerDim(Dimension::Id::Y);
+        table.layout()->registerDim(Dimension::Id::Z);
+
+        for (int i=0; i<8; i++)
+        {
+            inputView->setField(Dimension::Id::X, i, data[i].x);
+            inputView->setField(Dimension::Id::Y, i, data[i].y);
+            inputView->setField(Dimension::Id::Z, i, data[i].z);
+        }
+
+        Options readerOptions;
+        BufferReader reader;
+        reader.setOptions(readerOptions);
+        reader.addView(inputView);
+        reader.setSpatialReference(SpatialReference("EPSG:4326"));
+
+        Options statsOptions;
+        StatsFilter stats;
+        stats.setOptions(statsOptions);
+        stats.setInput(reader);
+
+        Options tilerOptions;
+        tilerOptions.add("maxLevel", 2);
+        TilerFilter tiler;
+        tiler.setOptions(tilerOptions);
+        tiler.setInput(stats);
+
+        Options writerOptions;
+        writerOptions.add("filename", filename);
+        writerOptions.add("overwrite", true);
+        //writerOptions.add("verbose", LogLevel::Debug);
+        StageFactory f;
+        Stage* writer = f.createStage("writers.rialtodb");
+        writer->setOptions(writerOptions);
+        writer->setInput(tiler);
+
+        writer->prepare(table);
+        PointViewSet outputViews = writer->execute(table);
+        delete writer;
+    }
+    
+    // now read from it
+    {
+        rialtosupport::RialtoDb db(filename);
+        db.open(false);
+
+        // we only have 1 tile set in the database: get it's id
+        const std::vector<uint32_t> tileSetIds = db.getTileSetIds();
+        const uint32_t tileSetId = tileSetIds[0];
+        
+        // how many levels do we have?
+        rialtosupport::RialtoDb::TileSetInfo tileSetInfo = db.getTileSetInfo(tileSetId);
+        const uint32_t bestLevel = tileSetInfo.maxLevel;
+
+        // pick a nice bbox
+        // NOTE: api may change, I should use the BBOX class probably
+        double minx = 0.0;
+        double miny = 0.0;
+        double maxx = 180.0;
+        double maxy = 90.0;
+        
+        // get ready to execute...
+        PointTable table;
+        PointViewPtr view(new PointView(table));
+
+        // NOTE: api will change, this should be a StagePtr or some such
+        // NOTE: we need to pass the table and view into the query() function,
+        //   because the querier isn't reading in the dimension info yet and 
+        //   becuase the querier needs them to make it's BufferReader:
+        //   this is deeply unfortunate.
+        Stage* stage = db.query(table, view, tileSetId, minx, miny, maxx, maxy, bestLevel);
+        
+        // NOTE: we'll always return a valid stage, even if we know there are no points
+        EXPECT_TRUE(stage != NULL);
+        
+        // go!
+        stage->prepare(table);
+        PointViewSet outputViews = stage->execute(table);
+        
+        // check our output: we should have one point view, with 2 points in it
+        EXPECT_EQ(outputViews.size(), 1u);
+        PointViewPtr outView = *(outputViews.begin());
+        EXPECT_EQ(outView->size(), 2u);
+        
+        /*
+        // TODO: pdal barfs when I reuse the table/view, need to investigate
+        
+        // That was so much fun, let's do it again!
+        minx = -180.0;
+        miny = -90.0;
+        maxx = 0.0;
+        maxy = 0.0;
+
+        stage = db.query(table, view, tileSetId, minx, miny, maxx, maxy, bestLevel);
+        EXPECT_EQ(outputViews.size(), 1u);
+        outView = *(outputViews.begin());
+        EXPECT_EQ(outView->size(), 2u);
+        */
+    }
+
+    //FileUtils::deleteDirectory(Support::temppath("oscar.sqlite"));
 }

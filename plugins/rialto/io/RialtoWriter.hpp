@@ -71,7 +71,7 @@ public:
                                          PointLayoutPtr layout,
                                          std::vector<rialtosupport::RialtoDb::DimensionInfo>& infoList);
     static void serializeToPatch(const PointView& view, Patch& patch);
-    static void serializeToTileInfo(MetadataNode tileNode, PointView* view, rialtosupport::RialtoDb::TileInfo& tileInfo);
+    static void serializeToTileInfo(uint32_t tileSetId, MetadataNode tileNode, PointView* view, rialtosupport::RialtoDb::TileInfo& tileInfo);
     
     static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name);
     static double getMetadataF64(const MetadataNode& parent, const std::string& name);
@@ -88,10 +88,10 @@ protected:
     
     // implemented in derived classes
     virtual void localStart() = 0;
-    virtual void writeHeader(const std::string& tileSetName,
+    virtual uint32_t writeHeader(const std::string& tileSetName,
                              MetadataNode tileSetNode,
                              PointLayoutPtr layout) = 0;
-    virtual void writeTile(MetadataNode, PointView*) = 0;
+    virtual void writeTile(uint32_t tileSetId, MetadataNode, PointView*) = 0;
     virtual void localFinish() = 0;
 
     std::string m_tileSetName;
@@ -109,6 +109,7 @@ private:
     std::string m_directory;
 
     std::map<uint32_t, MetadataNode> m_pointViewMap;
+    uint32_t m_tileSetId;
 
     RialtoWriter& operator=(const RialtoWriter&); // not implemented
     RialtoWriter(const RialtoWriter&); // not implemented
