@@ -61,93 +61,6 @@ CREATE_SHARED_PLUGIN(1, 0, RialtoDbWriter, Writer, s_info)
 
 namespace
 {
-    static void serializeToTileSetInfo(MetadataNode tileSetNode,
-                                       PointLayoutPtr layout,
-                                       RialtoDb::TileSetInfo& tileSetInfo)
-    {
-        tileSetInfo.name = "a.las"; // TODO
-
-        MetadataNode headerNode = tileSetNode.findChild("header");
-        assert(headerNode.valid());
-        tileSetInfo.maxLevel = RialtoDbWriter::getMetadataU32(headerNode, "maxLevel");
-
-        tileSetInfo.numCols = RialtoDbWriter::getMetadataU32(headerNode, "numCols");
-        tileSetInfo.numRows = RialtoDbWriter::getMetadataU32(headerNode, "numRows");
-        assert(tileSetInfo.numCols == 2 && tileSetInfo.numRows == 1);
-
-        tileSetInfo.minx = RialtoDbWriter::getMetadataF64(headerNode, "minX");
-        tileSetInfo.miny = RialtoDbWriter::getMetadataF64(headerNode, "minY");
-        tileSetInfo.maxx = RialtoDbWriter::getMetadataF64(headerNode, "maxX");
-        tileSetInfo.maxy = RialtoDbWriter::getMetadataF64(headerNode, "maxY");
-        assert(tileSetInfo.minx==-180.0 && tileSetInfo.miny==-90.0 && tileSetInfo.maxx==180.0 && tileSetInfo.maxy==90.0);
-        
-        tileSetInfo.numDimensions = layout->dims().size();
-    }
-
-    static void serializeToDimensionInfo(MetadataNode tileSetNode,
-                                         PointLayoutPtr layout,
-                                         std::vector<RialtoDb::DimensionInfo>& infoList)
-    {    
-        const uint32_t numDims = layout->dims().size();
-        
-        infoList.clear();
-        infoList.resize(numDims);
-
-        //log()->get(LogLevel::Debug1) << "num dims: " << infoList.size() << std::endl;
-
-        size_t i = 0;
-        for (const auto& dim : layout->dims())
-        {
-            const std::string name = Dimension::name(dim);
-            const Dimension::Type::Enum dataType = layout->dimType(dim);
-
-            double minimum, mean, maximum;
-            RialtoDbWriter::extractStatistics(tileSetNode, name, minimum, mean, maximum);
-
-            RialtoDb::DimensionInfo& info = infoList[i];
-            info.name = name;
-            info.position = i;
-            info.dataType = (RialtoDb::DataType)(uint32_t)dataType; // TODO: enum-to-enum
-            info.minimum = minimum;
-            info.mean = mean;
-            info.maximum = maximum;
-
-            ++i;
-        }
-    }
-
-
-    static void serializeToPatch(PointView* view, Patch& patch)
-    {
-        if (!view)
-        {
-            patch.buf.clear();
-        } else {
-            size_t len = 0;
-            unsigned char* buf = RialtoWriter::createBlob(view, len);  // TODO
-            patch.putBytes(buf, len);
-            delete[] buf; // TODO
-        }
-    }
-
-
-    static void serializeToTile(MetadataNode tileNode, PointView* view, RialtoDb::TileInfo& tileInfo)
-    {
-        tileInfo.tileSetId = 0; // not used in writing
-        
-        tileInfo.level = RialtoWriter::getMetadataU32(tileNode, "level");
-        tileInfo.x = RialtoWriter::getMetadataU32(tileNode, "tileX");
-        tileInfo.y = RialtoWriter::getMetadataU32(tileNode, "tileY");
-        //const uint32_t mask = getMetadataU32(tileNode, "mask");
-
-        //log()->get(LogLevel::Debug) << "RialtoDbWriter::writeTile for "
-        //    << tileInfo.level << "," << info.x << "," << info.y << " "
-        //    << (view==0 ? "no" : "yes")
-        //    << std::endl;
-
-        Patch& patch = tileInfo.patch;
-        serializeToPatch(view, patch);
-    }
 } // anonymous namespace
 
 
@@ -174,7 +87,7 @@ void RialtoDbWriter::writeTile(MetadataNode tileNode, PointView* view)
     log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
 
     RialtoDb::TileInfo tileInfo;
-    serializeToTile(tileNode, view, tileInfo);
+    serializeToTileInfo(tileNode, view, tileInfo);
 
     if (tileInfo.patch.buf.size())
     {
@@ -200,7 +113,6 @@ void RialtoDbWriter::processOptions(const Options& options)
 Options RialtoDbWriter::getDefaultOptions()
 {
     Options options;
-    options.add("verbose", 10);
     return options;
 }
 
@@ -225,6 +137,8 @@ void RialtoDbWriter::localFinish()
     log()->get(LogLevel::Debug) << "RialtoDbWriter::localFinish()" << std::endl;
 
     m_rialtoDb->close();
+    delete m_rialtoDb;
+    m_rialtoDb = NULL;
 }
 
 

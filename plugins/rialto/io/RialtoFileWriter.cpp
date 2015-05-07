@@ -66,20 +66,9 @@ void RialtoFileWriter::writeHeader(MetadataNode tileSetNode,
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::writeHeader()" << std::endl;
 
-    MetadataNode headerNode = tileSetNode.findChild("header");
-    assert(headerNode.valid());
-    const uint32_t maxLevel = getMetadataU32(headerNode, "maxLevel");
-
-    const uint32_t numCols = getMetadataU32(headerNode, "numCols");
-    const uint32_t numRows = getMetadataU32(headerNode, "numRows");
-    assert(numCols == 2 && numRows == 1);
-
-    const double minx = getMetadataF64(headerNode, "minX");
-    const double miny = getMetadataF64(headerNode, "minY");
-    const double maxx = getMetadataF64(headerNode, "maxX");
-    const double maxy = getMetadataF64(headerNode, "maxY");
-    assert(minx==-180.0 && miny==-90.0 && maxx==180.0 && maxy==90.0);
-
+    rialtosupport::RialtoDb::TileSetInfo tileSetInfo;
+    serializeToTileSetInfo(tileSetNode, layout, tileSetInfo);
+    
     const std::string filename(m_directory + "/header.json");
     FILE* fp = fopen(filename.c_str(), "wt");
 
@@ -87,31 +76,31 @@ void RialtoFileWriter::writeHeader(MetadataNode tileSetNode,
     fprintf(fp, "    \"version\": 4,\n");
 
     fprintf(fp, "    \"bbox\": [%lf, %lf, %lf, %lf],\n",
-            minx, miny, maxx, maxy);
+        tileSetInfo.minx, tileSetInfo.miny, tileSetInfo.maxx, tileSetInfo.maxy);
 
-    fprintf(fp, "    \"maxLevel\": %d,\n", maxLevel);
-    fprintf(fp, "    \"numCols\": %d,\n", numCols);
-    fprintf(fp, "    \"numRows\": %d,\n", numRows);
+    fprintf(fp, "    \"maxLevel\": %d,\n", tileSetInfo.maxLevel);
+    fprintf(fp, "    \"numCols\": %d,\n", tileSetInfo.numCols);
+    fprintf(fp, "    \"numRows\": %d,\n", tileSetInfo.numRows);
 
     fprintf(fp, "    \"dimensions\": [\n");
 
-    const size_t numDims = layout->dims().size();
-    size_t i = 0;
-    for (const auto& dim : layout->dims())
-    {
-        const Dimension::Type::Enum dataType = layout->dimType(dim);
-        const std::string& dataTypeName = Dimension::interpretationName(dataType);
-        const std::string& name = Dimension::name(dim);
+    
+    std::vector<rialtosupport::RialtoDb::DimensionInfo> dimsInfo;
+    serializeToDimensionInfo(tileSetNode, layout, dimsInfo);
 
-        double minimum, mean, maximum;
-        extractStatistics(tileSetNode, name, minimum, mean, maximum);
+    const size_t numDims = dimsInfo.size();
+    size_t i = 0;
+    for (auto& dimInfo : dimsInfo)
+    {
+        uint32_t e = dimInfo.dataType;
+        const std::string& dataTypeName = Dimension::interpretationName((Dimension::Type::Enum)e); // TODO
 
         fprintf(fp, "        {\n");
         fprintf(fp, "            \"datatype\": \"%s\",\n", dataTypeName.c_str());
-        fprintf(fp, "            \"name\": \"%s\",\n", name.c_str());
-        fprintf(fp, "            \"minimum\": %f,\n", minimum);
-        fprintf(fp, "            \"mean\": %f,\n", mean);
-        fprintf(fp, "            \"maximum\": %f\n", maximum);
+        fprintf(fp, "            \"name\": \"%s\",\n", dimInfo.name.c_str());
+        fprintf(fp, "            \"minimum\": %f,\n", dimInfo.minimum);
+        fprintf(fp, "            \"mean\": %f,\n", dimInfo.mean);
+        fprintf(fp, "            \"maximum\": %f\n", dimInfo.maximum);
         fprintf(fp, "        }%s\n", i++==numDims-1 ? "" : ",");
     }
     fprintf(fp, "    ]\n");
@@ -124,31 +113,31 @@ void RialtoFileWriter::writeTile(MetadataNode tileNode, PointView* view)
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::writeTile()" << std::endl;
 
-    const uint32_t level = getMetadataU32(tileNode, "level");
-    const uint32_t tileX = getMetadataU32(tileNode, "tileX");
-    const uint32_t tileY = getMetadataU32(tileNode, "tileY");
-    const uint32_t mask = getMetadataU32(tileNode, "mask");
+    rialtosupport::RialtoDb::TileInfo tileInfo;
+    serializeToTileInfo(tileNode, view, tileInfo);
+
+
+    const uint32_t mask = getMetadataU32(tileNode, "mask"); // TODO
 
     std::ostringstream os;
 
     os << m_directory;
     FileUtils::createDirectory(os.str());
 
-    os << "/" << level;
+    os << "/" << tileInfo.level;
     FileUtils::createDirectory(os.str());
 
-    os << "/" << tileX;
+    os << "/" << tileInfo.x;
     FileUtils::createDirectory(os.str());
 
-    os << "/" << tileY << ".ria";
+    os << "/" << tileInfo.y << ".ria";
     FILE* fp = fopen(os.str().c_str(), "wb");
 
-    if (view)
+    if (tileInfo.patch.buf.size())
     {
-        size_t bufsiz;
-        unsigned char* buf = createBlob(view, bufsiz);
+        size_t bufsiz = tileInfo.patch.buf.size();
+        unsigned char* buf = &tileInfo.patch.buf[0];
         fwrite(buf, bufsiz, 1, fp);
-        delete[] buf; // TODO
     }
 
     uint8_t mask8 = mask;

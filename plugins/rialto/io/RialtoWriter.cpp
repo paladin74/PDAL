@@ -76,6 +76,96 @@ namespace
 } // anonymous namespace
 
 
+void RialtoWriter::serializeToTileSetInfo(MetadataNode tileSetNode,
+                                          PointLayoutPtr layout,
+                                          rialtosupport::RialtoDb::TileSetInfo& tileSetInfo)
+{
+    tileSetInfo.name = "a.las"; // TODO
+
+    MetadataNode headerNode = tileSetNode.findChild("header");
+    assert(headerNode.valid());
+    tileSetInfo.maxLevel = RialtoWriter::getMetadataU32(headerNode, "maxLevel");
+
+    tileSetInfo.numCols = RialtoWriter::getMetadataU32(headerNode, "numCols");
+    tileSetInfo.numRows = RialtoWriter::getMetadataU32(headerNode, "numRows");
+    assert(tileSetInfo.numCols == 2 && tileSetInfo.numRows == 1);
+
+    tileSetInfo.minx = RialtoWriter::getMetadataF64(headerNode, "minX");
+    tileSetInfo.miny = RialtoWriter::getMetadataF64(headerNode, "minY");
+    tileSetInfo.maxx = RialtoWriter::getMetadataF64(headerNode, "maxX");
+    tileSetInfo.maxy = RialtoWriter::getMetadataF64(headerNode, "maxY");
+    assert(tileSetInfo.minx==-180.0 && tileSetInfo.miny==-90.0 && tileSetInfo.maxx==180.0 && tileSetInfo.maxy==90.0);
+    
+    tileSetInfo.numDimensions = layout->dims().size();
+}
+
+
+void RialtoWriter::serializeToDimensionInfo(MetadataNode tileSetNode,
+                                            PointLayoutPtr layout,
+                                            std::vector<rialtosupport::RialtoDb::DimensionInfo>& infoList)
+{    
+    const uint32_t numDims = layout->dims().size();
+    
+    infoList.clear();
+    infoList.resize(numDims);
+
+    //log()->get(LogLevel::Debug1) << "num dims: " << infoList.size() << std::endl;
+
+    size_t i = 0;
+    for (const auto& dim : layout->dims())
+    {
+        const std::string name = Dimension::name(dim);
+        const Dimension::Type::Enum dataType = layout->dimType(dim);
+
+        double minimum, mean, maximum;
+        rialtosupport::RialtoWriter::extractStatistics(tileSetNode, name, minimum, mean, maximum);
+
+        rialtosupport::RialtoDb::DimensionInfo& info = infoList[i];
+        info.name = name;
+        info.position = i;
+        info.dataType = (rialtosupport::RialtoDb::DataType)(uint32_t)dataType; // TODO: enum-to-enum
+        info.minimum = minimum;
+        info.mean = mean;
+        info.maximum = maximum;
+
+        ++i;
+    }
+}
+
+
+void RialtoWriter::serializeToPatch(PointView* view, Patch& patch)
+{
+    if (!view)
+    {
+        patch.buf.clear();
+    } else {
+        size_t len = 0;
+        unsigned char* buf = RialtoWriter::createBlob(view, len);  // TODO
+        patch.putBytes(buf, len);
+        delete[] buf; // TODO
+    }
+}
+
+
+void RialtoWriter::serializeToTileInfo(MetadataNode tileNode, PointView* view, rialtosupport::RialtoDb::TileInfo& tileInfo)
+{
+    tileInfo.tileSetId = 0; // not used in writing
+    
+    tileInfo.level = RialtoWriter::getMetadataU32(tileNode, "level");
+    tileInfo.x = RialtoWriter::getMetadataU32(tileNode, "tileX");
+    tileInfo.y = RialtoWriter::getMetadataU32(tileNode, "tileY");
+    //const uint32_t mask = getMetadataU32(tileNode, "mask");
+
+    //log()->get(LogLevel::Debug) << "RialtoDbWriter::writeTile for "
+    //    << tileInfo.level << "," << info.x << "," << info.y << " "
+    //    << (view==0 ? "no" : "yes")
+    //    << std::endl;
+
+    Patch& patch = tileInfo.patch;
+    serializeToPatch(view, patch);
+}
+
+
 // caller responisble for deleting the buffer
 unsigned char* RialtoWriter::createBlob(PointView* view, size_t& buflen)
 {

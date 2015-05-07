@@ -37,6 +37,8 @@
 #include <pdal/pdal_export.hpp>
 #include <pdal/Writer.hpp>
 
+#include "RialtoDb.hpp"
+
 #include <cstdint>
 #include <string>
 
@@ -60,6 +62,16 @@ public:
     virtual Options getDefaultOptions()=0;
 
     // helper functions
+    
+    static void serializeToTileSetInfo(MetadataNode tileSetNode,
+                                       PointLayoutPtr layout,
+                                       rialtosupport::RialtoDb::TileSetInfo& tileSetInfo);
+    static void serializeToDimensionInfo(MetadataNode tileSetNode,
+                                         PointLayoutPtr layout,
+                                         std::vector<rialtosupport::RialtoDb::DimensionInfo>& infoList);
+    static void serializeToPatch(PointView* view, Patch& patch);
+    static void serializeToTileInfo(MetadataNode tileNode, PointView* view, rialtosupport::RialtoDb::TileInfo& tileInfo);
+
     static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name);
     static double getMetadataF64(const MetadataNode& parent, const std::string& name);
     static void extractStatistics(MetadataNode& tileSetNode, const std::string& dimName,
