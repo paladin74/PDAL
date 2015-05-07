@@ -43,6 +43,7 @@
 #include <pdal/PointView.hpp>
 #include <pdal/util/Bounds.hpp>
 #include <pdal/util/FileUtils.hpp>
+#include <pdal/BufferReader.hpp>
 
 #include <cstdint>
 
@@ -631,7 +632,31 @@ std::vector<uint32_t> RialtoDb::queryForTileIds(uint32_t tileSetId,
 }
 
 
-Stage* RialtoDb::query(uint32_t tileSetId,
+// appends points to end of view (does not start with point index 0)
+static void serializeToPointView(const rialtosupport::RialtoDb::TileInfo& info, PointViewPtr view, LogPtr log)
+{
+    const size_t numPoints = info.numPoints;
+    PointId idx = view->size();
+    const uint32_t pointSize = view->pointSize();
+    
+    const Patch& patch = info.patch;
+    
+    const char* buf = (const char*)(&patch.buf[0]);
+    const DimTypeList& dtl = view->dimTypes();
+    for (size_t i=0; i<numPoints; ++i)
+    {
+        view->setPackedPoint(dtl, idx, buf);
+        buf += pointSize;
+        ++idx;
+        
+        log->get(LogLevel::Debug) << "here" << std::endl;
+    }
+}
+
+
+Stage* RialtoDb::query(PointTable& table,
+                       PointViewPtr view,
+                       uint32_t tileSetId,
                        double minx, double miny,
                        double maxx, double maxy,
                        uint32_t level)
@@ -645,21 +670,29 @@ Stage* RialtoDb::query(uint32_t tileSetId,
                                                 maxx, maxy, level);
     if (!ids.size()) return NULL;
 
-    PointTable table;
-    PointViewPtr inputView(new PointView(table));
-
     table.layout()->registerDim(Dimension::Id::X);  // TODO
     table.layout()->registerDim(Dimension::Id::Y);
     table.layout()->registerDim(Dimension::Id::Z);
 
-    TileInfo info;
+    uint32_t pointIndex = 0;
     for (auto id: ids) 
     {
-        getTileInfo(id, true);
+        TileInfo info = getTileInfo(id, true);
+        
+        log()->get(LogLevel::Debug) << "  got some points: " << info.numPoints << std::endl;
+
+        serializeToPointView(info, view, log());
+
+        log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
     }
     
-    assert(0);
-    return NULL;
+    Options readerOptions;
+    BufferReader* reader = new BufferReader(); // TODO: need ptr
+    reader->setOptions(readerOptions);
+    reader->addView(view);
+    reader->setSpatialReference(SpatialReference("EPSG:4326"));
+
+    return reader;
 }
 
 

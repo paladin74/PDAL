@@ -135,7 +135,9 @@ public:
     // query for all the points of a tile set, bounded by bbox region
     // returns a pipeline made up of a BufferReader and a CropFilter
     // returns NULL if no points found
-    Stage* query(uint32_t tileSetId,
+    Stage* query(PointTable& table,
+                 PointViewPtr view,
+                 uint32_t tileSetId,
                  double minx, double miny,
                  double max, double maxy,
                  uint32_t level);

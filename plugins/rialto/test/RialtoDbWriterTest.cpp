@@ -115,6 +115,20 @@ static void verifyBytes(std::vector<unsigned char>& buf,
 }
 
 
+// verify point view has the correct data
+static void testPoint(PointViewPtr view, PointId idx, const Data& data)
+{
+    const double x = view->getFieldAs<double>(Dimension::Id::X, idx);
+    const double y = view->getFieldAs<double>(Dimension::Id::Y, idx);
+    const double z = view->getFieldAs<double>(Dimension::Id::Z, idx);
+
+    EXPECT_FLOAT_EQ(x, data.x);
+    EXPECT_FLOAT_EQ(y, data.y);
+    EXPECT_FLOAT_EQ(z, data.z);
+}
+
+
+
 TEST(RialtoDbWriterTest, testWriter)
 {
     FileUtils::deleteFile(Support::temppath("rialto2.sqlite"));
@@ -290,5 +304,31 @@ TEST(RialtoDbWriterTest, testWriter)
         EXPECT_EQ(ids.size(), 8u); // should be 2
     }
     
+    {
+        PointTable table;
+        PointViewPtr view(new PointView(table));
+
+        Stage* stage = db.query(table, view, 0, 0.0, 0.0, 180.0, 90.0, 2);
+        
+        // execution
+        stage->prepare(table);
+        PointViewSet outputViews = stage->execute(table);
+        EXPECT_EQ(outputViews.size(), 1u);
+        for (auto outView: outputViews)
+        {
+            EXPECT_EQ(outView->size(), 8u);
+        }
+        
+        PointViewPtr outView = *(outputViews.begin());
+        testPoint(outView, 0, data[0]);
+        testPoint(outView, 1, data[1]);
+        testPoint(outView, 2, data[2]);
+        testPoint(outView, 3, data[3]);
+        testPoint(outView, 4, data[4]);
+        testPoint(outView, 5, data[5]);
+        testPoint(outView, 6, data[6]);
+        testPoint(outView, 7, data[7]);
+    }
+
     //FileUtils::deleteDirectory(Support::temppath("rialto2.sqlite"));
 }
