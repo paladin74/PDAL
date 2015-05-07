@@ -67,7 +67,8 @@ public:
     Options getDefaultOptions();
 
     virtual void localStart();
-    virtual void writeHeader(MetadataNode tileSetNode,
+    virtual void writeHeader(const std::string& tileSetName,
+                             MetadataNode tileSetNode,
                              PointLayoutPtr layout);
     virtual void writeTile(MetadataNode, PointView*);
     virtual void localFinish();

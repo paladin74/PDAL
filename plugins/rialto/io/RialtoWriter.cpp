@@ -54,11 +54,12 @@ namespace
  // anonymous namespace
 }
 
-void RialtoWriter::serializeToTileSetInfo(MetadataNode tileSetNode,
+void RialtoWriter::serializeToTileSetInfo(const std::string& tileSetName,
+                                          MetadataNode tileSetNode,
                                           PointLayoutPtr layout,
                                           rialtosupport::RialtoDb::TileSetInfo& tileSetInfo)
 {
-    tileSetInfo.name = "a.las"; // TODO
+    tileSetInfo.name = tileSetName;
 
     MetadataNode headerNode = tileSetNode.findChild("header");
     assert(headerNode.valid());
@@ -137,7 +138,7 @@ void RialtoWriter::serializeToTileInfo(MetadataNode tileNode, PointView* view, r
     tileInfo.level = RialtoWriter::getMetadataU32(tileNode, "level");
     tileInfo.x = RialtoWriter::getMetadataU32(tileNode, "tileX");
     tileInfo.y = RialtoWriter::getMetadataU32(tileNode, "tileY");
-    //const uint32_t mask = getMetadataU32(tileNode, "mask");
+    tileInfo.mask = RialtoWriter::getMetadataU32(tileNode, "mask");
 
     //log()->get(LogLevel::Debug) << "RialtoDbWriter::writeTile for "
     //    << tileInfo.level << "," << info.x << "," << info.y << " "
@@ -213,7 +214,7 @@ void RialtoWriter::ready(PointTableRef table)
         throw pdal_error("RialtoWriter: \"filters.tiler\" metadata not found");
     }
 
-    writeHeader(tileSetNode, m_table->layout());
+    writeHeader(m_tileSetName, tileSetNode, m_table->layout());
 
     makePointViewMap(tileSetNode);
 }

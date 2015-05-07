@@ -85,6 +85,7 @@ public:
         uint32_t level;
         uint32_t x; // col
         uint32_t y; // row
+        uint32_t mask;
         Patch patch;
     };
 

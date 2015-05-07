@@ -65,13 +65,14 @@ namespace
 
 
 
-void RialtoDbWriter::writeHeader(MetadataNode tileSetNode,
+void RialtoDbWriter::writeHeader(const std::string& tileSetName,
+                                 MetadataNode tileSetNode,
                                  PointLayoutPtr layout)
 {
     log()->get(LogLevel::Debug) << "RialtoDbWriter::writeHeader()" << std::endl;
 
     RialtoDb::TileSetInfo tileSetInfo;
-    serializeToTileSetInfo(tileSetNode, layout, tileSetInfo);
+    serializeToTileSetInfo(tileSetName, tileSetNode, layout, tileSetInfo);
 
     std::vector<RialtoDb::DimensionInfo> dimsInfo;
     serializeToDimensionInfo(tileSetNode, layout, dimsInfo);
@@ -107,6 +108,8 @@ void RialtoDbWriter::processOptions(const Options& options)
     // we treat the target "filename" as the database name,
     // so we'll use a differently named variable to make it clear
     m_connection = m_filename;
+    
+    m_tileSetName = options.getValueOrDefault<std::string>("tileSetName", "unnamed");
 }
 
 

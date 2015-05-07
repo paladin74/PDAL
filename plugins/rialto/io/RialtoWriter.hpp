@@ -63,7 +63,8 @@ public:
 
     // helper functions
     
-    static void serializeToTileSetInfo(MetadataNode tileSetNode,
+    static void serializeToTileSetInfo(const std::string& tileSetName,
+                                       MetadataNode tileSetNode,
                                        PointLayoutPtr layout,
                                        rialtosupport::RialtoDb::TileSetInfo& tileSetInfo);
     static void serializeToDimensionInfo(MetadataNode tileSetNode,
@@ -87,10 +88,13 @@ protected:
     
     // implemented in derived classes
     virtual void localStart() = 0;
-    virtual void writeHeader(MetadataNode tileSetNode,
+    virtual void writeHeader(const std::string& tileSetName,
+                             MetadataNode tileSetNode,
                              PointLayoutPtr layout) = 0;
     virtual void writeTile(MetadataNode, PointView*) = 0;
     virtual void localFinish() = 0;
+
+    std::string m_tileSetName;
     
 private:
     virtual void ready(PointTableRef table);

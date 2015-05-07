@@ -61,13 +61,14 @@ namespace
 } // anonymous namespace
 
 
-void RialtoFileWriter::writeHeader(MetadataNode tileSetNode,
+void RialtoFileWriter::writeHeader(const std::string& tileSetName,
+                                   MetadataNode tileSetNode,
                                    PointLayoutPtr layout)
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::writeHeader()" << std::endl;
 
     rialtosupport::RialtoDb::TileSetInfo tileSetInfo;
-    serializeToTileSetInfo(tileSetNode, layout, tileSetInfo);
+    serializeToTileSetInfo(tileSetName, tileSetNode, layout, tileSetInfo);
     
     const std::string filename(m_directory + "/header.json");
     FILE* fp = fopen(filename.c_str(), "wt");
@@ -113,9 +114,6 @@ void RialtoFileWriter::writeTile(MetadataNode tileNode, PointView* view)
     rialtosupport::RialtoDb::TileInfo tileInfo;
     serializeToTileInfo(tileNode, view, tileInfo);
 
-
-    const uint32_t mask = getMetadataU32(tileNode, "mask"); // TODO
-
     std::ostringstream os;
 
     os << m_directory;
@@ -138,7 +136,7 @@ void RialtoFileWriter::writeTile(MetadataNode tileNode, PointView* view)
         fwrite(buf, bufLen, 1, fp);
     }
 
-    uint8_t mask8 = mask;
+    uint8_t mask8 = tileInfo.mask;
     fwrite(&mask8, 1, 1, fp);
 
     fclose(fp);
@@ -156,6 +154,8 @@ void RialtoFileWriter::processOptions(const Options& options)
     // we treat the target "filename" as the output directory,
     // so we'll use a differently named variable to make it clear
     m_directory = m_filename;
+
+    m_tileSetName = options.getValueOrDefault<std::string>("tileSetName", "unnamed");
 }
 
 
