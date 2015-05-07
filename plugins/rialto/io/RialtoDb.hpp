@@ -42,9 +42,9 @@
 
 
 namespace pdal {
-class Log;
-class SQLite;
-
+    class Log;
+    class SQLite;
+    class Patch;
 }
 
 namespace rialtosupport
@@ -57,6 +57,7 @@ using namespace pdal;
 class PDAL_DLL RialtoDb
 {
 public:
+    // values match PDAL's
     enum DataType {
         Invalid = 0,
         Uint8 = 0x200 | 1,
@@ -99,12 +100,14 @@ public:
         uint32_t level;
         uint32_t x; // col
         uint32_t y; // row
+        Patch* patch;
     };
 
     RialtoDb(const std::string& connection);
 
     ~RialtoDb();
 
+    void create();
     void open(bool writable=false);
 
     void close();
@@ -114,11 +117,12 @@ public:
     // returns id of new data set
     uint32_t addTileSet(const RialtoDb::TileSetInfo& data);
 
+    // returns id of new tile
+    uint32_t addTile(const RialtoDb::TileInfo& data, char* buf, uint32_t buflen);
+
+    // add all the dimensions of the tile set
     void addDimensions(uint32_t tileSetId,
                        const std::vector<DimensionInfo>& dimensions);
-
-    // remove a tile set from the database
-    void deleteTileSet(uint32_t tileSetId);
 
     // get list all the tile sets in the database, as a list of its
     std::vector<uint32_t> getTileSetIds();
@@ -129,18 +133,12 @@ public:
     // get info about one of the dimensions of a tile set
     DimensionInfo getDimensionInfo(uint32_t tileSetId, uint32_t dimension);
 
-    // returns id of new tile
-    uint32_t addTile(const RialtoDb::TileInfo& data, char* buf, uint32_t buflen);
-
     // get info about a tile
-    TileInfo getTileInfo(uint32_t tileSetId, uint32_t tileId);
+    TileInfo getTileInfo(uint32_t tileId, bool withPoints);
 
-    // get the raw buffer with the points
-    void getTileData(uint32_t tileId, char*& buf, uint32_t& buflen);
-    
     // use with caution for levels greater than 16 or so
     std::vector<uint32_t> getTileIdsAtLevel(uint32_t tileSetId, uint32_t level);
-    
+
     // query for all the points of a tile set, bounded by bbox region
     // returns a pipeline made up of a BufferReader and a CropFilter
     Stage* query(uint32_t tileSetId,
@@ -164,7 +162,7 @@ private:
     LogPtr log() const { return m_log; }
 
     std::string m_connection;
-    std::unique_ptr<SQLite> m_session;
+    SQLite* m_session;
     LogPtr m_log;
     int m_srid;
 

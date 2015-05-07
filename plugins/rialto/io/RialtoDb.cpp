@@ -79,7 +79,7 @@
 //    minimum
 //    mean
 //    maximum
-        
+
 
 namespace rialtosupport
 {
@@ -92,6 +92,7 @@ namespace
 
 RialtoDb::RialtoDb(const std::string& connection) :
     m_connection(connection),
+    m_session(NULL),
     m_srid(4326)
 {
 }
@@ -103,6 +104,39 @@ RialtoDb::~RialtoDb()
 }
 
 
+void RialtoDb::create()
+{
+    m_log = std::shared_ptr<pdal::Log>(new pdal::Log("RialtoDB", "stdout"));
+    m_log->setLevel(LogLevel::Debug);
+
+    log()->get(LogLevel::Debug) << "RialtoDB::open()" << std::endl;
+
+    if (FileUtils::fileExists(m_connection))
+    {
+      throw pdal_error("RialtoDb: database already exists");
+    }
+
+    m_session = new SQLite(m_connection, m_log);
+    m_session->connect(true);
+
+#if 0
+    m_session->spatialite();
+
+    const bool hasSpatialite = m_session->doesTableExist("geometry_columns");
+    if (!hasSpatialite)
+    {
+       std::ostringstream oss;
+       oss << "SELECT InitSpatialMetadata()";
+       m_session->execute(oss.str());
+    }
+#endif
+
+    createTileSetsTable();
+    createTilesTable();
+    createDimensionsTable();
+}
+
+
 void RialtoDb::open(bool writable)
 {
     m_log = std::shared_ptr<pdal::Log>(new pdal::Log("RialtoDB", "stdout"));
@@ -110,7 +144,12 @@ void RialtoDb::open(bool writable)
 
     log()->get(LogLevel::Debug) << "RialtoDB::open()" << std::endl;
 
-    m_session = std::unique_ptr<SQLite>(new SQLite(m_connection, m_log));
+    if (!FileUtils::fileExists(m_connection))
+    {
+      throw pdal_error("RialtoDb: database not found");
+    }
+
+    m_session = new SQLite(m_connection, m_log);
     m_session->connect(writable);
 
 #if 0
@@ -125,24 +164,19 @@ void RialtoDb::open(bool writable)
     }
 #endif
 
-    if (writable) {
-        createTileSetsTable();
-        createTilesTable();
-        createDimensionsTable();
-    } else {
-        if (!m_session->doesTableExist("TileSets"))
-            throw pdal_error("RialtoDb: required table 'TileSets' not found");
-        if (!m_session->doesTableExist("Tiles"))
-            throw pdal_error("RialtoDb: required table 'Tiles' not found");
-        if (!m_session->doesTableExist("Dimensions"))
-            throw pdal_error("RialtoDb: required table 'Dimensions' not found");
-    }
+    if (!m_session->doesTableExist("TileSets"))
+        throw pdal_error("RialtoDb: required table 'TileSets' not found");
+    if (!m_session->doesTableExist("Tiles"))
+        throw pdal_error("RialtoDb: required table 'Tiles' not found");
+    if (!m_session->doesTableExist("Dimensions"))
+        throw pdal_error("RialtoDb: required table 'Dimensions' not found");
 }
 
 
 void RialtoDb::close()
 {
-    // TODO
+    delete m_session;
+    m_session = NULL; // TODO: assert not null on all public function
 }
 
 
@@ -156,11 +190,13 @@ void RialtoDb::createTileSetsTable()
     oss1 << "CREATE TABLE TileSets("
         << "tile_set_id INTEGER PRIMARY KEY AUTOINCREMENT,"
         << "name VARCHAR(64),"           // TODO
+        << "maxLevel INTEGER,"
+        << "numCols INTEGER,"
+        << "numRows INTEGER,"
         << "minx DOUBLE,"
         << "miny DOUBLE,"
         << "maxx DOUBLE,"
         << "maxy DOUBLE,"
-        << "maxLevel INTEGER,"
         << "numDims INTEGER"
         << ")";
 
@@ -212,7 +248,7 @@ void RialtoDb::createDimensionsTable()
 
     oss1 << "CREATE TABLE Dimensions("
         << "tile_set_id INTEGER,"
-        << "name VARCHAR(64),"           // TODO
+        << "name VARCHAR(256),"           // TODO
         << "position INTEGER,"
         << "dataType INTEGER,"
         << "minimum DOUBLE,"
@@ -224,36 +260,29 @@ void RialtoDb::createDimensionsTable()
     m_session->execute(oss1.str());
 }
 
+
 std::vector<uint32_t> RialtoDb::getTileSetIds()
 {
     std::vector<uint32_t> ids;
-    
+
     std::ostringstream oss;
     oss << "SELECT tile_set_id FROM TileSets";
-    
+
     log()->get(LogLevel::Debug1) << "SELECT for tile set ids" << std::endl;
 
     m_session->query(oss.str());
-    
+
     do {
         const row* r = m_session->get();
         if (!r) break;
-
-        int i=0;
-        for (auto c: *r)
-        {
-            log()->get(LogLevel::Debug1) << "  col " << i << ": " << c.data << std::endl;
-        //column const& c = r->at(0);
-            ++i;
-        }
 
         column const& c = r->at(0);
         const uint32_t id = boost::lexical_cast<uint32_t>(c.data);
         log()->get(LogLevel::Debug1) << " got id: " << id << std::endl;
         ids.push_back(id);
-        
+
     } while (m_session->next());
-    
+
     return ids;
 }
 
@@ -263,7 +292,7 @@ RialtoDb::TileSetInfo RialtoDb::getTileSetInfo(uint32_t tileSetId)
     TileSetInfo info;
 
     std::ostringstream oss;
-    oss << "SELECT tile_set_id,name,minx,miny,maxx,maxy,maxLevel,numDims "
+    oss << "SELECT tile_set_id,name,maxLevel,numCols,numRows,minx,miny,maxx,maxy,numDims "
         << "FROM TileSets WHERE tile_set_id=" << tileSetId;
 
     log()->get(LogLevel::Debug) << "SELECT for tile set" << std::endl;
@@ -276,30 +305,33 @@ RialtoDb::TileSetInfo RialtoDb::getTileSetInfo(uint32_t tileSetId)
 
     assert(tileSetId == boost::lexical_cast<uint32_t>(r->at(0).data));
     info.name = r->at(1).data;
-    info.minx = boost::lexical_cast<double>(r->at(2).data);
-    info.miny = boost::lexical_cast<double>(r->at(3).data);
-    info.maxx = boost::lexical_cast<double>(r->at(4).data);
-    info.maxy = boost::lexical_cast<double>(r->at(5).data);
-    info.maxLevel = boost::lexical_cast<uint32_t>(r->at(6).data);
-    info.numDimensions = boost::lexical_cast<uint32_t>(r->at(7).data);
-    
-    info.numCols = 2;
-    info.numRows = 1;
-    
+    info.maxLevel = boost::lexical_cast<uint32_t>(r->at(2).data);
+    info.numCols = boost::lexical_cast<uint32_t>(r->at(3).data);
+    info.numRows = boost::lexical_cast<uint32_t>(r->at(4).data);
+    info.minx = boost::lexical_cast<double>(r->at(5).data);
+    info.miny = boost::lexical_cast<double>(r->at(6).data);
+    info.maxx = boost::lexical_cast<double>(r->at(7).data);
+    info.maxy = boost::lexical_cast<double>(r->at(8).data);
+    info.numDimensions = boost::lexical_cast<uint32_t>(r->at(9).data);
+
+    assert(info.numCols == 2);
+    assert(info.numRows == 1);
+
     assert(!m_session->next());
 
     return info;
 }
 
 
-RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileSetId, uint32_t tileId)
+RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
 {
     TileInfo info;
-    
+
     std::ostringstream oss;
-    oss << "SELECT tile_id,tile_set_id,level,x,y "
-        << "FROM Tiles WHERE tile_set_id=" << tileSetId
-        << " AND tile_id=" << tileId;
+    oss << "SELECT tile_id,level,x,y"
+        << (withPoints ? ",points " : " ")
+        << "FROM Tiles "
+        << "WHERE tile_id=" << tileId;
 
     log()->get(LogLevel::Debug) << "SELECT for tile" << std::endl;
 
@@ -310,11 +342,21 @@ RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileSetId, uint32_t tileId)
     assert(r);
 
     assert(tileId == boost::lexical_cast<uint32_t>(r->at(0).data));
-    assert(tileSetId == boost::lexical_cast<uint32_t>(r->at(1).data));
-    info.level = boost::lexical_cast<double>(r->at(2).data);
-    info.x = boost::lexical_cast<double>(r->at(3).data);
-    info.y = boost::lexical_cast<double>(r->at(4).data);
-    
+    info.level = boost::lexical_cast<double>(r->at(1).data);
+    info.x = boost::lexical_cast<double>(r->at(2).data);
+    info.y = boost::lexical_cast<double>(r->at(3).data);
+
+    if (withPoints)
+    {
+      info.patch = new Patch(); // TODO: delete
+      const uint32_t blobLen = r->at(4).blobLen;
+      const std::vector<uint8_t>& blobBuf = r->at(4).blobBuf;
+      const unsigned char *pos = (const unsigned char *)&(blobBuf[0]);
+      info.patch->putBytes(pos, blobLen);
+    } else {
+      info.patch = NULL;
+    }
+
     assert(!m_session->next());
 
     return info;
@@ -347,49 +389,6 @@ std::vector<uint32_t> RialtoDb::getTileIdsAtLevel(uint32_t tileSetId, uint32_t l
 }
 
 
-void RialtoDb::getTileData(uint32_t tileId, char*& buf, uint32_t& bufLen)
-{
-    buf = NULL;
-    bufLen = 0;
-    
-    std::ostringstream oss;
-    oss << "SELECT points "
-        << "FROM Tiles "
-        << "WHERE tile_id=" << tileId;
-
-    log()->get(LogLevel::Debug) << "SELECT for data for tile: " << tileId << std::endl;
-
-    m_session->query(oss.str());
-
-    // should get exactly one row back
-    const row* r = m_session->get();
-    assert(r);
-
-    double* x = (double*)(&r->at(0).blobBuf[0]);
-    double* y = (double*)(&r->at(0).blobBuf[8]);
-    double* z = (double*)(&r->at(0).blobBuf[16]);
-    log()->get(LogLevel::Debug) << "   x: " << *x << std::endl;
-    log()->get(LogLevel::Debug) << "   y: " << *y << std::endl;
-    log()->get(LogLevel::Debug) << "   z: " << *z << std::endl;
-    
-    char* p = (char*)(&r->at(0).blobBuf[0]);
-
-    bufLen = (r->at(0)).blobLen;
-    buf = new char[bufLen];
-    for (uint32_t i=0; i<bufLen; i++)
-        buf[i] = p[i];      // TODO
-    buf=p;
-    double* xx = (double*)(buf + 0);
-    double* yy = (double*)(buf + 8);
-    double* zz = (double*)(buf + 16);
-    log()->get(LogLevel::Debug) << "   xx: " << *xx << std::endl;
-    log()->get(LogLevel::Debug) << "   yy: " << *yy << std::endl;
-    log()->get(LogLevel::Debug) << "   zz: " << *zz << std::endl;
-    assert(buf);
-    assert(bufLen);    
-}
-
-
 RialtoDb::DimensionInfo RialtoDb::getDimensionInfo(uint32_t tileSetId, uint32_t position)
 {
     DimensionInfo info;
@@ -415,7 +414,7 @@ RialtoDb::DimensionInfo RialtoDb::getDimensionInfo(uint32_t tileSetId, uint32_t 
     info.minimum = boost::lexical_cast<double>(r->at(4).data);
     info.mean = boost::lexical_cast<double>(r->at(5).data);
     info.maximum = boost::lexical_cast<double>(r->at(6).data);
-    
+
     assert(!m_session->next());
 
     return info;
@@ -424,32 +423,32 @@ RialtoDb::DimensionInfo RialtoDb::getDimensionInfo(uint32_t tileSetId, uint32_t 
 
 uint32_t RialtoDb::addTileSet(const RialtoDb::TileSetInfo& data)
 {
+    log()->get(LogLevel::Debug) << "RialtoDb::addTileSet()" << std::endl;
+
     std::ostringstream oss;
     oss << "INSERT INTO TileSets "
-        << "(name, minx, miny, maxx, maxy, maxLevel, numDims) "
-        << "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        << "(name, maxLevel, numCols, numRows, minx, miny, maxx, maxy, numDims) "
+        << "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     records rs;
     row r;
 
     r.push_back(column(data.name));
+    r.push_back(column(data.maxLevel));
+    r.push_back(column(data.numCols));
+    r.push_back(column(data.numRows));
     r.push_back(column(data.minx));
     r.push_back(column(data.miny));
     r.push_back(column(data.maxx));
     r.push_back(column(data.maxy));
-    r.push_back(column(data.maxLevel));
     r.push_back(column(data.numDimensions));
     rs.push_back(r);
 
     m_session->insert(oss.str(), rs);
 
     long id = m_session->last_row_id();
-    log()->get(LogLevel::Debug1) << "inserted TileSet, id=" << id << std::endl;
-
-    //log()->get(LogLevel::Debug) << "dimensions count: "
-    //  << data.numDimensions << " " << data.dimensions.size() << std::endl;
-    //assert(data.numDimensions == data.dimensions.size());
-    //addDimensions(id, data.dimensions);
+    log()->get(LogLevel::Debug) << "inserted TileSet, id=" << id << std::endl;
+    log()->get(LogLevel::Debug) << "     " << data.numCols << data.numRows << std::endl;
 
     return id;
 }
@@ -490,7 +489,7 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data, char* buf, uint32_t b
 {
     assert(buf);
     assert(buflen);
-    
+
     std::ostringstream oss;
     oss << "INSERT INTO Tiles "
         << "(tile_set_id, level, x, y, points) "

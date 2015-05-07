@@ -183,7 +183,7 @@ void RialtoDbWriter::localStart()
     FileUtils::deleteFile(m_connection);
 
     m_rialtoDb = new RialtoDb(m_connection);
-    m_rialtoDb->open(true);
+    m_rialtoDb->create();
 }
 
 

@@ -48,7 +48,8 @@
 
 #include <boost/filesystem.hpp>
 
-#include <pdal/../../plugins/rialto/io/RialtoDb.hpp> // TODO: fix path
+#include <../plugins/rialto/io/RialtoDb.hpp> // TODO: fix path
+#include <../plugins/sqlite/io/SQLiteCommon.hpp> // TODO: fix path
 
 using namespace pdal;
 
@@ -91,66 +92,26 @@ const struct Data {
 };
 
 
-static void readBytes(const std::string& filename, uint8_t* buf, uint32_t len)
-{
-    const char* name = Support::temppath(filename).c_str();
-    FILE* fp = fopen(name, "rb");
-    EXPECT_TRUE(fp != NULL);
-    size_t cnt = fread(buf, 1, len, fp);
-    EXPECT_EQ(cnt, len);
-    fclose(fp);
-}
-
-
-static void verifyBytes(char* actualData,
+static void verifyBytes(std::vector<unsigned char>& buf,
                         const Data* expectedData)
 {
-    EXPECT_EQ(*(double*)(actualData+0), expectedData->x);
-    EXPECT_EQ(*(double*)(actualData+8), expectedData->y);
-    EXPECT_EQ(*(double*)(actualData+16), expectedData->z);
-}
+    const unsigned char* p = &buf[0];
 
+    union U {
+      uint8_t buf[24];
+      struct S {
+        double x;
+        double y;
+        double z;
+      } s;
+    } u;
 
-static void verify(const std::string& filename,
-                   const Data* expectedData,
-                   uint8_t expectedMask)
-{
-    uint32_t actualSize = FileUtils::fileSize(Support::temppath(filename));
+    for (int i=0; i<24; i++)
+      u.buf[i] = buf[i];
 
-    if (expectedData) {
-        EXPECT_EQ(actualSize, 25u);
-        union {
-          uint8_t buf[25];
-          struct {
-            double x;
-            double y;
-            double z;
-            uint8_t m;
-          } actualData;
-        } u;
-        readBytes(filename, u.buf, 25);
-        EXPECT_EQ(u.actualData.x, expectedData->x);
-        EXPECT_EQ(u.actualData.y, expectedData->y);
-        EXPECT_EQ(u.actualData.z, expectedData->z);
-        EXPECT_EQ(u.actualData.m, expectedMask);
-    } else {
-        EXPECT_EQ(actualSize, 1u);
-        uint8_t actualMask;
-        readBytes(filename, &actualMask, 1);
-        EXPECT_EQ(actualMask, expectedMask);
-    }
-}
-
-
-static void verifyDirectorySize(const std::string& path, uint32_t expectedSize)
-{
-    boost::filesystem::directory_iterator iter(Support::temppath(path));
-    uint32_t cnt = 0;
-    while (iter != boost::filesystem::directory_iterator()) {
-        ++cnt;
-        ++iter;
-    }
-    EXPECT_EQ(cnt, expectedSize);
+    EXPECT_EQ(u.s.x, expectedData->x);
+    EXPECT_EQ(u.s.y, expectedData->y);
+    EXPECT_EQ(u.s.z, expectedData->z);
 }
 
 
@@ -191,7 +152,6 @@ TEST(RialtoDbWriterTest, testWriter)
     tiler.setOptions(tilerOptions);
     tiler.setInput(stats);
 
-    //RialtoFileWriter writer;
     Options writerOptions;
     writerOptions.add("filename", Support::temppath("rialto2.sqlite"));
     writerOptions.add("overwrite", true);
@@ -201,7 +161,7 @@ TEST(RialtoDbWriterTest, testWriter)
     writer->setOptions(writerOptions);
     writer->setInput(tiler);
 
-    // execution
+    // execution: write to database
     writer->prepare(table);
     PointViewSet outputViews = writer->execute(table);
     delete writer;
@@ -209,10 +169,10 @@ TEST(RialtoDbWriterTest, testWriter)
     // verification
     rialtosupport::RialtoDb db(Support::temppath("rialto2.sqlite"));
     db.open(false);
-    
+
     std::vector<uint32_t> tileSetIds = db.getTileSetIds();
     EXPECT_EQ(tileSetIds.size(), 1u);
-    
+
     rialtosupport::RialtoDb::TileSetInfo tileSetInfo = db.getTileSetInfo(tileSetIds[0]);
     EXPECT_DOUBLE_EQ(tileSetInfo.minx, -180.0);
     EXPECT_DOUBLE_EQ(tileSetInfo.miny, -90.0);
@@ -251,72 +211,60 @@ TEST(RialtoDbWriterTest, testWriter)
     EXPECT_EQ(tilesAt2.size(), 8u);
     std::vector<uint32_t> tilesAt3 = db.getTileIdsAtLevel(0, 3);
     EXPECT_EQ(tilesAt3.size(), 0u);
-    
-    char* buf = NULL;
-    uint32_t bufLen = 0;
-    
+
+    rialtosupport::RialtoDb::TileInfo info;
+
     {
-        db.getTileData(tilesAt0[0], buf, bufLen);
-        EXPECT_EQ(bufLen, 24u);
-        EXPECT_TRUE(buf != NULL);
-        verifyBytes(buf, &data[0]);
+        info = db.getTileInfo(tilesAt0[0], true);
+        EXPECT_EQ(info.patch->buf.size(), 24u);
+        verifyBytes(info.patch->buf, &data[0]);
     }
 
-    { 
+    {
         // TODO: these two are order-dependent
-        db.getTileData(tilesAt1[0], buf, bufLen);
-        EXPECT_EQ(bufLen, 24u);
-        EXPECT_TRUE(buf != NULL);
-        verifyBytes(buf, &data[0]);
+        info = db.getTileInfo(tilesAt1[0], true);
+        EXPECT_EQ(info.patch->buf.size(), 24u);
+        verifyBytes(info.patch->buf, &data[0]);
 
-        db.getTileData(tilesAt1[1], buf, bufLen);
-        EXPECT_EQ(bufLen, 24u);
-        EXPECT_TRUE(buf != NULL);
-        verifyBytes(buf, &data[4]);
+        info = db.getTileInfo(tilesAt1[1], true);
+        EXPECT_EQ(info.patch->buf.size(), 24u);
+        verifyBytes(info.patch->buf, &data[4]);
     }
 
-    { 
+    {
         // TODO: these eight are order-dependent
-        db.getTileData(tilesAt2[0], buf, bufLen);
-        EXPECT_EQ(bufLen, 24u);
-        EXPECT_TRUE(buf != NULL);
-        verifyBytes(buf, &data[0]);
+        info = db.getTileInfo(tilesAt2[0], true);
+        EXPECT_EQ(info.patch->buf.size(), 24u);
+        verifyBytes(info.patch->buf, &data[0]);
 
-        db.getTileData(tilesAt2[1], buf, bufLen);
-        EXPECT_EQ(bufLen, 24u);
-        EXPECT_TRUE(buf != NULL);
-        verifyBytes(buf, &data[1]);
+        info = db.getTileInfo(tilesAt2[1], true);
+        EXPECT_EQ(info.patch->buf.size(), 24u);
+        verifyBytes(info.patch->buf, &data[1]);
 
-        db.getTileData(tilesAt2[2], buf, bufLen);
-        EXPECT_EQ(bufLen, 24u);
-        EXPECT_TRUE(buf != NULL);
-        verifyBytes(buf, &data[2]);
+        info = db.getTileInfo(tilesAt2[2], true);
+        EXPECT_EQ(info.patch->buf.size(), 24u);
+        verifyBytes(info.patch->buf, &data[2]);
 
-        db.getTileData(tilesAt2[3], buf, bufLen);
-        EXPECT_EQ(bufLen, 24u);
-        EXPECT_TRUE(buf != NULL);
-        verifyBytes(buf, &data[3]);
-        
-        db.getTileData(tilesAt2[4], buf, bufLen);
-        EXPECT_EQ(bufLen, 24u);
-        EXPECT_TRUE(buf != NULL);
-        verifyBytes(buf, &data[4]);
+        info = db.getTileInfo(tilesAt2[3], true);
+        EXPECT_EQ(info.patch->buf.size(), 24u);
+        verifyBytes(info.patch->buf, &data[3]);
 
-        db.getTileData(tilesAt2[5], buf, bufLen);
-        EXPECT_EQ(bufLen, 24u);
-        EXPECT_TRUE(buf != NULL);
-        verifyBytes(buf, &data[5]);
+        info = db.getTileInfo(tilesAt2[4], true);
+        EXPECT_EQ(info.patch->buf.size(), 24u);
+        verifyBytes(info.patch->buf, &data[4]);
 
-        db.getTileData(tilesAt2[6], buf, bufLen);
-        EXPECT_EQ(bufLen, 24u);
-        EXPECT_TRUE(buf != NULL);
-        verifyBytes(buf, &data[6]);
-        
-        db.getTileData(tilesAt2[7], buf, bufLen);
-        EXPECT_EQ(bufLen, 24u);
-        EXPECT_TRUE(buf != NULL);
-        verifyBytes(buf, &data[7]);
+        info = db.getTileInfo(tilesAt2[5], true);
+        EXPECT_EQ(info.patch->buf.size(), 24u);
+        verifyBytes(info.patch->buf, &data[5]);
+
+        info = db.getTileInfo(tilesAt2[6], true);
+        EXPECT_EQ(info.patch->buf.size(), 24u);
+        verifyBytes(info.patch->buf, &data[6]);
+
+        info = db.getTileInfo(tilesAt2[7], true);
+        EXPECT_EQ(info.patch->buf.size(), 24u);
+        verifyBytes(info.patch->buf, &data[7]);
     }
-    
+
     //FileUtils::deleteDirectory(Support::temppath("rialto2.sqlite"));
 }
