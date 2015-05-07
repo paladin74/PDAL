@@ -40,11 +40,12 @@
 #include <cstdint>
 #include <string>
 
+// TODO: just used for Patch? (SQLite can be fwd declared)
+#include <../plugins/sqlite/io/SQLiteCommon.hpp> // TODO: fix path
 
 namespace pdal {
     class Log;
     class SQLite;
-    class Patch;
 }
 
 namespace rialtosupport
@@ -92,7 +93,6 @@ public:
         double maxx;
         double maxy;
         uint32_t numDimensions;
-        std::vector<DimensionInfo> dimensions;
     };
 
     struct TileInfo {
@@ -100,7 +100,7 @@ public:
         uint32_t level;
         uint32_t x; // col
         uint32_t y; // row
-        Patch* patch;
+        Patch patch;
     };
 
     RialtoDb(const std::string& connection);
@@ -118,7 +118,7 @@ public:
     uint32_t addTileSet(const RialtoDb::TileSetInfo& data);
 
     // returns id of new tile
-    uint32_t addTile(const RialtoDb::TileInfo& data, char* buf, uint32_t buflen);
+    uint32_t addTile(const RialtoDb::TileInfo& data);
 
     // add all the dimensions of the tile set
     void addDimensions(uint32_t tileSetId,

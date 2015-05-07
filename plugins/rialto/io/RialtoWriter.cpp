@@ -51,10 +51,10 @@ namespace pdal
 
 namespace
 {
-    static void fillBufferWithPoint(const PointView* view, const PointId& idx, char* buf)
+    static void fillBufferWithPoint(const PointView* view, const PointId& idx, unsigned char* buf)
     {
-        char* p = buf;
-        char* q = p;
+        unsigned char* p = buf;
+        unsigned char* q = p;
 
         for (const auto& dim : view->dims())
         {
@@ -63,7 +63,7 @@ namespace
         }
     }
 
-    static void fillBufferWithPointView(const PointView* view, char* buf)
+    static void fillBufferWithPointView(const PointView* view, unsigned char* buf)
     {
         for (size_t i=0; i<view->size(); ++i)
         {
@@ -77,12 +77,12 @@ namespace
 
 
 // caller responisble for deleting the buffer
-char* RialtoWriter::createBlob(PointView* view, size_t& buflen)
+unsigned char* RialtoWriter::createBlob(PointView* view, size_t& buflen)
 {
     const uint32_t pointSize = view->pointSize();
     const uint32_t numPoints = view->size();
     buflen = pointSize * numPoints;
-    char* buf = new char[buflen];
+    unsigned char* buf = new unsigned char[buflen];
 
     fillBufferWithPointView(view, buf);
 

@@ -346,15 +346,13 @@ RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
     info.x = boost::lexical_cast<double>(r->at(2).data);
     info.y = boost::lexical_cast<double>(r->at(3).data);
 
+    info.patch.buf.clear();
     if (withPoints)
     {
-      info.patch = new Patch(); // TODO: delete
       const uint32_t blobLen = r->at(4).blobLen;
       const std::vector<uint8_t>& blobBuf = r->at(4).blobBuf;
       const unsigned char *pos = (const unsigned char *)&(blobBuf[0]);
-      info.patch->putBytes(pos, blobLen);
-    } else {
-      info.patch = NULL;
+      info.patch.putBytes(pos, blobLen);
     }
 
     assert(!m_session->next());
@@ -485,8 +483,10 @@ void RialtoDb::addDimensions(uint32_t tileSetId,
 }
 
 
-uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data, char* buf, uint32_t buflen)
+uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data)
 {
+    unsigned char* buf = (unsigned char*)&data.patch.buf[0]; // TODO
+    uint32_t buflen = data.patch.buf.size();
     assert(buf);
     assert(buflen);
 
@@ -502,7 +502,7 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data, char* buf, uint32_t b
     r.push_back(column(data.level));
     r.push_back(column(data.x));
     r.push_back(column(data.y));
-    r.push_back(blob(buf, buflen));
+    r.push_back(blob((char*)buf, (size_t)buflen));
     rs.push_back(r);
 
     m_session->insert(oss.str(), rs);

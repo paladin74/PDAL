@@ -146,7 +146,7 @@ void RialtoFileWriter::writeTile(MetadataNode tileNode, PointView* view)
     if (view)
     {
         size_t bufsiz;
-        char* buf = createBlob(view, bufsiz);
+        unsigned char* buf = createBlob(view, bufsiz);
         fwrite(buf, bufsiz, 1, fp);
         delete[] buf; // TODO
     }

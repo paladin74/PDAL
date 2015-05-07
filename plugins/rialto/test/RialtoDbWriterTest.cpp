@@ -216,54 +216,54 @@ TEST(RialtoDbWriterTest, testWriter)
 
     {
         info = db.getTileInfo(tilesAt0[0], true);
-        EXPECT_EQ(info.patch->buf.size(), 24u);
-        verifyBytes(info.patch->buf, &data[0]);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        verifyBytes(info.patch.buf, &data[0]);
     }
 
     {
         // TODO: these two are order-dependent
         info = db.getTileInfo(tilesAt1[0], true);
-        EXPECT_EQ(info.patch->buf.size(), 24u);
-        verifyBytes(info.patch->buf, &data[0]);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        verifyBytes(info.patch.buf, &data[0]);
 
         info = db.getTileInfo(tilesAt1[1], true);
-        EXPECT_EQ(info.patch->buf.size(), 24u);
-        verifyBytes(info.patch->buf, &data[4]);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        verifyBytes(info.patch.buf, &data[4]);
     }
 
     {
         // TODO: these eight are order-dependent
         info = db.getTileInfo(tilesAt2[0], true);
-        EXPECT_EQ(info.patch->buf.size(), 24u);
-        verifyBytes(info.patch->buf, &data[0]);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        verifyBytes(info.patch.buf, &data[0]);
 
         info = db.getTileInfo(tilesAt2[1], true);
-        EXPECT_EQ(info.patch->buf.size(), 24u);
-        verifyBytes(info.patch->buf, &data[1]);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        verifyBytes(info.patch.buf, &data[1]);
 
         info = db.getTileInfo(tilesAt2[2], true);
-        EXPECT_EQ(info.patch->buf.size(), 24u);
-        verifyBytes(info.patch->buf, &data[2]);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        verifyBytes(info.patch.buf, &data[2]);
 
         info = db.getTileInfo(tilesAt2[3], true);
-        EXPECT_EQ(info.patch->buf.size(), 24u);
-        verifyBytes(info.patch->buf, &data[3]);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        verifyBytes(info.patch.buf, &data[3]);
 
         info = db.getTileInfo(tilesAt2[4], true);
-        EXPECT_EQ(info.patch->buf.size(), 24u);
-        verifyBytes(info.patch->buf, &data[4]);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        verifyBytes(info.patch.buf, &data[4]);
 
         info = db.getTileInfo(tilesAt2[5], true);
-        EXPECT_EQ(info.patch->buf.size(), 24u);
-        verifyBytes(info.patch->buf, &data[5]);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        verifyBytes(info.patch.buf, &data[5]);
 
         info = db.getTileInfo(tilesAt2[6], true);
-        EXPECT_EQ(info.patch->buf.size(), 24u);
-        verifyBytes(info.patch->buf, &data[6]);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        verifyBytes(info.patch.buf, &data[6]);
 
         info = db.getTileInfo(tilesAt2[7], true);
-        EXPECT_EQ(info.patch->buf.size(), 24u);
-        verifyBytes(info.patch->buf, &data[7]);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        verifyBytes(info.patch.buf, &data[7]);
     }
 
     //FileUtils::deleteDirectory(Support::temppath("rialto2.sqlite"));

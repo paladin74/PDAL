@@ -59,6 +59,13 @@ public:
     virtual std::string getName() const=0;
     virtual Options getDefaultOptions()=0;
 
+    // helper functions
+    static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name);
+    static double getMetadataF64(const MetadataNode& parent, const std::string& name);
+    static void extractStatistics(MetadataNode& tileSetNode, const std::string& dimName,
+                                  double& minimum, double& mean, double& maximum);
+    static unsigned char* createBlob(PointView* view, size_t& buflen);
+
 protected:
     
     // implemented in derived classes
@@ -71,13 +78,6 @@ protected:
     virtual void writeTile(MetadataNode, PointView*) = 0;
     virtual void localFinish() = 0;
     
-    // helper functions
-    static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name);
-    static double getMetadataF64(const MetadataNode& parent, const std::string& name);
-    static void extractStatistics(MetadataNode& tileSetNode, const std::string& dimName,
-                                  double& minimum, double& mean, double& maximum);
-    static char* createBlob(PointView* view, size_t& buflen);
-
 private:
     virtual void ready(PointTableRef table);
     virtual void write(const PointViewPtr view);
