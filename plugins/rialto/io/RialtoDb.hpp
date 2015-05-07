@@ -83,9 +83,10 @@ public:
     struct TileInfo {
         uint32_t tileSetId;
         uint32_t level;
-        uint32_t x; // col
-        uint32_t y; // row
-        uint32_t mask;
+        uint32_t x; // TODO: rename to col, row
+        uint32_t y;
+        uint32_t numPoints; // used in database, but not on disk version
+        uint32_t mask; // used in disk version, but not in database
         Patch patch;
     };
 
@@ -125,22 +126,24 @@ public:
     // use with caution for levels greater than 16 or so
     std::vector<uint32_t> getTileIdsAtLevel(uint32_t tileSetId, uint32_t level);
 
+    // query for all the tiles of a tile set, bounded by bbox region
+    std::vector<uint32_t> queryForTileIds(uint32_t tileSetId,
+                                          double minx, double miny,
+                                          double max, double maxy,
+                                          uint32_t level);
+
     // query for all the points of a tile set, bounded by bbox region
     // returns a pipeline made up of a BufferReader and a CropFilter
+    // returns NULL if no points found
     Stage* query(uint32_t tileSetId,
                  double minx, double miny,
                  double max, double maxy,
-                 uint32_t minLevel, uint32_t maxLevel);
+                 uint32_t level);
 
      // just hides the type punning
      static void castPatchAsBuffer(const Patch&, unsigned char*& buf, uint32_t& bufLen);
 
 private:
-    // query for all the tiles of a tile set, bounded by bbox region
-    std::vector<uint32_t> getTileSets(uint32_t tileSetId,
-                                      double minx, double miny,
-                                      double max, double maxy,
-                                      uint32_t minLevel, uint32_t maxLevel);
 
     void createTileSetsTable();
     void createTilesTable();

@@ -128,6 +128,8 @@ void RialtoFileWriter::writeTile(MetadataNode tileNode, PointView* view)
     os << "/" << tileInfo.y << ".ria";
     FILE* fp = fopen(os.str().c_str(), "wb");
 
+    // TODO: we don't write the number of points, but maybe we should
+    
     if (tileInfo.patch.buf.size())
     {
         unsigned char* buf = NULL;

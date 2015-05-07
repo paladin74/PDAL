@@ -216,6 +216,7 @@ TEST(RialtoDbWriterTest, testWriter)
 
     {
         info = db.getTileInfo(tilesAt0[0], true);
+        EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[0]);
     }
@@ -223,10 +224,12 @@ TEST(RialtoDbWriterTest, testWriter)
     {
         // TODO: these two are order-dependent
         info = db.getTileInfo(tilesAt1[0], true);
+        EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[0]);
 
         info = db.getTileInfo(tilesAt1[1], true);
+        EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[4]);
     }
@@ -234,37 +237,58 @@ TEST(RialtoDbWriterTest, testWriter)
     {
         // TODO: these eight are order-dependent
         info = db.getTileInfo(tilesAt2[0], true);
+        EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[0]);
 
         info = db.getTileInfo(tilesAt2[1], true);
+        EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[1]);
 
         info = db.getTileInfo(tilesAt2[2], true);
+        EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[2]);
 
         info = db.getTileInfo(tilesAt2[3], true);
+        EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[3]);
 
         info = db.getTileInfo(tilesAt2[4], true);
+        EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[4]);
 
         info = db.getTileInfo(tilesAt2[5], true);
+        EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[5]);
 
         info = db.getTileInfo(tilesAt2[6], true);
+        EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[6]);
 
         info = db.getTileInfo(tilesAt2[7], true);
+        EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[7]);
     }
 
+    {
+        std::vector<uint32_t> ids;
+
+        ids = db.queryForTileIds(0, 0.0, 0.0, 180.0, 90.0, 0);
+        EXPECT_EQ(ids.size(), 1u); // should be 0
+
+        ids = db.queryForTileIds(0, 0.0, 0.0, 180.0, 90.0, 1);
+        EXPECT_EQ(ids.size(), 2u); // should be 1
+
+        ids = db.queryForTileIds(0, 0.0, 0.0, 180.0, 90.0, 2);
+        EXPECT_EQ(ids.size(), 8u); // should be 2
+    }
+    
     //FileUtils::deleteDirectory(Support::temppath("rialto2.sqlite"));
 }

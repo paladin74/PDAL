@@ -246,6 +246,7 @@ void RialtoDb::createTilesTable()
         << "level INTEGER,"
         << "x INTEGER,"
         << "y INTEGER,"
+        << "numPoints INTEGER,"
         << "points BLOB, "
         << "FOREIGN KEY(tile_set_id) REFERENCES TileSets(tile_set_id)"
         << ")";
@@ -351,7 +352,7 @@ RialtoDb::TileSetInfo RialtoDb::getTileSetInfo(uint32_t tileSetId)
     info.maxx = boost::lexical_cast<double>(r->at(7).data);
     info.maxy = boost::lexical_cast<double>(r->at(8).data);
     info.numDimensions = boost::lexical_cast<uint32_t>(r->at(9).data);
-
+    
     assert(info.numCols == 2);
     assert(info.numRows == 1);
 
@@ -371,7 +372,7 @@ RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
     TileInfo info;
 
     std::ostringstream oss;
-    oss << "SELECT tile_id,level,x,y"
+    oss << "SELECT tile_id,level,x,y,numPoints"
         << (withPoints ? ",points " : " ")
         << "FROM Tiles "
         << "WHERE tile_id=" << tileId;
@@ -388,12 +389,13 @@ RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
     info.level = boost::lexical_cast<double>(r->at(1).data);
     info.x = boost::lexical_cast<double>(r->at(2).data);
     info.y = boost::lexical_cast<double>(r->at(3).data);
+    info.numPoints = boost::lexical_cast<double>(r->at(4).data);
 
     info.patch.buf.clear();
     if (withPoints)
     {
-      const uint32_t blobLen = r->at(4).blobLen;
-      const std::vector<uint8_t>& blobBuf = r->at(4).blobBuf;
+      const uint32_t blobLen = r->at(5).blobLen;
+      const std::vector<uint8_t>& blobBuf = r->at(5).blobBuf;
       const unsigned char *pos = (const unsigned char *)&(blobBuf[0]);
       info.patch.putBytes(pos, blobLen);
     }
@@ -560,8 +562,8 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data)
     // note we don't use 'mask' in the database version of tiles
     std::ostringstream oss;
     oss << "INSERT INTO Tiles "
-        << "(tile_set_id, level, x, y, points) "
-        << "VALUES (?, ?, ?, ?, ?)";
+        << "(tile_set_id, level, x, y, numPoints, points) "
+        << "VALUES (?, ?, ?, ?, ?, ?)";
 
     records rs;
     row r;
@@ -570,6 +572,7 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data)
     r.push_back(column(data.level));
     r.push_back(column(data.x));
     r.push_back(column(data.y));
+    r.push_back(column(data.numPoints));
     r.push_back(blob((char*)buf, (size_t)buflen));
     rs.push_back(r);
 
@@ -589,6 +592,74 @@ void RialtoDb::castPatchAsBuffer(const Patch& patch, unsigned char*& buf, uint32
     if (bufLen) {
         buf = (unsigned char*)&patch.buf[0];
     }
+}
+
+
+std::vector<uint32_t> RialtoDb::queryForTileIds(uint32_t tileSetId,
+                                                double minx, double miny,
+                                                double max, double maxy,
+                                                uint32_t level)
+{
+    if (!m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
+    std::vector<uint32_t> ids;
+
+    // for now, just return all the tiles at the level
+    
+    std::ostringstream oss;
+    oss << "SELECT tile_id FROM Tiles"
+        << " WHERE tile_set_id=" << tileSetId
+        << " AND level=" << level;
+
+    log()->get(LogLevel::Debug) << "SELECT for tile query" << std::endl;
+
+    m_session->query(oss.str());
+
+    do {
+        const row* r = m_session->get();
+        if (!r) break;
+
+        uint32_t id = boost::lexical_cast<uint32_t>(r->at(0).data);
+        log()->get(LogLevel::Debug) << "  got tile id=" << id << std::endl;
+        ids.push_back(id);
+    } while (m_session->next());
+
+    return ids;
+}
+
+
+Stage* RialtoDb::query(uint32_t tileSetId,
+                       double minx, double miny,
+                       double maxx, double maxy,
+                       uint32_t level)
+{
+    if (!m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
+    std::vector<uint32_t> ids = queryForTileIds(tileSetId, minx, miny,
+                                                maxx, maxy, level);
+    if (!ids.size()) return NULL;
+
+    PointTable table;
+    PointViewPtr inputView(new PointView(table));
+
+    table.layout()->registerDim(Dimension::Id::X);  // TODO
+    table.layout()->registerDim(Dimension::Id::Y);
+    table.layout()->registerDim(Dimension::Id::Z);
+
+    TileInfo info;
+    for (auto id: ids) 
+    {
+        getTileInfo(id, true);
+    }
+    
+    assert(0);
+    return NULL;
 }
 
 

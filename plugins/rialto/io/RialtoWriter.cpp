@@ -140,6 +140,12 @@ void RialtoWriter::serializeToTileInfo(MetadataNode tileNode, PointView* view, r
     tileInfo.y = RialtoWriter::getMetadataU32(tileNode, "tileY");
     tileInfo.mask = RialtoWriter::getMetadataU32(tileNode, "mask");
 
+    tileInfo.numPoints = 0;
+    if (view)
+    {
+        tileInfo.numPoints = view->size();
+    }
+
     //log()->get(LogLevel::Debug) << "RialtoDbWriter::writeTile for "
     //    << tileInfo.level << "," << info.x << "," << info.y << " "
     //    << (view==0 ? "no" : "yes")
