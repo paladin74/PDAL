@@ -115,15 +115,15 @@ void RialtoWriter::serializeToDimensionInfo(MetadataNode tileSetNode,
     for (const auto& dim : layout->dims())
     {
         const std::string name = Dimension::name(dim);
-        const Dimension::Type::Enum dataType = layout->dimType(dim);
+        const std::string& dataTypeName = Dimension::interpretationName(layout->dimType(dim));
 
         double minimum, mean, maximum;
         rialtosupport::RialtoWriter::extractStatistics(tileSetNode, name, minimum, mean, maximum);
 
         rialtosupport::RialtoDb::DimensionInfo& info = infoList[i];
         info.name = name;
+        info.dataType = dataTypeName;
         info.position = i;
-        info.dataType = (rialtosupport::RialtoDb::DataType)(uint32_t)dataType; // TODO: enum-to-enum
         info.minimum = minimum;
         info.mean = mean;
         info.maximum = maximum;

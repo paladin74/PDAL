@@ -250,7 +250,7 @@ void RialtoDb::createDimensionsTable()
         << "tile_set_id INTEGER,"
         << "name VARCHAR(256),"           // TODO
         << "position INTEGER,"
-        << "dataType INTEGER,"
+        << "dataType VARCHAR(256),"
         << "minimum DOUBLE,"
         << "mean DOUBLE,"
         << "maximum DOUBLE,"
@@ -408,7 +408,7 @@ RialtoDb::DimensionInfo RialtoDb::getDimensionInfo(uint32_t tileSetId, uint32_t 
     assert(tileSetId == boost::lexical_cast<uint32_t>(r->at(0).data));
     info.name = r->at(1).data;
     assert(position == boost::lexical_cast<uint32_t>(r->at(2).data));
-    info.dataType = (DataType)boost::lexical_cast<uint32_t>(r->at(3).data);
+    info.dataType = r->at(3).data;
     info.minimum = boost::lexical_cast<double>(r->at(4).data);
     info.mean = boost::lexical_cast<double>(r->at(5).data);
     info.maximum = boost::lexical_cast<double>(r->at(6).data);

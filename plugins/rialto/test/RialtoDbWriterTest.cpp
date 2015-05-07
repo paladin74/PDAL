@@ -186,19 +186,19 @@ TEST(RialtoDbWriterTest, testWriter)
     rialtosupport::RialtoDb::DimensionInfo dimensionInfo;
     dimensionInfo = db.getDimensionInfo(tileSetIds[0], 0);
     EXPECT_EQ(dimensionInfo.name, "X");
-    EXPECT_EQ(dimensionInfo.dataType, rialtosupport::RialtoDb::Float64);
+    EXPECT_EQ(dimensionInfo.dataType, "double");
     EXPECT_DOUBLE_EQ(dimensionInfo.minimum, -179.0);
     EXPECT_DOUBLE_EQ(dimensionInfo.mean+100.0, 0.0+100.0); // TODO
     EXPECT_DOUBLE_EQ(dimensionInfo.maximum, 91.0);
     dimensionInfo = db.getDimensionInfo(tileSetIds[0], 1);
     EXPECT_EQ(dimensionInfo.name, "Y");
-    EXPECT_EQ(dimensionInfo.dataType, rialtosupport::RialtoDb::Float64);
+    EXPECT_EQ(dimensionInfo.dataType, "double");
     EXPECT_DOUBLE_EQ(dimensionInfo.minimum, -89.0);
     EXPECT_DOUBLE_EQ(dimensionInfo.mean+100.0, 0.0+100.0); // TODO
     EXPECT_DOUBLE_EQ(dimensionInfo.maximum, 89.0);
     dimensionInfo = db.getDimensionInfo(tileSetIds[0], 2);
     EXPECT_EQ(dimensionInfo.name, "Z");
-    EXPECT_EQ(dimensionInfo.dataType, rialtosupport::RialtoDb::Float64);
+    EXPECT_EQ(dimensionInfo.dataType, "double");
     EXPECT_DOUBLE_EQ(dimensionInfo.minimum, 0.0);
     EXPECT_DOUBLE_EQ(dimensionInfo.mean+100.0, 38.5+100.0); // TODO
     EXPECT_DOUBLE_EQ(dimensionInfo.maximum, 77.0);

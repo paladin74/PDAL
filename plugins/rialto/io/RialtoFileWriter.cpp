@@ -92,11 +92,8 @@ void RialtoFileWriter::writeHeader(MetadataNode tileSetNode,
     size_t i = 0;
     for (auto& dimInfo : dimsInfo)
     {
-        uint32_t e = dimInfo.dataType;
-        const std::string& dataTypeName = Dimension::interpretationName((Dimension::Type::Enum)e); // TODO
-
         fprintf(fp, "        {\n");
-        fprintf(fp, "            \"datatype\": \"%s\",\n", dataTypeName.c_str());
+        fprintf(fp, "            \"datatype\": \"%s\",\n", dimInfo.dataType.c_str());
         fprintf(fp, "            \"name\": \"%s\",\n", dimInfo.name.c_str());
         fprintf(fp, "            \"minimum\": %f,\n", dimInfo.minimum);
         fprintf(fp, "            \"mean\": %f,\n", dimInfo.mean);

@@ -58,25 +58,10 @@ using namespace pdal;
 class PDAL_DLL RialtoDb
 {
 public:
-    // values match PDAL's
-    enum DataType {
-        Invalid = 0,
-        Uint8 = 0x200 | 1,
-        Uint16 = 0x200 | 2,
-        Uint32 = 0x200 | 4,
-        Uint64 = 0x200 | 8,
-        Int8 = 0x100 | 1,
-        Int16 = 0x100 | 2,
-        Int32 = 0x100 | 4,
-        Int64 = 0x100 | 8,
-        Float32 = 0x400 | 4,
-        Float64 = 0x400 | 8
-    };
-
     struct DimensionInfo {
         std::string name;
         uint32_t position;
-        DataType dataType;
+        std::string dataType;
         double minimum;
         double mean;
         double maximum;
