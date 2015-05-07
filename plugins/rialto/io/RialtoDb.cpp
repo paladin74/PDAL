@@ -106,6 +106,11 @@ RialtoDb::~RialtoDb()
 
 void RialtoDb::create()
 {
+    if (m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session already exists)");
+    }
+    
     m_log = std::shared_ptr<pdal::Log>(new pdal::Log("RialtoDB", "stdout"));
     m_log->setLevel(LogLevel::Debug);
 
@@ -139,6 +144,11 @@ void RialtoDb::create()
 
 void RialtoDb::open(bool writable)
 {
+    if (m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session already exists)");
+    }
+
     m_log = std::shared_ptr<pdal::Log>(new pdal::Log("RialtoDB", "stdout"));
     m_log->setLevel(LogLevel::Debug);
 
@@ -175,13 +185,23 @@ void RialtoDb::open(bool writable)
 
 void RialtoDb::close()
 {
+    if (!m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
     delete m_session;
-    m_session = NULL; // TODO: assert not null on all public function
+    m_session = NULL;
 }
 
 
 void RialtoDb::createTileSetsTable()
 {
+    if (m_session->doesTableExist("TileSets"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'TileSets' already exists)");
+    }
+
     if (m_session->doesTableExist("TileSets")) return;
 
     std::ostringstream oss1;
@@ -213,7 +233,10 @@ void RialtoDb::createTileSetsTable()
 
 void RialtoDb::createTilesTable()
 {
-    if (m_session->doesTableExist("Tile")) return;
+    if (m_session->doesTableExist("Tiles"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'Tiles' already exists)");
+    }
 
     std::ostringstream oss1;
 
@@ -241,6 +264,11 @@ void RialtoDb::createTilesTable()
 
 void RialtoDb::createDimensionsTable()
 {
+    if (m_session->doesTableExist("Dimensions"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'Dimensions' already exists)");
+    }
+
     if (m_session->doesTableExist("Dimensions")) return;
 
     std::ostringstream oss1;
@@ -263,6 +291,11 @@ void RialtoDb::createDimensionsTable()
 
 std::vector<uint32_t> RialtoDb::getTileSetIds()
 {
+    if (!m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
     std::vector<uint32_t> ids;
 
     std::ostringstream oss;
@@ -289,6 +322,11 @@ std::vector<uint32_t> RialtoDb::getTileSetIds()
 
 RialtoDb::TileSetInfo RialtoDb::getTileSetInfo(uint32_t tileSetId)
 {
+    if (!m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
     TileSetInfo info;
 
     std::ostringstream oss;
@@ -325,6 +363,11 @@ RialtoDb::TileSetInfo RialtoDb::getTileSetInfo(uint32_t tileSetId)
 
 RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
 {
+    if (!m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
     TileInfo info;
 
     std::ostringstream oss;
@@ -363,6 +406,11 @@ RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
 
 std::vector<uint32_t> RialtoDb::getTileIdsAtLevel(uint32_t tileSetId, uint32_t level)
 {
+    if (!m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
     std::vector<uint32_t> ids;
 
     std::ostringstream oss;
@@ -389,6 +437,11 @@ std::vector<uint32_t> RialtoDb::getTileIdsAtLevel(uint32_t tileSetId, uint32_t l
 
 RialtoDb::DimensionInfo RialtoDb::getDimensionInfo(uint32_t tileSetId, uint32_t position)
 {
+    if (!m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
     DimensionInfo info;
 
     std::ostringstream oss;
@@ -421,6 +474,11 @@ RialtoDb::DimensionInfo RialtoDb::getDimensionInfo(uint32_t tileSetId, uint32_t 
 
 uint32_t RialtoDb::addTileSet(const RialtoDb::TileSetInfo& data)
 {
+    if (!m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
     log()->get(LogLevel::Debug) << "RialtoDb::addTileSet()" << std::endl;
 
     std::ostringstream oss;
@@ -455,14 +513,18 @@ uint32_t RialtoDb::addTileSet(const RialtoDb::TileSetInfo& data)
 void RialtoDb::addDimensions(uint32_t tileSetId,
                              const std::vector<DimensionInfo>& dims)
 {
-  std::ostringstream oss;
-  oss << "INSERT INTO Dimensions "
+    if (!m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
+    std::ostringstream oss;
+    oss << "INSERT INTO Dimensions "
       << "(tile_set_id, name, position, dataType, minimum, mean, maximum) "
       << "VALUES (?, ?, ?, ?, ?, ?, ?)";
 
-
-  for (auto dim: dims)
-  {
+    for (auto dim: dims)
+    {
     records rs;
     row r;
 
@@ -478,19 +540,24 @@ void RialtoDb::addDimensions(uint32_t tileSetId,
     rs.push_back(r);
 
     m_session->insert(oss.str(), rs);
-  }
-
+    }
 }
 
 
 uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data)
 {
+    if (!m_session)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
     unsigned char* buf = NULL;
     uint32_t buflen = 0;
     castPatchAsBuffer(data.patch, buf, buflen);
     assert(buf);
     assert(buflen);
 
+    // note we don't use 'mask' in the database version of tiles
     std::ostringstream oss;
     oss << "INSERT INTO Tiles "
         << "(tile_set_id, level, x, y, points) "
