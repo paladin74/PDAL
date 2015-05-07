@@ -46,7 +46,7 @@
 
 #include <cstdint>
 
-#include <pdal/../../plugins/sqlite/io/SQLiteCommon.hpp> // TODO: fix path
+#include <../plugins/sqlite/io/SQLiteCommon.hpp> // TODO: fix path
 
 
 // A Rialto database contains these tables:
@@ -55,8 +55,8 @@
 //    tile_set_id (PK)
 //    name
 //    maxLevel
-//    numCols   // TODO
-//    numRows   // TODO
+//    numCols
+//    numRows
 //    minx
 //    miny
 //    maxx
@@ -485,8 +485,9 @@ void RialtoDb::addDimensions(uint32_t tileSetId,
 
 uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data)
 {
-    unsigned char* buf = (unsigned char*)&data.patch.buf[0]; // TODO
-    uint32_t buflen = data.patch.buf.size();
+    unsigned char* buf = NULL;
+    uint32_t buflen = 0;
+    castPatchAsBuffer(data.patch, buf, buflen);
     assert(buf);
     assert(buflen);
 
@@ -511,6 +512,16 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data)
     log()->get(LogLevel::Debug) << "inserted Tile, id=" << id << std::endl;
 
     return id;
+}
+
+
+void RialtoDb::castPatchAsBuffer(const Patch& patch, unsigned char*& buf, uint32_t& bufLen)
+{
+    buf = NULL;
+    bufLen = patch.buf.size();    
+    if (bufLen) {
+        buf = (unsigned char*)&patch.buf[0];
+    }
 }
 
 

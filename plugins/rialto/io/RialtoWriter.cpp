@@ -51,30 +51,8 @@ namespace pdal
 
 namespace
 {
-    static void fillBufferWithPoint(const PointView* view, const PointId& idx, unsigned char* buf)
-    {
-        unsigned char* p = buf;
-        unsigned char* q = p;
-
-        for (const auto& dim : view->dims())
-        {
-            view->getRawField(dim, idx, q);
-            q += view->dimSize(dim);
-        }
-    }
-
-    static void fillBufferWithPointView(const PointView* view, unsigned char* buf)
-    {
-        for (size_t i=0; i<view->size(); ++i)
-        {
-            const PointId idx = i;
-            fillBufferWithPoint(view, idx, buf);
-        }
-    
-    }
-    
-} // anonymous namespace
-
+ // anonymous namespace
+}
 
 void RialtoWriter::serializeToTileSetInfo(MetadataNode tileSetNode,
                                           PointLayoutPtr layout,
@@ -133,17 +111,22 @@ void RialtoWriter::serializeToDimensionInfo(MetadataNode tileSetNode,
 }
 
 
-void RialtoWriter::serializeToPatch(PointView* view, Patch& patch)
-{
-    if (!view)
+void RialtoWriter::serializeToPatch(const PointView& view, Patch& patch)
+{        
+    const uint32_t pointSize = view.pointSize();
+    const uint32_t numPoints = view.size();
+    const uint32_t buflen = pointSize * numPoints;
+
+    patch.buf.resize(buflen);
+    
+    char* buf = (char*)(&patch.buf[0]);
+    const DimTypeList& dtl = view.dimTypes();
+    for (size_t i=0; i<numPoints; ++i)
     {
-        patch.buf.clear();
-    } else {
-        size_t len = 0;
-        unsigned char* buf = RialtoWriter::createBlob(view, len);  // TODO
-        patch.putBytes(buf, len);
-        delete[] buf; // TODO
+        view.getPackedPoint(dtl, i, buf);
     }
+
+    assert(patch.buf.size() == buflen);
 }
 
 
@@ -162,21 +145,12 @@ void RialtoWriter::serializeToTileInfo(MetadataNode tileNode, PointView* view, r
     //    << std::endl;
 
     Patch& patch = tileInfo.patch;
-    serializeToPatch(view, patch);
-}
-
-
-// caller responisble for deleting the buffer
-unsigned char* RialtoWriter::createBlob(PointView* view, size_t& buflen)
-{
-    const uint32_t pointSize = view->pointSize();
-    const uint32_t numPoints = view->size();
-    buflen = pointSize * numPoints;
-    unsigned char* buf = new unsigned char[buflen];
-
-    fillBufferWithPointView(view, buf);
-
-    return buf;
+    if (!view)
+    {
+        patch.buf.clear();
+    } else {
+        serializeToPatch(*view, patch);
+    }
 }
 
 
@@ -269,8 +243,12 @@ void RialtoWriter::done(PointTableRef table)
 
 void RialtoWriter::makePointViewMap(MetadataNode tileSetNode)
 {
-    // the metadata nodes are listed by tile id, not by point view id,
-    // so we need make to make a map from point view id to metadata node
+    // The tiler filter creates a metadata node for each point view,
+    // and stores the point view id in that node.
+    // 
+    // PDAL will be handing up point views, and we'll need to find
+    // the corresponding metadata node for it -- so here will make
+    // a reverse lookup, from point view id to metadata node.
     const MetadataNode tilesNode = tileSetNode.findChild("tiles");
     if (!tilesNode.valid()) {
         throw pdal_error("RialtoWriter: \"filters.tiler/tiles\" metadata not found");
@@ -303,5 +281,15 @@ void RialtoWriter::writeEmptyTiles()
     }
 }
 
+
+// TODO: this is a dup of RialtoDb::castPatchAsBuffer
+void RialtoWriter::castPatchAsBuffer(const Patch& patch, unsigned char*& buf, uint32_t& bufLen)
+{
+    buf = NULL;
+    bufLen = patch.buf.size();    
+    if (bufLen) {
+        buf = (unsigned char*)&patch.buf[0];
+    }
+}
 
 } // namespace pdal

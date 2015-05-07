@@ -131,6 +131,9 @@ public:
                  double max, double maxy,
                  uint32_t minLevel, uint32_t maxLevel);
 
+     // just hides the type punning
+     static void castPatchAsBuffer(const Patch&, unsigned char*& buf, uint32_t& bufLen);
+
 private:
     // query for all the tiles of a tile set, bounded by bbox region
     std::vector<uint32_t> getTileSets(uint32_t tileSetId,

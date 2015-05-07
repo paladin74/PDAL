@@ -132,9 +132,10 @@ void RialtoFileWriter::writeTile(MetadataNode tileNode, PointView* view)
 
     if (tileInfo.patch.buf.size())
     {
-        size_t bufsiz = tileInfo.patch.buf.size();
-        unsigned char* buf = &tileInfo.patch.buf[0];
-        fwrite(buf, bufsiz, 1, fp);
+        unsigned char* buf = NULL;
+        uint32_t bufLen = 0;
+        RialtoWriter::castPatchAsBuffer(tileInfo.patch, buf, bufLen);
+        fwrite(buf, bufLen, 1, fp);
     }
 
     uint8_t mask8 = mask;
