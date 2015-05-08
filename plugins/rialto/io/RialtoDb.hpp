@@ -83,8 +83,8 @@ public:
     struct TileInfo {
         uint32_t tileSetId;
         uint32_t level;
-        uint32_t x; // TODO: rename to col, row
-        uint32_t y;
+        uint32_t column;
+        uint32_t row;
         uint32_t numPoints; // used in database, but not on disk version
         uint32_t mask; // used in disk version, but not in database
         Patch patch;

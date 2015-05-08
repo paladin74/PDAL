@@ -69,8 +69,8 @@
 //    tile_id (PK)
 //    tile_set_id (FK)
 //    level
-//    x
-//    y
+//    column
+//    row
 //    points
 //
 // Dimensions
@@ -246,8 +246,8 @@ void RialtoDb::createTilesTable()
         << "tile_id INTEGER PRIMARY KEY AUTOINCREMENT,"
         << "tile_set_id INTEGER, "
         << "level INTEGER,"
-        << "x INTEGER,"
-        << "y INTEGER,"
+        << "column INTEGER,"
+        << "row INTEGER,"
         << "numPoints INTEGER,"
         << "points BLOB, "
         << "FOREIGN KEY(tile_set_id) REFERENCES TileSets(tile_set_id)"
@@ -374,7 +374,7 @@ RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
     TileInfo info;
 
     std::ostringstream oss;
-    oss << "SELECT tile_id,tile_set_id,level,x,y,numPoints"
+    oss << "SELECT tile_id,tile_set_id,level,column,row,numPoints"
         << (withPoints ? ",points " : " ")
         << "FROM Tiles "
         << "WHERE tile_id=" << tileId;
@@ -390,8 +390,8 @@ RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
     assert(tileId == boost::lexical_cast<uint32_t>(r->at(0).data));
     info.tileSetId = boost::lexical_cast<uint32_t>(r->at(1).data);
     info.level = boost::lexical_cast<double>(r->at(2).data);
-    info.x = boost::lexical_cast<double>(r->at(3).data);
-    info.y = boost::lexical_cast<double>(r->at(4).data);
+    info.column = boost::lexical_cast<double>(r->at(3).data);
+    info.row = boost::lexical_cast<double>(r->at(4).data);
     info.numPoints = boost::lexical_cast<double>(r->at(5).data);
 
     info.patch.buf.clear();
@@ -565,7 +565,7 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data)
     // note we don't use 'mask' in the database version of tiles
     std::ostringstream oss;
     oss << "INSERT INTO Tiles "
-        << "(tile_set_id, level, x, y, numPoints, points) "
+        << "(tile_set_id, level, column, row, numPoints, points) "
         << "VALUES (?, ?, ?, ?, ?, ?)";
 
     records rs;
@@ -573,8 +573,8 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data)
 
     r.push_back(column(data.tileSetId));
     r.push_back(column(data.level));
-    r.push_back(column(data.x));
-    r.push_back(column(data.y));
+    r.push_back(column(data.column));
+    r.push_back(column(data.row));
     r.push_back(column(data.numPoints));
     r.push_back(blob((char*)buf, (size_t)buflen));
     rs.push_back(r);

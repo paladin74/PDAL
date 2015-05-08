@@ -136,8 +136,8 @@ void RialtoWriter::serializeToTileInfo(uint32_t tileSetId, MetadataNode tileNode
     tileInfo.tileSetId = tileSetId;
     
     tileInfo.level = RialtoWriter::getMetadataU32(tileNode, "level");
-    tileInfo.x = RialtoWriter::getMetadataU32(tileNode, "tileX");
-    tileInfo.y = RialtoWriter::getMetadataU32(tileNode, "tileY");
+    tileInfo.column = RialtoWriter::getMetadataU32(tileNode, "tileX");
+    tileInfo.row = RialtoWriter::getMetadataU32(tileNode, "tileY");
     tileInfo.mask = RialtoWriter::getMetadataU32(tileNode, "mask");
 
     tileInfo.numPoints = 0;

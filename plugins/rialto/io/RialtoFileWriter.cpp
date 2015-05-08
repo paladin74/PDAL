@@ -124,10 +124,10 @@ void RialtoFileWriter::writeTile(uint32_t tileSetId, MetadataNode tileNode, Poin
     os << "/" << tileInfo.level;
     FileUtils::createDirectory(os.str());
 
-    os << "/" << tileInfo.x;
+    os << "/" << tileInfo.column;
     FileUtils::createDirectory(os.str());
 
-    os << "/" << tileInfo.y << ".ria";
+    os << "/" << tileInfo.row << ".ria";
     FILE* fp = fopen(os.str().c_str(), "wb");
 
     // TODO: we don't write the number of points, but maybe we should
