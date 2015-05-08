@@ -658,8 +658,25 @@ static void serializeToPointView(const rialtosupport::RialtoDb::TileInfo& info, 
 }
 
 
+void RialtoDb::setupPointTableFromTileSet(uint32_t tileSetId, PointTable& table)
+{
+    // TODO: this should all be done in 1 query
+    
+    TileSetInfo tileSetInfo = getTileSetInfo(tileSetId);
+    
+    for (uint32_t i=0; i<tileSetInfo.numDimensions; i++)
+    {
+        const DimensionInfo dimInfo = getDimensionInfo(tileSetId, i);
+
+        const Dimension::Id::Enum nameId = Dimension::id(dimInfo.name);
+        const Dimension::Type::Enum typeId = Dimension::type(dimInfo.dataType);
+        
+        table.layout()->registerDim(nameId, typeId);
+    }        
+}
+
+
 Stage* RialtoDb::query(PointTable& table,
-                       PointViewPtr view,
                        uint32_t tileSetId,
                        double minx, double miny,
                        double maxx, double maxy,
@@ -682,9 +699,7 @@ Stage* RialtoDb::query(PointTable& table,
     std::vector<uint32_t> ids = queryForTileIds(tileSetId, minx, miny,
                                                 maxx, maxy, level);
 
-    table.layout()->registerDim(Dimension::Id::X);  // TODO
-    table.layout()->registerDim(Dimension::Id::Y);
-    table.layout()->registerDim(Dimension::Id::Z);
+    PointViewPtr view(new PointView(table));
 
     uint32_t pointIndex = 0;
     for (auto id: ids) 

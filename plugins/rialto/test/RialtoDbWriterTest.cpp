@@ -306,9 +306,9 @@ TEST(RialtoDbWriterTest, testWriter)
     
     {
         PointTable table;
-        PointViewPtr view(new PointView(table));
-
-        Stage* stage = db.query(table, view, tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 2);
+        db.setupPointTableFromTileSet(tileSetIds[0], table);
+        
+        Stage* stage = db.query(table, tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 2);
         
         // execution
         stage->prepare(table);
@@ -390,50 +390,41 @@ TEST(RialtoDbWriterTest, testOscar)
         rialtosupport::RialtoDb::TileSetInfo tileSetInfo = db.getTileSetInfo(tileSetId);
         const uint32_t bestLevel = tileSetInfo.maxLevel;
 
-        // pick a nice bbox
-        // NOTE: api may change, I should use the BBOX class probably
-        double minx = 0.0;
-        double miny = 0.0;
-        double maxx = 180.0;
-        double maxy = 90.0;
-        
         // get ready to execute...
         PointTable table;
-        PointViewPtr view(new PointView(table));
-
+        db.setupPointTableFromTileSet(tileSetId, table);
+        PointViewSet views;
+        PointViewPtr view;
+        
         // NOTE: api will change, this should be a StagePtr or some such
-        // NOTE: we need to pass the table and view into the query() function,
-        //   because the querier isn't reading in the dimension info yet and 
-        //   becuase the querier needs them to make it's BufferReader:
-        //   this is deeply unfortunate.
-        Stage* stage = db.query(table, view, tileSetId, minx, miny, maxx, maxy, bestLevel);
+        // NOTE: api may change, I should use the BBOX class probably
+        Stage* stage = db.query(table, tileSetId, 0.0, 0.0, 180.0, 90.0, bestLevel);
         
         // NOTE: we'll always return a valid stage, even if we know there are no points
         EXPECT_TRUE(stage != NULL);
         
         // go!
         stage->prepare(table);
-        PointViewSet outputViews = stage->execute(table);
+        views = stage->execute(table);
         
         // check our output: we should have one point view, with 2 points in it
-        EXPECT_EQ(outputViews.size(), 1u);
-        PointViewPtr outView = *(outputViews.begin());
-        EXPECT_EQ(outView->size(), 2u);
-        
-        /*
-        // TODO: pdal barfs when I reuse the table/view, need to investigate
-        
-        // That was so much fun, let's do it again!
-        minx = -180.0;
-        miny = -90.0;
-        maxx = 0.0;
-        maxy = 0.0;
+        EXPECT_EQ(views.size(), 1u);
+        view = *(views.begin());
+        EXPECT_EQ(view->size(), 2u);
+        testPoint(view, 0, data[4]);
+        testPoint(view, 1, data[5]);
 
-        stage = db.query(table, view, tileSetId, minx, miny, maxx, maxy, bestLevel);
-        EXPECT_EQ(outputViews.size(), 1u);
-        outView = *(outputViews.begin());
-        EXPECT_EQ(outView->size(), 2u);
-        */
+        // That was so much fun, let's do it again!
+        stage->prepare(table);
+        views = stage->execute(table);
+
+        // check output again
+        stage = db.query(table, tileSetId, -180.0, -90.0, 0.0, 0.0, bestLevel);
+        EXPECT_EQ(views.size(), 1u);
+        view = *(views.begin());
+        EXPECT_EQ(view->size(), 2u);
+        testPoint(view, 0, data[4]); // WRONG!
+        testPoint(view, 1, data[5]); // WRONG!
     }
 
     //FileUtils::deleteDirectory(Support::temppath("oscar.sqlite"));

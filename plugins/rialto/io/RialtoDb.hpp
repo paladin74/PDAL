@@ -132,11 +132,16 @@ public:
                                           double max, double maxy,
                                           uint32_t level);
 
+    // fills in the dimensions of an otherwise empty point table with
+    // the dimension information from the tile set
+    void setupPointTableFromTileSet(uint32_t tileSetId, PointTable& table);
+    
     // query for all the points of a tile set, bounded by bbox region
     // returns a pipeline made up of a BufferReader and a CropFilter
     // returns NULL if no points found
+    //
+    // prior to calling query(), you must call setupPointTableFromTileSet()
     Stage* query(PointTable& table,
-                 PointViewPtr view,
                  uint32_t tileSetId,
                  double minx, double miny,
                  double max, double maxy,
