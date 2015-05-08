@@ -184,10 +184,12 @@ TEST(RialtoDbWriterTest, testWriter)
     rialtosupport::RialtoDb db(Support::temppath("rialto2.sqlite"));
     db.open(false);
 
-    std::vector<uint32_t> tileSetIds = db.getTileSetIds();
+    std::vector<uint32_t> tileSetIds;
+    db.readTileSetIds(tileSetIds);
     EXPECT_EQ(tileSetIds.size(), 1u);
 
-    rialtosupport::RialtoDb::TileSetInfo tileSetInfo = db.getTileSetInfo(tileSetIds[0]);
+    rialtosupport::RialtoDb::TileSetInfo tileSetInfo;
+    db.readTileSetInfo(tileSetIds[0], tileSetInfo);
     EXPECT_DOUBLE_EQ(tileSetInfo.minx, -180.0);
     EXPECT_DOUBLE_EQ(tileSetInfo.miny, -90.0);
     EXPECT_DOUBLE_EQ(tileSetInfo.maxx, 180.0);
@@ -197,39 +199,40 @@ TEST(RialtoDbWriterTest, testWriter)
     EXPECT_EQ(tileSetInfo.numRows, 1u);
     EXPECT_EQ(tileSetInfo.numDimensions, 3u);
 
-    rialtosupport::RialtoDb::DimensionInfo dimensionInfo;
-    dimensionInfo = db.getDimensionInfo(tileSetIds[0], 0);
-    EXPECT_EQ(dimensionInfo.name, "X");
-    EXPECT_EQ(dimensionInfo.dataType, "double");
-    EXPECT_DOUBLE_EQ(dimensionInfo.minimum, -179.0);
-    EXPECT_DOUBLE_EQ(dimensionInfo.mean+100.0, 0.0+100.0); // TODO
-    EXPECT_DOUBLE_EQ(dimensionInfo.maximum, 91.0);
-    dimensionInfo = db.getDimensionInfo(tileSetIds[0], 1);
-    EXPECT_EQ(dimensionInfo.name, "Y");
-    EXPECT_EQ(dimensionInfo.dataType, "double");
-    EXPECT_DOUBLE_EQ(dimensionInfo.minimum, -89.0);
-    EXPECT_DOUBLE_EQ(dimensionInfo.mean+100.0, 0.0+100.0); // TODO
-    EXPECT_DOUBLE_EQ(dimensionInfo.maximum, 89.0);
-    dimensionInfo = db.getDimensionInfo(tileSetIds[0], 2);
-    EXPECT_EQ(dimensionInfo.name, "Z");
-    EXPECT_EQ(dimensionInfo.dataType, "double");
-    EXPECT_DOUBLE_EQ(dimensionInfo.minimum, 0.0);
-    EXPECT_DOUBLE_EQ(dimensionInfo.mean+100.0, 38.5+100.0); // TODO
-    EXPECT_DOUBLE_EQ(dimensionInfo.maximum, 77.0);
+    const std::vector<rialtosupport::RialtoDb::DimensionInfo>& dimensionsInfo = tileSetInfo.dimensions;
+    EXPECT_EQ(dimensionsInfo[0].name, "X");
+    EXPECT_EQ(dimensionsInfo[0].dataType, "double");
+    EXPECT_DOUBLE_EQ(dimensionsInfo[0].minimum, -179.0);
+    EXPECT_DOUBLE_EQ(dimensionsInfo[0].mean+100.0, 0.0+100.0); // TODO
+    EXPECT_DOUBLE_EQ(dimensionsInfo[0].maximum, 91.0);
+    EXPECT_EQ(dimensionsInfo[1].name, "Y");
+    EXPECT_EQ(dimensionsInfo[1].dataType, "double");
+    EXPECT_DOUBLE_EQ(dimensionsInfo[1].minimum, -89.0);
+    EXPECT_DOUBLE_EQ(dimensionsInfo[1].mean+100.0, 0.0+100.0); // TODO
+    EXPECT_DOUBLE_EQ(dimensionsInfo[1].maximum, 89.0);
+    EXPECT_EQ(dimensionsInfo[2].name, "Z");
+    EXPECT_EQ(dimensionsInfo[2].dataType, "double");
+    EXPECT_DOUBLE_EQ(dimensionsInfo[2].minimum, 0.0);
+    EXPECT_DOUBLE_EQ(dimensionsInfo[2].mean+100.0, 38.5+100.0); // TODO
+    EXPECT_DOUBLE_EQ(dimensionsInfo[2].maximum, 77.0);
 
-    std::vector<uint32_t> tilesAt0 = db.getTileIdsAtLevel(tileSetIds[0], 0);
+    std::vector<uint32_t> tilesAt0;
+    db.readTileIdsAtLevel(tileSetIds[0], 0, tilesAt0);
     EXPECT_EQ(tilesAt0.size(), 1u);
-    std::vector<uint32_t> tilesAt1 = db.getTileIdsAtLevel(tileSetIds[0], 1);
+    std::vector<uint32_t> tilesAt1;
+    db.readTileIdsAtLevel(tileSetIds[0], 1, tilesAt1);
     EXPECT_EQ(tilesAt1.size(), 2u);
-    std::vector<uint32_t> tilesAt2 = db.getTileIdsAtLevel(tileSetIds[0], 2);
+    std::vector<uint32_t> tilesAt2;
+    db.readTileIdsAtLevel(tileSetIds[0], 2, tilesAt2);
     EXPECT_EQ(tilesAt2.size(), 8u);
-    std::vector<uint32_t> tilesAt3 = db.getTileIdsAtLevel(tileSetIds[0], 3);
+    std::vector<uint32_t> tilesAt3;
+    db.readTileIdsAtLevel(tileSetIds[0], 3, tilesAt3);
     EXPECT_EQ(tilesAt3.size(), 0u);
 
     rialtosupport::RialtoDb::TileInfo info;
 
     {
-        info = db.getTileInfo(tilesAt0[0], true);
+        db.readTileInfo(tilesAt0[0], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[0]);
@@ -237,12 +240,12 @@ TEST(RialtoDbWriterTest, testWriter)
 
     {
         // TODO: these two are order-dependent
-        info = db.getTileInfo(tilesAt1[0], true);
+        db.readTileInfo(tilesAt1[0], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[0]);
 
-        info = db.getTileInfo(tilesAt1[1], true);
+        db.readTileInfo(tilesAt1[1], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[4]);
@@ -250,42 +253,42 @@ TEST(RialtoDbWriterTest, testWriter)
 
     {
         // TODO: these eight are order-dependent
-        info = db.getTileInfo(tilesAt2[0], true);
+        db.readTileInfo(tilesAt2[0], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[0]);
 
-        info = db.getTileInfo(tilesAt2[1], true);
+        db.readTileInfo(tilesAt2[1], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[1]);
 
-        info = db.getTileInfo(tilesAt2[2], true);
+        db.readTileInfo(tilesAt2[2], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[2]);
 
-        info = db.getTileInfo(tilesAt2[3], true);
+        db.readTileInfo(tilesAt2[3], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[3]);
 
-        info = db.getTileInfo(tilesAt2[4], true);
+        db.readTileInfo(tilesAt2[4], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[4]);
 
-        info = db.getTileInfo(tilesAt2[5], true);
+        db.readTileInfo(tilesAt2[5], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[5]);
 
-        info = db.getTileInfo(tilesAt2[6], true);
+        db.readTileInfo(tilesAt2[6], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[6]);
 
-        info = db.getTileInfo(tilesAt2[7], true);
+        db.readTileInfo(tilesAt2[7], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         verifyBytes(info.patch.buf, &data[7]);
@@ -294,19 +297,19 @@ TEST(RialtoDbWriterTest, testWriter)
     {
         std::vector<uint32_t> ids;
 
-        ids = db.queryForTileIds(tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 0);
+        db.queryForTileIds(tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 0, ids);
         EXPECT_EQ(ids.size(), 1u); // TODO: will be 0 when turn on spatialite
 
-        ids = db.queryForTileIds(tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 1);
+        db.queryForTileIds(tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 1, ids);
         EXPECT_EQ(ids.size(), 2u); // TODO: will be 1 when turn on spatialite
 
-        ids = db.queryForTileIds(tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 2);
+        db.queryForTileIds(tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 2, ids);
         EXPECT_EQ(ids.size(), 8u); // TODO: will be 2 when turn on spatialite
     }
     
     {
         PointTable table;
-        db.setupPointTableFromTileSet(tileSetIds[0], table);
+        db.setupPointTable(tileSetIds[0], table);
         
         Stage* stage = db.query(table, tileSetIds[0], 0.0, 0.0, 180.0, 90.0, 2);
         
@@ -384,11 +387,13 @@ TEST(RialtoDbWriterTest, testOscar)
         db.open(false);
 
         // we only have 1 tile set in the database: get it's id
-        const std::vector<uint32_t> tileSetIds = db.getTileSetIds();
+        std::vector<uint32_t> tileSetIds;
+        db.readTileSetIds(tileSetIds);
         const uint32_t tileSetId = tileSetIds[0];
         
         // how many levels do we have?
-        rialtosupport::RialtoDb::TileSetInfo tileSetInfo = db.getTileSetInfo(tileSetId);
+        rialtosupport::RialtoDb::TileSetInfo tileSetInfo;
+        db.readTileSetInfo(tileSetId, tileSetInfo);
         const uint32_t bestLevel = tileSetInfo.maxLevel;
 
         // NOTE: this table/query/stage/execute mechanism will likely be
@@ -396,7 +401,7 @@ TEST(RialtoDbWriterTest, testOscar)
 
         // get ready to execute...
         PointTable table;
-        db.setupPointTableFromTileSet(tileSetId, table);
+        db.setupPointTable(tileSetId, table);
         PointViewSet views;
         PointViewPtr view;
                 

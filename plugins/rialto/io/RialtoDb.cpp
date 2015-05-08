@@ -94,7 +94,6 @@ namespace
 
 RialtoDb::RialtoDb(const std::string& connection) :
     m_connection(connection),
-    m_session(NULL),
     m_srid(4326)
 {
 }
@@ -108,7 +107,7 @@ RialtoDb::~RialtoDb()
 
 void RialtoDb::create()
 {
-    if (m_session)
+    if (m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session already exists)");
     }
@@ -123,18 +122,18 @@ void RialtoDb::create()
       throw pdal_error("RialtoDb: database already exists");
     }
 
-    m_session = new SQLite(m_connection, m_log);
-    m_session->connect(true);
+    m_sqlite = std::unique_ptr<SQLite>(new SQLite(m_connection, m_log));
+    m_sqlite->connect(true);
 
 #if 0
-    m_session->spatialite();
+    m_sqlite->spatialite();
 
-    const bool hasSpatialite = m_session->doesTableExist("geometry_columns");
+    const bool hasSpatialite = m_sqlite->doesTableExist("geometry_columns");
     if (!hasSpatialite)
     {
        std::ostringstream oss;
        oss << "SELECT InitSpatialMetadata()";
-       m_session->execute(oss.str());
+       m_sqlite->execute(oss.str());
     }
 #endif
 
@@ -146,7 +145,7 @@ void RialtoDb::create()
 
 void RialtoDb::open(bool writable)
 {
-    if (m_session)
+    if (m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session already exists)");
     }
@@ -161,50 +160,49 @@ void RialtoDb::open(bool writable)
       throw pdal_error("RialtoDb: database not found");
     }
 
-    m_session = new SQLite(m_connection, m_log);
-    m_session->connect(writable);
+    m_sqlite = std::unique_ptr<SQLite>(new SQLite(m_connection, m_log));
+    m_sqlite->connect(writable);
 
 #if 0
-    m_session->spatialite();
+    m_sqlite->spatialite();
 
-    const bool hasSpatialite = m_session->doesTableExist("geometry_columns");
+    const bool hasSpatialite = m_sqlite->doesTableExist("geometry_columns");
     if (!hasSpatialite)
     {
        std::ostringstream oss;
        oss << "SELECT InitSpatialMetadata()";
-       m_session->execute(oss.str());
+       m_sqlite->execute(oss.str());
     }
 #endif
 
-    if (!m_session->doesTableExist("TileSets"))
+    if (!m_sqlite->doesTableExist("TileSets"))
         throw pdal_error("RialtoDb: required table 'TileSets' not found");
-    if (!m_session->doesTableExist("Tiles"))
+    if (!m_sqlite->doesTableExist("Tiles"))
         throw pdal_error("RialtoDb: required table 'Tiles' not found");
-    if (!m_session->doesTableExist("Dimensions"))
+    if (!m_sqlite->doesTableExist("Dimensions"))
         throw pdal_error("RialtoDb: required table 'Dimensions' not found");
 }
 
 
 void RialtoDb::close()
 {
-    if (!m_session)
+    if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
-    delete m_session;
-    m_session = NULL;
+    m_sqlite.reset();
 }
 
 
 void RialtoDb::createTileSetsTable()
 {
-    if (m_session->doesTableExist("TileSets"))
+    if (m_sqlite->doesTableExist("TileSets"))
     {
         throw pdal_error("RialtoDB: invalid state (table 'TileSets' already exists)");
     }
 
-    if (m_session->doesTableExist("TileSets")) return;
+    if (m_sqlite->doesTableExist("TileSets")) return;
 
     std::ostringstream oss1;
     std::ostringstream oss2;
@@ -222,20 +220,20 @@ void RialtoDb::createTileSetsTable()
         << "numDims INTEGER"
         << ")";
 
-    m_session->execute(oss1.str());
+    m_sqlite->execute(oss1.str());
 
 #if 0
     oss2 << "SELECT AddGeometryColumn('TileSets', 'extent', "
         << m_srid << ", "
         << "'POLYGON', 'XY')";
-    m_session->execute(oss2.str());
+    m_sqlite->execute(oss2.str());
 #endif
 }
 
 
 void RialtoDb::createTilesTable()
 {
-    if (m_session->doesTableExist("Tiles"))
+    if (m_sqlite->doesTableExist("Tiles"))
     {
         throw pdal_error("RialtoDB: invalid state (table 'Tiles' already exists)");
     }
@@ -253,26 +251,26 @@ void RialtoDb::createTilesTable()
         << "FOREIGN KEY(tile_set_id) REFERENCES TileSets(tile_set_id)"
         << ")";
 
-    m_session->execute(oss1.str());
+    m_sqlite->execute(oss1.str());
 
 #if 0
     std::ostringstream oss2;
     oss2 << "SELECT AddGeometryColumn('Tiles', 'extent', "
         << m_srid << ", "
         << "'POLYGON', 'XY')";
-    m_session->execute(oss2.str());
+    m_sqlite->execute(oss2.str());
 #endif
 }
 
 
 void RialtoDb::createDimensionsTable()
 {
-    if (m_session->doesTableExist("Dimensions"))
+    if (m_sqlite->doesTableExist("Dimensions"))
     {
         throw pdal_error("RialtoDB: invalid state (table 'Dimensions' already exists)");
     }
 
-    if (m_session->doesTableExist("Dimensions")) return;
+    if (m_sqlite->doesTableExist("Dimensions")) return;
 
     std::ostringstream oss1;
     std::ostringstream oss2;
@@ -288,28 +286,28 @@ void RialtoDb::createDimensionsTable()
         << "FOREIGN KEY(tile_set_id) REFERENCES TileSets(tile_set_id)"
         << ")";
 
-    m_session->execute(oss1.str());
+    m_sqlite->execute(oss1.str());
 }
 
 
-std::vector<uint32_t> RialtoDb::getTileSetIds()
+void RialtoDb::readTileSetIds(std::vector<uint32_t>& ids) const
 {
-    if (!m_session)
+    if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
-    std::vector<uint32_t> ids;
-
+    ids.clear();
+    
     std::ostringstream oss;
     oss << "SELECT tile_set_id FROM TileSets";
 
     log()->get(LogLevel::Debug1) << "SELECT for tile set ids" << std::endl;
 
-    m_session->query(oss.str());
+    m_sqlite->query(oss.str());
 
     do {
-        const row* r = m_session->get();
+        const row* r = m_sqlite->get();
         if (!r) break;
 
         column const& c = r->at(0);
@@ -317,20 +315,16 @@ std::vector<uint32_t> RialtoDb::getTileSetIds()
         log()->get(LogLevel::Debug1) << " got id: " << id << std::endl;
         ids.push_back(id);
 
-    } while (m_session->next());
-
-    return ids;
+    } while (m_sqlite->next());
 }
 
 
-RialtoDb::TileSetInfo RialtoDb::getTileSetInfo(uint32_t tileSetId)
+void RialtoDb::readTileSetInfo(uint32_t tileSetId, TileSetInfo& info) const
 {
-    if (!m_session)
+    if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
-
-    TileSetInfo info;
 
     std::ostringstream oss;
     oss << "SELECT tile_set_id,name,maxLevel,numCols,numRows,minx,miny,maxx,maxy,numDims "
@@ -338,10 +332,10 @@ RialtoDb::TileSetInfo RialtoDb::getTileSetInfo(uint32_t tileSetId)
 
     log()->get(LogLevel::Debug) << "SELECT for tile set" << std::endl;
 
-    m_session->query(oss.str());
+    m_sqlite->query(oss.str());
 
     // should get exactly one row back
-    const row* r = m_session->get();
+    const row* r = m_sqlite->get();
     assert(r);
 
     assert(tileSetId == boost::lexical_cast<uint32_t>(r->at(0).data));
@@ -358,20 +352,20 @@ RialtoDb::TileSetInfo RialtoDb::getTileSetInfo(uint32_t tileSetId)
     assert(info.numCols == 2);
     assert(info.numRows == 1);
 
-    assert(!m_session->next());
+    assert(!m_sqlite->next());
 
-    return info;
+    info.dimensions.clear();
+    info.dimensions.resize(info.numDimensions);
+    readDimensionsInfo(tileSetId, info.dimensions);
 }
 
 
-RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
+void RialtoDb::readTileInfo(uint32_t tileId, bool withPoints, RialtoDb::TileInfo& info) const
 {
-    if (!m_session)
+    if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
-
-    TileInfo info;
 
     std::ostringstream oss;
     oss << "SELECT tile_id,tile_set_id,level,column,row,numPoints"
@@ -381,10 +375,10 @@ RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
 
     log()->get(LogLevel::Debug) << "SELECT for tile" << std::endl;
 
-    m_session->query(oss.str());
+    m_sqlite->query(oss.str());
 
     // should get exactly one row back
-    const row* r = m_session->get();
+    const row* r = m_sqlite->get();
     assert(r);
 
     assert(tileId == boost::lexical_cast<uint32_t>(r->at(0).data));
@@ -403,21 +397,19 @@ RialtoDb::TileInfo RialtoDb::getTileInfo(uint32_t tileId, bool withPoints)
       info.patch.putBytes(pos, blobLen);
     }
 
-    assert(!m_session->next());
-
-    return info;
+    assert(!m_sqlite->next());
 }
 
 
-std::vector<uint32_t> RialtoDb::getTileIdsAtLevel(uint32_t tileSetId, uint32_t level)
+void RialtoDb::readTileIdsAtLevel(uint32_t tileSetId, uint32_t level, std::vector<uint32_t>& ids) const
 {
-    if (!m_session)
+    if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
-    std::vector<uint32_t> ids;
-
+    ids.clear();
+    
     std::ostringstream oss;
     oss << "SELECT tile_id FROM Tiles"
         << " WHERE tile_set_id=" << tileSetId
@@ -425,61 +417,62 @@ std::vector<uint32_t> RialtoDb::getTileIdsAtLevel(uint32_t tileSetId, uint32_t l
 
     log()->get(LogLevel::Debug) << "SELECT for tile ids at level: " << level << std::endl;
 
-    m_session->query(oss.str());
+    m_sqlite->query(oss.str());
 
     do {
-        const row* r = m_session->get();
+        const row* r = m_sqlite->get();
         if (!r) break;
 
         uint32_t id = boost::lexical_cast<uint32_t>(r->at(0).data);
         log()->get(LogLevel::Debug) << "  got tile id=" << id << std::endl;
         ids.push_back(id);
-    } while (m_session->next());
-
-    return ids;
+    } while (m_sqlite->next());
 }
 
 
-RialtoDb::DimensionInfo RialtoDb::getDimensionInfo(uint32_t tileSetId, uint32_t position)
+void RialtoDb::readDimensionsInfo(uint32_t tileSetId, std::vector<DimensionInfo>& dimensionsInfo) const
 {
-    if (!m_session)
+    if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
-    DimensionInfo info;
-
+    dimensionsInfo.clear();
+    
     std::ostringstream oss;
     oss << "SELECT tile_set_id,name,position,dataType,minimum,mean,maximum "
         << "FROM Dimensions "
-        << "WHERE tile_set_id=" << tileSetId
-        << " AND position=" << position;
+        << "WHERE tile_set_id=" << tileSetId;
 
-    log()->get(LogLevel::Debug) << "SELECT for dim info, position: " << position << std::endl;
+    log()->get(LogLevel::Debug) << "SELECT for dim info of tile set " << tileSetId << std::endl;
 
-    m_session->query(oss.str());
+    m_sqlite->query(oss.str());
 
-    // should get exactly one row back
-    const row* r = m_session->get();
-    assert(r);
+    int i = 0;
+    do {
+        const row* r = m_sqlite->get();
+        if (!r) break;
 
-    assert(tileSetId == boost::lexical_cast<uint32_t>(r->at(0).data));
-    info.name = r->at(1).data;
-    assert(position == boost::lexical_cast<uint32_t>(r->at(2).data));
-    info.dataType = r->at(3).data;
-    info.minimum = boost::lexical_cast<double>(r->at(4).data);
-    info.mean = boost::lexical_cast<double>(r->at(5).data);
-    info.maximum = boost::lexical_cast<double>(r->at(6).data);
+        DimensionInfo& info = dimensionsInfo[i];
+        
+        assert(tileSetId == boost::lexical_cast<uint32_t>(r->at(0).data));
+        info.name = r->at(1).data;
+        info.position = boost::lexical_cast<double>(r->at(2).data);
+        info.dataType = r->at(3).data;
+        info.minimum = boost::lexical_cast<double>(r->at(4).data);
+        info.mean = boost::lexical_cast<double>(r->at(5).data);
+        info.maximum = boost::lexical_cast<double>(r->at(6).data);
 
-    assert(!m_session->next());
-
-    return info;
+        log()->get(LogLevel::Debug1) << "read dim: " << info.name << std::endl;
+        
+        ++i;
+    } while (m_sqlite->next());
 }
 
 
-uint32_t RialtoDb::addTileSet(const RialtoDb::TileSetInfo& data)
+uint32_t RialtoDb::writeTileSet(const RialtoDb::TileSetInfo& data)
 {
-    if (!m_session)
+    if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
@@ -505,20 +498,22 @@ uint32_t RialtoDb::addTileSet(const RialtoDb::TileSetInfo& data)
     r.push_back(column(data.numDimensions));
     rs.push_back(r);
 
-    m_session->insert(oss.str(), rs);
+    m_sqlite->insert(oss.str(), rs);
 
-    long id = m_session->last_row_id();
+    long id = m_sqlite->last_row_id();
     log()->get(LogLevel::Debug) << "inserted TileSet, id=" << id << std::endl;
     log()->get(LogLevel::Debug) << "     " << data.numCols << data.numRows << std::endl;
 
+    writeDimensions(id, data.dimensions);
+    
     return id;
 }
 
 
-void RialtoDb::addDimensions(uint32_t tileSetId,
+void RialtoDb::writeDimensions(uint32_t tileSetId,
                              const std::vector<DimensionInfo>& dims)
 {
-    if (!m_session)
+    if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
@@ -530,28 +525,28 @@ void RialtoDb::addDimensions(uint32_t tileSetId,
 
     for (auto dim: dims)
     {
-    records rs;
-    row r;
+        records rs;
+        row r;
 
-    log()->get(LogLevel::Debug) << "INSERT for dim: " << dim.name << std::endl;
+        log()->get(LogLevel::Debug) << "INSERT for dim: " << dim.name << std::endl;
 
-    r.push_back(column(tileSetId));
-    r.push_back(column(dim.name.c_str()));
-    r.push_back(column(dim.position));
-    r.push_back(column(dim.dataType));
-    r.push_back(column(dim.minimum));
-    r.push_back(column(dim.mean));
-    r.push_back(column(dim.maximum));
-    rs.push_back(r);
+        r.push_back(column(tileSetId));
+        r.push_back(column(dim.name.c_str()));
+        r.push_back(column(dim.position));
+        r.push_back(column(dim.dataType));
+        r.push_back(column(dim.minimum));
+        r.push_back(column(dim.mean));
+        r.push_back(column(dim.maximum));
+        rs.push_back(r);
 
-    m_session->insert(oss.str(), rs);
+        m_sqlite->insert(oss.str(), rs);
     }
 }
 
 
-uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data)
+uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
 {
-    if (!m_session)
+    if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
@@ -579,9 +574,9 @@ uint32_t RialtoDb::addTile(const RialtoDb::TileInfo& data)
     r.push_back(blob((char*)buf, (size_t)buflen));
     rs.push_back(r);
 
-    m_session->insert(oss.str(), rs);
+    m_sqlite->insert(oss.str(), rs);
 
-    long id = m_session->last_row_id();
+    long id = m_sqlite->last_row_id();
     log()->get(LogLevel::Debug) << "inserted for tile set " << data.tileSetId
                                 << ": tile id " << id << std::endl;
 
@@ -599,12 +594,13 @@ void RialtoDb::castPatchAsBuffer(const Patch& patch, unsigned char*& buf, uint32
 }
 
 
-std::vector<uint32_t> RialtoDb::queryForTileIds(uint32_t tileSetId,
-                                                double minx, double miny,
-                                                double max, double maxy,
-                                                uint32_t level)
+void RialtoDb::queryForTileIds(uint32_t tileSetId,
+                               double minx, double miny,
+                               double max, double maxy,
+                               uint32_t level,
+                               std::vector<uint32_t>& ids) const
 {
-    if (!m_session)
+    if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
@@ -612,27 +608,24 @@ std::vector<uint32_t> RialtoDb::queryForTileIds(uint32_t tileSetId,
     log()->get(LogLevel::Debug) << "Querying tile set " << tileSetId
                                 << " for some tile ids" << std::endl;
 
-    std::vector<uint32_t> ids;
-
-    // for now, just return all the tiles at the level
+    // TODO: for now, just return *all* the tiles at the level
+    ids.clear();
     
     std::ostringstream oss;
     oss << "SELECT tile_id FROM Tiles"
         << " WHERE tile_set_id=" << tileSetId
         << " AND level=" << level;
 
-    m_session->query(oss.str());
+    m_sqlite->query(oss.str());
 
     do {
-        const row* r = m_session->get();
+        const row* r = m_sqlite->get();
         if (!r) break;
 
         uint32_t id = boost::lexical_cast<uint32_t>(r->at(0).data);
         log()->get(LogLevel::Debug) << "  got tile id=" << id << std::endl;
         ids.push_back(id);
-    } while (m_session->next());
-
-    return ids;
+    } while (m_sqlite->next());
 }
 
 
@@ -658,15 +651,16 @@ static void serializeToPointView(const rialtosupport::RialtoDb::TileInfo& info, 
 }
 
 
-void RialtoDb::setupPointTableFromTileSet(uint32_t tileSetId, PointTable& table)
+void RialtoDb::setupPointTable(uint32_t tileSetId, PointTable& table) const
 {
     // TODO: this should all be done in 1 query
     
-    TileSetInfo tileSetInfo = getTileSetInfo(tileSetId);
+    TileSetInfo tileSetInfo;
+    readTileSetInfo(tileSetId, tileSetInfo);
     
     for (uint32_t i=0; i<tileSetInfo.numDimensions; i++)
     {
-        const DimensionInfo dimInfo = getDimensionInfo(tileSetId, i);
+        const DimensionInfo& dimInfo = tileSetInfo.dimensions[i];
 
         const Dimension::Id::Enum nameId = Dimension::id(dimInfo.name);
         const Dimension::Type::Enum typeId = Dimension::type(dimInfo.dataType);
@@ -680,9 +674,9 @@ Stage* RialtoDb::query(PointTable& table,
                        uint32_t tileSetId,
                        double minx, double miny,
                        double maxx, double maxy,
-                       uint32_t level)
+                       uint32_t level) const
 {
-    if (!m_session)
+    if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
@@ -696,15 +690,16 @@ Stage* RialtoDb::query(PointTable& table,
                                 << maxy << ")"
                                 << std::endl;
 
-    std::vector<uint32_t> ids = queryForTileIds(tileSetId, minx, miny,
-                                                maxx, maxy, level);
+    std::vector<uint32_t> ids;
+    queryForTileIds(tileSetId, minx, miny, maxx, maxy, level, ids);
 
     PointViewPtr view(new PointView(table));
 
     uint32_t pointIndex = 0;
     for (auto id: ids) 
     {
-        TileInfo info = getTileInfo(id, true);
+        TileInfo info;
+        readTileInfo(id, true, info);
         
         log()->get(LogLevel::Debug) << "  got some points: " << info.numPoints << std::endl;
 

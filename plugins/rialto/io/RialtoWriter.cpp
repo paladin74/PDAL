@@ -76,6 +76,8 @@ void RialtoWriter::serializeToTileSetInfo(const std::string& tileSetName,
     assert(tileSetInfo.minx==-180.0 && tileSetInfo.miny==-90.0 && tileSetInfo.maxx==180.0 && tileSetInfo.maxy==90.0);
     
     tileSetInfo.numDimensions = layout->dims().size();
+    
+    serializeToDimensionInfo(tileSetNode, layout, tileSetInfo.dimensions);    
 }
 
 

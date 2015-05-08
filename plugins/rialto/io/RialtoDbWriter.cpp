@@ -74,13 +74,8 @@ uint32_t RialtoDbWriter::writeHeader(const std::string& tileSetName,
     RialtoDb::TileSetInfo tileSetInfo;
     serializeToTileSetInfo(tileSetName, tileSetNode, layout, tileSetInfo);
 
-    std::vector<RialtoDb::DimensionInfo> dimsInfo;
-    serializeToDimensionInfo(tileSetNode, layout, dimsInfo);
-    
-    const uint32_t tileSetId = m_rialtoDb->addTileSet(tileSetInfo);
+    const uint32_t tileSetId = m_rialtoDb->writeTileSet(tileSetInfo);
 
-    m_rialtoDb->addDimensions(tileSetId, dimsInfo);
-    
     return tileSetId;
 }
 
@@ -94,7 +89,7 @@ void RialtoDbWriter::writeTile(uint32_t tileSetId, MetadataNode tileNode, PointV
 
     if (tileInfo.patch.buf.size())
     {
-        uint32_t id = m_rialtoDb->addTile(tileInfo);
+        uint32_t id = m_rialtoDb->writeTile(tileInfo);
     }
 }
 

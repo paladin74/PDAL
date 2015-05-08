@@ -78,6 +78,7 @@ public:
         double maxx;
         double maxy;
         uint32_t numDimensions;
+        std::vector<DimensionInfo> dimensions;
     };
 
     struct TileInfo {
@@ -90,6 +91,7 @@ public:
         Patch patch;
     };
 
+    // pass it the filename of the sqlite db
     RialtoDb(const std::string& connection);
 
     ~RialtoDb();
@@ -99,42 +101,36 @@ public:
 
     void close();
 
-    // adds a tile set to the database
+    // adds a tile set to the database, including its dimensions
     //
     // returns id of new data set
-    uint32_t addTileSet(const RialtoDb::TileSetInfo& data);
+    uint32_t writeTileSet(const RialtoDb::TileSetInfo& data);
 
     // returns id of new tile
-    uint32_t addTile(const RialtoDb::TileInfo& data);
-
-    // add all the dimensions of the tile set
-    void addDimensions(uint32_t tileSetId,
-                       const std::vector<DimensionInfo>& dimensions);
+    uint32_t writeTile(const RialtoDb::TileInfo& data);
 
     // get list all the tile sets in the database, as a list of its
-    std::vector<uint32_t> getTileSetIds();
+    void readTileSetIds(std::vector<uint32_t>&) const;
 
-    // get info about a specific tile set
-    TileSetInfo getTileSetInfo(uint32_t tileSetId);
-
-    // get info about one of the dimensions of a tile set
-    DimensionInfo getDimensionInfo(uint32_t tileSetId, uint32_t dimension);
+    // get info about a specific tile set (including its dimensions)
+    void readTileSetInfo(uint32_t tileSetId, TileSetInfo& info) const;
 
     // get info about a tile
-    TileInfo getTileInfo(uint32_t tileId, bool withPoints);
+    void readTileInfo(uint32_t tileId, bool withPoints, TileInfo& tileInfo) const;
 
     // use with caution for levels greater than 16 or so
-    std::vector<uint32_t> getTileIdsAtLevel(uint32_t tileSetId, uint32_t level);
+    void readTileIdsAtLevel(uint32_t tileSetId, uint32_t level, std::vector<uint32_t>& tileIds) const;
 
     // query for all the tiles of a tile set, bounded by bbox region
-    std::vector<uint32_t> queryForTileIds(uint32_t tileSetId,
-                                          double minx, double miny,
-                                          double max, double maxy,
-                                          uint32_t level);
+    void queryForTileIds(uint32_t tileSetId,
+                         double minx, double miny,
+                         double max, double maxy,
+                         uint32_t level,
+                         std::vector<uint32_t>& ids) const;
 
     // fills in the dimensions of an otherwise empty point table with
     // the dimension information from the tile set
-    void setupPointTableFromTileSet(uint32_t tileSetId, PointTable& table);
+    void setupPointTable(uint32_t tileSetId, PointTable& table) const;
     
     // query for all the points of a tile set, bounded by bbox region
     // returns a pipeline made up of a BufferReader and a CropFilter
@@ -145,23 +141,31 @@ public:
                  uint32_t tileSetId,
                  double minx, double miny,
                  double max, double maxy,
-                 uint32_t level);
+                 uint32_t level) const;
 
      // just hides the type punning
      static void castPatchAsBuffer(const Patch&, unsigned char*& buf, uint32_t& bufLen);
 
 private:
-
+    // create the req'd tables in the db
     void createTileSetsTable();
     void createTilesTable();
     void createDimensionsTable();
 
-    void query();
+    // add all the dimensions of the tile set
+    void writeDimensions(uint32_t tileSetId,
+                        const std::vector<DimensionInfo>& dimensions);
+
+    // get info about one of the dimensions of a tile set
+    void readDimensionsInfo(uint32_t tileSetId, std::vector<DimensionInfo>&) const;
+
+
+    void query() const;
 
     LogPtr log() const { return m_log; }
 
     std::string m_connection;
-    SQLite* m_session;
+    std::unique_ptr<SQLite> m_sqlite;
     LogPtr m_log;
     int m_srid;
 
