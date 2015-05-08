@@ -379,6 +379,7 @@ TEST(RialtoDbWriterTest, testOscar)
     
     // now read from it
     {
+        // open the db for reading
         rialtosupport::RialtoDb db(filename);
         db.open(false);
 
@@ -390,22 +391,26 @@ TEST(RialtoDbWriterTest, testOscar)
         rialtosupport::RialtoDb::TileSetInfo tileSetInfo = db.getTileSetInfo(tileSetId);
         const uint32_t bestLevel = tileSetInfo.maxLevel;
 
+        // NOTE: this table/query/stage/execute mechanism will likely be
+        // replaced by a formal Reader down the road, in proper pdal fashion
+
         // get ready to execute...
         PointTable table;
         db.setupPointTableFromTileSet(tileSetId, table);
         PointViewSet views;
         PointViewPtr view;
-        
+                
+        // do the big expensive query, which builds your pipeline
         // NOTE: api will change, this should be a StagePtr or some such
         // NOTE: api may change, I should use the BBOX class probably
-        Stage* stage = db.query(table, tileSetId, 0.0, 0.0, 180.0, 90.0, bestLevel);
+        Stage* stage1 = db.query(table, tileSetId, 0.0, 0.0, 180.0, 90.0, bestLevel);
         
         // NOTE: we'll always return a valid stage, even if we know there are no points
-        EXPECT_TRUE(stage != NULL);
+        EXPECT_TRUE(stage1 != NULL);
         
         // go!
-        stage->prepare(table);
-        views = stage->execute(table);
+        stage1->prepare(table);
+        views = stage1->execute(table);
         
         // check our output: we should have one point view, with 2 points in it
         EXPECT_EQ(views.size(), 1u);
@@ -413,18 +418,18 @@ TEST(RialtoDbWriterTest, testOscar)
         EXPECT_EQ(view->size(), 2u);
         testPoint(view, 0, data[4]);
         testPoint(view, 1, data[5]);
-
+        
         // That was so much fun, let's do it again!
-        stage->prepare(table);
-        views = stage->execute(table);
+        Stage* stage2 = db.query(table, tileSetId, -180.0, -90.0, 0.0, 0.0, bestLevel);
+        stage2->prepare(table);
+        views = stage2->execute(table);
 
         // check output again
-        stage = db.query(table, tileSetId, -180.0, -90.0, 0.0, 0.0, bestLevel);
         EXPECT_EQ(views.size(), 1u);
         view = *(views.begin());
         EXPECT_EQ(view->size(), 2u);
-        testPoint(view, 0, data[4]); // WRONG!
-        testPoint(view, 1, data[5]); // WRONG!
+        testPoint(view, 0, data[2]);
+        testPoint(view, 1, data[3]);
     }
 
     //FileUtils::deleteDirectory(Support::temppath("oscar.sqlite"));
