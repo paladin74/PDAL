@@ -41,7 +41,7 @@
 #include <string>
 
 // TODO: just used for Patch? (SQLite can be fwd declared)
-#include <../plugins/sqlite/io/SQLiteCommon.hpp> // TODO: fix path
+#include "../plugins/sqlite/io/SQLiteCommon.hpp" // TODO: fix path
 
 namespace pdal {
     class Log;

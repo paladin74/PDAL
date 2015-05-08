@@ -48,8 +48,8 @@
 
 #include <boost/filesystem.hpp>
 
-#include <../plugins/rialto/io/RialtoDb.hpp> // TODO: fix path
-#include <../plugins/sqlite/io/SQLiteCommon.hpp> // TODO: fix path
+#include "../plugins/rialto/io/RialtoDb.hpp" // TODO: fix path
+#include "../plugins/sqlite/io/SQLiteCommon.hpp" // TODO: fix path
 
 using namespace pdal;
 

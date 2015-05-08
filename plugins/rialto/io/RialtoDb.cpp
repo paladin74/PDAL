@@ -44,7 +44,7 @@
 #include <pdal/util/Bounds.hpp>
 #include <pdal/util/FileUtils.hpp>
 #include <pdal/BufferReader.hpp>
-#include <../filters/crop/CropFilter.hpp> // TODO: fix path
+#include "../filters/crop/CropFilter.hpp" // TODO: fix path
 
 #include <cstdint>
 
