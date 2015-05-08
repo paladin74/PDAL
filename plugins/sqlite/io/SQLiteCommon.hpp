@@ -496,7 +496,7 @@ public:
         query(oss.str());
 
         std::ostringstream debug;
-        while (next())
+        do
         {
             const row* r = get();
             if (!r)
@@ -507,7 +507,7 @@ public:
             {
                 return true;
             }
-        }
+        } while (next());
         return false;
     }
 
