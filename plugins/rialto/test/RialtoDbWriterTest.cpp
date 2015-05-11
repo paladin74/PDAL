@@ -69,7 +69,7 @@ TEST(RialtoDbTest, test1)
 
 
 TEST(RialtoDbWriterTest, createWriter)
-{return;
+{
     StageFactory f;
     std::unique_ptr<Stage> writer(f.createStage("writers.rialtodb"));
     EXPECT_TRUE(writer.get());
@@ -323,6 +323,8 @@ TEST(RialtoDbWriterTest, testWriter)
         testPoint(outView, 0, data[4]);
         testPoint(outView, 1, data[5]);
     }
+    
+    db.close();
 
     //FileUtils::deleteDirectory(Support::temppath("rialto2.sqlite"));
 }
@@ -435,6 +437,8 @@ TEST(RialtoDbWriterTest, testOscar)
         EXPECT_EQ(view->size(), 2u);
         testPoint(view, 0, data[2]);
         testPoint(view, 1, data[3]);
+        
+        db.close();
     }
 
     //FileUtils::deleteDirectory(Support::temppath("oscar.sqlite"));

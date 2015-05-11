@@ -76,8 +76,8 @@ const struct Data {
 
 static void readBytes(const std::string& filename, uint8_t* buf, uint32_t len)
 {
-    const char* name = Support::temppath(filename).c_str();
-    FILE* fp = fopen(name, "rb");
+    const std::string name = Support::temppath(filename);
+    FILE* fp = fopen(name.c_str(), "rb");
     EXPECT_TRUE(fp != NULL);
     size_t cnt = fread(buf, 1, len, fp);
     EXPECT_EQ(cnt, len);

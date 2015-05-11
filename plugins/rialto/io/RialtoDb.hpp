@@ -46,6 +46,8 @@
 namespace pdal {
     class Log;
     class SQLite;
+    class BufferReader;
+    class CropFilter;
 }
 
 namespace rialtosupport
@@ -136,12 +138,14 @@ public:
     // returns a pipeline made up of a BufferReader and a CropFilter
     // returns NULL if no points found
     //
-    // prior to calling query(), you must call setupPointTableFromTileSet()
+    // The RialtoDb instance owns the returned Stage*; it will be deleted for you.
+    //
+    // prior to calling query(), you must call setupPointTable()
     Stage* query(PointTable& table,
                  uint32_t tileSetId,
                  double minx, double miny,
                  double max, double maxy,
-                 uint32_t level) const;
+                 uint32_t level);
 
      // just hides the type punning
      static void castPatchAsBuffer(const Patch&, unsigned char*& buf, uint32_t& bufLen);
@@ -168,6 +172,8 @@ private:
     std::unique_ptr<SQLite> m_sqlite;
     LogPtr m_log;
     int m_srid;
+    BufferReader* m_bufferReader;
+    CropFilter* m_cropFilter;
 
     RialtoDb& operator=(const RialtoDb&); // not implemented
     RialtoDb(const RialtoDb&); // not implemented

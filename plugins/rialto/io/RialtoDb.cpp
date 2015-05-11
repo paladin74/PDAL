@@ -94,13 +94,17 @@ namespace
 
 RialtoDb::RialtoDb(const std::string& connection) :
     m_connection(connection),
-    m_srid(4326)
+    m_srid(4326),
+    m_bufferReader(NULL),
+    m_cropFilter(NULL)
 {
 }
 
 
 RialtoDb::~RialtoDb()
 {
+    delete m_bufferReader;
+    delete m_cropFilter;
     log()->get(LogLevel::Debug) << "~RialtoDB" << std::endl;
 }
 
@@ -674,7 +678,7 @@ Stage* RialtoDb::query(PointTable& table,
                        uint32_t tileSetId,
                        double minx, double miny,
                        double maxx, double maxy,
-                       uint32_t level) const
+                       uint32_t level)
 {
     if (!m_sqlite)
     {
@@ -689,6 +693,11 @@ Stage* RialtoDb::query(PointTable& table,
                                 << maxx << ","
                                 << maxy << ")"
                                 << std::endl;
+
+    delete m_bufferReader;
+    m_bufferReader = NULL;
+    delete m_cropFilter;
+    m_cropFilter = NULL;
 
     std::vector<uint32_t> ids;
     queryForTileIds(tileSetId, minx, miny, maxx, maxy, level, ids);
@@ -709,10 +718,10 @@ Stage* RialtoDb::query(PointTable& table,
     }
     
     Options readerOptions;
-    BufferReader* reader = new BufferReader(); // TODO: needs ptr
-    reader->setOptions(readerOptions);
-    reader->addView(view);
-    reader->setSpatialReference(SpatialReference("EPSG:4326"));
+    m_bufferReader = new BufferReader(); // TODO: needs ptr
+    m_bufferReader->setOptions(readerOptions);
+    m_bufferReader->addView(view);
+    m_bufferReader->setSpatialReference(SpatialReference("EPSG:4326"));
 
     // TODO: we set Z bounds because BOX3D::compare(), used inside the crop
     // filter, will get it wrong if we don't
@@ -723,11 +732,11 @@ Stage* RialtoDb::query(PointTable& table,
     cropOpts.add("bounds", dstBounds);
     cropOpts.add("verbose", LogLevel::Debug5);
 
-    CropFilter* cropper = new CropFilter(); // TODO: needs ptr
-    cropper->setOptions(cropOpts);
-    cropper->setInput(*reader);
+    m_cropFilter = new CropFilter(); // TODO: needs ptr
+    m_cropFilter->setOptions(cropOpts);
+    m_cropFilter->setInput(*m_bufferReader);
 
-    return cropper;
+    return m_cropFilter;
 }
 
 
