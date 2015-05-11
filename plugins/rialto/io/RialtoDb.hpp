@@ -99,6 +99,7 @@ public:
     ~RialtoDb();
 
     void create();
+    
     void open(bool writable=false);
 
     void close();
@@ -155,6 +156,8 @@ private:
     void createTileSetsTable();
     void createTilesTable();
     void createDimensionsTable();
+    void createSpatialIndex(std::string const& tableName,
+                            std::string const& columnName);
 
     // add all the dimensions of the tile set
     void writeDimensions(uint32_t tileSetId,

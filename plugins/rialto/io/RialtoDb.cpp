@@ -98,6 +98,8 @@ RialtoDb::RialtoDb(const std::string& connection) :
     m_bufferReader(NULL),
     m_cropFilter(NULL)
 {
+    m_log = std::shared_ptr<pdal::Log>(new pdal::Log("RialtoDB", "stdout"));
+    m_log->setLevel(LogLevel::Debug3);
 }
 
 
@@ -116,10 +118,7 @@ void RialtoDb::create()
         throw pdal_error("RialtoDB: invalid state (session already exists)");
     }
     
-    m_log = std::shared_ptr<pdal::Log>(new pdal::Log("RialtoDB", "stdout"));
-    m_log->setLevel(LogLevel::Debug);
-
-    log()->get(LogLevel::Debug) << "RialtoDB::open()" << std::endl;
+    log()->get(LogLevel::Debug) << "RialtoDB::create()" << std::endl;
 
     if (FileUtils::fileExists(m_connection))
     {
@@ -129,18 +128,14 @@ void RialtoDb::create()
     m_sqlite = std::unique_ptr<SQLite>(new SQLite(m_connection, m_log));
     m_sqlite->connect(true);
 
-#if 0
+    // TODO: belongs in SQLiteCommon
+    log()->get(LogLevel::Debug) << "creating spatialite tables" << std::endl;
     m_sqlite->spatialite();
-
-    const bool hasSpatialite = m_sqlite->doesTableExist("geometry_columns");
-    if (!hasSpatialite)
-    {
-       std::ostringstream oss;
-       oss << "SELECT InitSpatialMetadata()";
-       m_sqlite->execute(oss.str());
-    }
-#endif
-
+    std::ostringstream oss;
+    oss << "SELECT InitSpatialMetadata(1)";
+    m_sqlite->execute(oss.str());
+    log()->get(LogLevel::Debug) << "spatialite tables complete" << std::endl;
+    
     createTileSetsTable();
     createTilesTable();
     createDimensionsTable();
@@ -154,9 +149,6 @@ void RialtoDb::open(bool writable)
         throw pdal_error("RialtoDB: invalid state (session already exists)");
     }
 
-    m_log = std::shared_ptr<pdal::Log>(new pdal::Log("RialtoDB", "stdout"));
-    m_log->setLevel(LogLevel::Debug);
-
     log()->get(LogLevel::Debug) << "RialtoDB::open()" << std::endl;
 
     if (!FileUtils::fileExists(m_connection))
@@ -167,17 +159,10 @@ void RialtoDb::open(bool writable)
     m_sqlite = std::unique_ptr<SQLite>(new SQLite(m_connection, m_log));
     m_sqlite->connect(writable);
 
-#if 0
     m_sqlite->spatialite();
 
-    const bool hasSpatialite = m_sqlite->doesTableExist("geometry_columns");
-    if (!hasSpatialite)
-    {
-       std::ostringstream oss;
-       oss << "SELECT InitSpatialMetadata()";
-       m_sqlite->execute(oss.str());
-    }
-#endif
+    if (!m_sqlite->doesTableExist("geometry_columns"))
+        throw pdal_error("RialtoDb: required spatialite support not in database");
 
     if (!m_sqlite->doesTableExist("TileSets"))
         throw pdal_error("RialtoDb: required table 'TileSets' not found");
@@ -225,13 +210,28 @@ void RialtoDb::createTileSetsTable()
         << ")";
 
     m_sqlite->execute(oss1.str());
+}
 
-#if 0
-    oss2 << "SELECT AddGeometryColumn('TileSets', 'extent', "
-        << m_srid << ", "
-        << "'POLYGON', 'XY')";
-    m_sqlite->execute(oss2.str());
-#endif
+
+// TODO: belongs in SQLiteCommon
+void RialtoDb::createSpatialIndex(std::string const& tableName,
+                                  std::string const& columnName)
+{
+    std::ostringstream oss;
+    std::ostringstream index_name_ss;
+
+    index_name_ss << tableName << "_spatialindex";
+    std::string index_name = index_name_ss.str().substr(0,29); // TODO: why?
+
+    oss << "SELECT CreateSpatialIndex('"
+        << tableName
+        << "', '"
+        << columnName
+        << "')";
+        
+    m_sqlite->execute(oss.str());
+    log()->get(LogLevel::Debug) << "Created spatial index for " <<
+        tableName << "." << columnName << std::endl;
 }
 
 
@@ -243,27 +243,27 @@ void RialtoDb::createTilesTable()
     }
 
     std::ostringstream oss1;
+    std::ostringstream oss2;
 
     oss1 << "CREATE TABLE Tiles("
-        << "tile_id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        << "tile_set_id INTEGER, "
-        << "level INTEGER,"
-        << "column INTEGER,"
-        << "row INTEGER,"
-        << "numPoints INTEGER,"
-        << "points BLOB, "
-        << "FOREIGN KEY(tile_set_id) REFERENCES TileSets(tile_set_id)"
-        << ")";
+         << "tile_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+         << " tile_set_id INTEGER,"
+         << " level INTEGER,"
+         << " column INTEGER,"
+         << " row INTEGER,"
+         << " numPoints INTEGER,"
+         << " points BLOB,"
+         << " FOREIGN KEY(tile_set_id) REFERENCES TileSets(tile_set_id)"
+         << ")";
 
     m_sqlite->execute(oss1.str());
 
-#if 0
-    std::ostringstream oss2;
-    oss2 << "SELECT AddGeometryColumn('Tiles', 'extent', "
-        << m_srid << ", "
-        << "'POLYGON', 'XY')";
+    oss2 << "SELECT AddGeometryColumn('Tiles', 'geom_extent', "
+         << m_srid << ", "
+         << "'POLYGON', 'XY')";
     m_sqlite->execute(oss2.str());
-#endif
+    
+    createSpatialIndex("Tiles", "geom_extent");
 }
 
 
@@ -564,8 +564,8 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
     // note we don't use 'mask' in the database version of tiles
     std::ostringstream oss;
     oss << "INSERT INTO Tiles "
-        << "(tile_set_id, level, column, row, numPoints, points) "
-        << "VALUES (?, ?, ?, ?, ?, ?)";
+        << "(tile_set_id, level, column, row, numPoints, points, geom_extent) "
+        << "VALUES (?, ?, ?, ?, ?, ?, ST_GeometryFromText(?, ?))";
 
     records rs;
     row r;
@@ -600,7 +600,7 @@ void RialtoDb::castPatchAsBuffer(const Patch& patch, unsigned char*& buf, uint32
 
 void RialtoDb::queryForTileIds(uint32_t tileSetId,
                                double minx, double miny,
-                               double max, double maxy,
+                               double maxx, double maxy,
                                uint32_t level,
                                std::vector<uint32_t>& ids) const
 {
@@ -619,6 +619,12 @@ void RialtoDb::queryForTileIds(uint32_t tileSetId,
     oss << "SELECT tile_id FROM Tiles"
         << " WHERE tile_set_id=" << tileSetId
         << " AND level=" << level;
+        //<< " AND ("
+        //<< " X(geom_extent) >= " << minx
+        //<< " AND X(geom_extent) <= " << maxx
+        //<< " AND Y(geom_extent) >= " << miny
+        //<< " AND Y(geom_extent) <= " << maxy
+        //<< ")";
 
     m_sqlite->query(oss.str());
 
