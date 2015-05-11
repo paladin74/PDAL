@@ -172,6 +172,7 @@ public:
         sqlite3_config(SQLITE_CONFIG_LOG, log_callback, this);
         sqlite3_initialize();
         m_log->get(LogLevel::Debug3) << "Set up config " << std::endl;
+        m_log->get(LogLevel::Debug3) << "SQLite version: " << sqlite3_libversion() << std::endl;
     }
 
     ~SQLite()
@@ -481,11 +482,23 @@ public:
         oss << "')";
         execute(oss.str());
         oss.str("");
+        
+        m_log->get(LogLevel::Debug3) <<  "SpatiaLite version: " << getSpatialiteVersion() << std::endl;
 
         return true;
 
     }
 
+    std::string getSpatialiteVersion()
+    {
+        const std::string sql("SELECT spatialite_version()");
+        query(sql);
+        
+        const row* r = get();
+        assert(r); // should get back exactly one row
+        std::string ver = r->at(0).data;
+        return ver;
+    }
 
     bool doesTableExist(std::string const& name)
     {
