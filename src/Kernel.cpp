@@ -68,13 +68,11 @@ Kernel::Kernel()
     , m_hardCoreDebug(false)
     , m_reportDebug(false)
     , m_visualize(false)
-{
-}
+{}
 
 std::ostream& operator<<(std::ostream& ostr, const Kernel& kernel)
 {
     ostr << "  Name: " << kernel.getName() << std::endl;
-
     return ostr;
 }
 
@@ -422,7 +420,7 @@ void Kernel::setCommonOptions(Options &options)
 
     boost::char_separator<char> sep(",| ");
 
-    if (m_variablesMap.count("scale"))
+    if (argumentExists("scale"))
     {
         std::vector<double> scales;
         tokenizer scale_tokens(m_scales, sep);
@@ -448,7 +446,7 @@ void Kernel::setCommonOptions(Options &options)
         }
     }
 
-    if (m_variablesMap.count("offset"))
+    if (argumentExists("offset"))
     {
         std::vector<double> offsets;
         tokenizer offset_tokens(m_offsets, sep);

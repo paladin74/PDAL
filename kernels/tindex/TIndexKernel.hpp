@@ -43,53 +43,65 @@
 extern "C" int32_t TIndexKernel_ExitFunc();
 extern "C" PF_ExitFunc TIndexKernel_InitPlugin();
 
+typedef void *OGRGeometryH;
+
 namespace pdal
 {
     
-namespace tindex
-{
-    struct FieldIndexes
-    {
-        int filename;
-        int srs;
-        int ctime;
-        int mtime;
-    };
-}
-
 class KernelFactory;
 
 class PDAL_DLL TIndexKernel : public Kernel
 {
+    struct FileInfo
+    {
+        std::string m_filename;
+        std::string m_srs;
+        std::string m_boundary;
+        struct tm m_ctime;
+        struct tm m_mtime;
+    };
+
+    struct FieldIndexes
+    {
+        int m_filename;
+        int m_srs;
+        int m_ctime;
+        int m_mtime;
+    };
+
 public:
     static void * create();
     static int32_t destroy(void *);
     std::string getName() const;
     int execute(); // overrride
     
-    
 private:
     TIndexKernel();
     void addSwitches(); // overrride
     void validateSwitches(); // overrride
 
-    void* fetchGeometry(MetadataNode metadata);
-    void createDS(std::string const& filename);
-    MetadataNode fetchInfo(KernelFactory& factory, std::string const& filename);
-    tindex::FieldIndexes createLayer(std::string const& filename,
-        std::string const& srs_wkt);
-    
-    std::string m_outputFilename;
+    void createFile();
+    bool openDataset(const std::string& filename);
+    bool createDataset(const std::string& filename);
+    bool openLayer(const std::string& layerName);
+    bool createLayer(const std::string& layerName);
+    FieldIndexes getFields();
+    FileInfo getFileInfo(KernelFactory& factory, const std::string& filename);
+    bool createFeature(const FieldIndexes& indexes, const FileInfo& info);
+    OGRGeometryH prepareGeometry(const FileInfo& fileInfo);
+    void createFields();
+
+    std::string m_filename;
     std::string m_indexDirectory;
     std::vector<std::string> m_files;
     std::string m_layerName;
     std::string m_driverName;
     std::string m_tileIndexColumnName;
     std::string m_srsColumnName;
+    bool m_merge;
 
-    void *m_DS;
+    void *m_dataset;
     void *m_layer;
-    void *m_fDefn;
     std::string m_targetSRSString;
 };
 

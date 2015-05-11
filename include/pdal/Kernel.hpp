@@ -141,6 +141,9 @@ protected:
         m_stages.push_back(std::unique_ptr<Stage>(s));
         return *s;
     }
+    bool argumentExists(const std::string& name)
+        { return (bool)m_variablesMap.count(name); }
+
     bool m_usestdin;
     int m_argc;
     const char** m_argv;
