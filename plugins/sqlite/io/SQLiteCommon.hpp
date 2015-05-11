@@ -299,7 +299,9 @@ public:
                     if (m_columns.size() != static_cast<std::vector<std::string>::size_type > (numCols))
                     {
                         std::string ccolumnName = boost::to_upper_copy(std::string(sqlite3_column_name(m_statement, v)));
-                        std::string ccolumnType = boost::to_upper_copy(std::string(sqlite3_column_decltype(m_statement, v)));
+                        const char* coltype = sqlite3_column_decltype(m_statement, v);
+                        if (!coltype) coltype = "unknown";
+                        std::string ccolumnType = boost::to_upper_copy(std::string(coltype));
                         m_columns.insert(std::pair<std::string, int32_t>(ccolumnName, v));
                         m_types.push_back(ccolumnType);
                     }
