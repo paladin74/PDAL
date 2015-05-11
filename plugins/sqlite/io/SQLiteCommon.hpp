@@ -487,31 +487,6 @@ public:
     }
 
 
-    bool doesTableExist_old(std::string const& name)
-    {
-        std::ostringstream oss;
-
-        oss << "SELECT name FROM sqlite_master WHERE type = \"table\"";
-
-        query(oss.str());
-
-        std::ostringstream debug;
-        do
-        {
-            const row* r = get();
-            if (!r)
-                break ;// didn't have anything
-
-            column const& c = r->at(0); // First column is table name!
-            if (boost::iequals(c.data, name))
-            {
-                return true;
-            }
-        } while (next());
-        return false;
-    }
-
-
     bool doesTableExist(std::string const& name)
     {
         std::ostringstream oss;
