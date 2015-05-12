@@ -75,14 +75,7 @@ uint32_t RialtoFileWriter::writeHeader(const std::string& tileSetName,
 
     fprintf(fp, "{\n");
     fprintf(fp, "    \"version\": 4,\n");
-
-    fprintf(fp, "    \"bbox\": [%lf, %lf, %lf, %lf],\n",
-        tileSetInfo.minx, tileSetInfo.miny, tileSetInfo.maxx, tileSetInfo.maxy);
-
     fprintf(fp, "    \"maxLevel\": %d,\n", tileSetInfo.maxLevel);
-    fprintf(fp, "    \"numCols\": %d,\n", tileSetInfo.numCols);
-    fprintf(fp, "    \"numRows\": %d,\n", tileSetInfo.numRows);
-
     fprintf(fp, "    \"dimensions\": [\n");
 
     

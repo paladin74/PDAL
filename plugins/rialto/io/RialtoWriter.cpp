@@ -63,18 +63,7 @@ void RialtoWriter::serializeToTileSetInfo(const std::string& tileSetName,
 
     MetadataNode headerNode = tileSetNode.findChild("header");
     assert(headerNode.valid());
-    tileSetInfo.maxLevel = RialtoWriter::getMetadataU32(headerNode, "maxLevel");
-
-    tileSetInfo.numCols = RialtoWriter::getMetadataU32(headerNode, "numCols");
-    tileSetInfo.numRows = RialtoWriter::getMetadataU32(headerNode, "numRows");
-    assert(tileSetInfo.numCols == 2 && tileSetInfo.numRows == 1);
-
-    tileSetInfo.minx = RialtoWriter::getMetadataF64(headerNode, "minX");
-    tileSetInfo.miny = RialtoWriter::getMetadataF64(headerNode, "minY");
-    tileSetInfo.maxx = RialtoWriter::getMetadataF64(headerNode, "maxX");
-    tileSetInfo.maxy = RialtoWriter::getMetadataF64(headerNode, "maxY");
-    assert(tileSetInfo.minx==-180.0 && tileSetInfo.miny==-90.0 && tileSetInfo.maxx==180.0 && tileSetInfo.maxy==90.0);
-    
+    tileSetInfo.maxLevel = RialtoWriter::getMetadataU32(headerNode, "maxLevel");    
     tileSetInfo.numDimensions = layout->dims().size();
     
     serializeToDimensionInfo(tileSetNode, layout, tileSetInfo.dimensions);    
@@ -123,10 +112,19 @@ void RialtoWriter::serializeToPatch(const PointView& view, Patch& patch)
     patch.buf.resize(buflen);
     
     char* buf = (char*)(&patch.buf[0]);
+    char* p = buf;
     const DimTypeList& dtl = view.dimTypes();
+
+    uint32_t numBytes = 0;
+    for (auto d: dtl)
+    {
+        numBytes += Dimension::size(d.m_type);
+    }
+
     for (size_t i=0; i<numPoints; ++i)
     {
-        view.getPackedPoint(dtl, i, buf);
+        view.getPackedPoint(dtl, i, p);
+        p += numBytes;
     }
 
     assert(patch.buf.size() == buflen);
@@ -237,6 +235,7 @@ void RialtoWriter::write(const PointViewPtr viewPtr)
     assert(tileNode.valid());
 
     PointView* view = viewPtr.get();
+
     writeTile(m_tileSetId, tileNode, view);
 }
 

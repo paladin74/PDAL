@@ -57,12 +57,6 @@
 //    tile_set_id (PK)
 //    name
 //    maxLevel
-//    numCols
-//    numRows
-//    minx
-//    miny
-//    maxx
-//    maxy
 //    numDims
 //
 // Tiles
@@ -99,7 +93,7 @@ RialtoDb::RialtoDb(const std::string& connection) :
     m_cropFilter(NULL)
 {
     m_log = std::shared_ptr<pdal::Log>(new pdal::Log("RialtoDB", "stdout"));
-    m_log->setLevel(LogLevel::Debug3);
+    //m_log->setLevel(LogLevel::Debug);
 }
 
 
@@ -128,14 +122,6 @@ void RialtoDb::create()
     m_sqlite = std::unique_ptr<SQLite>(new SQLite(m_connection, m_log));
     m_sqlite->connect(true);
 
-    // TODO: belongs in SQLiteCommon
-    log()->get(LogLevel::Debug) << "creating spatialite tables" << std::endl;
-    m_sqlite->spatialite();
-    std::ostringstream oss;
-    oss << "SELECT InitSpatialMetadata(1)";
-    m_sqlite->execute(oss.str());
-    log()->get(LogLevel::Debug) << "spatialite tables complete" << std::endl;
-    
     createTileSetsTable();
     createTilesTable();
     createDimensionsTable();
@@ -158,11 +144,6 @@ void RialtoDb::open(bool writable)
 
     m_sqlite = std::unique_ptr<SQLite>(new SQLite(m_connection, m_log));
     m_sqlite->connect(writable);
-
-    m_sqlite->spatialite();
-
-    if (!m_sqlite->doesTableExist("geometry_columns"))
-        throw pdal_error("RialtoDb: required spatialite support not in database");
 
     if (!m_sqlite->doesTableExist("TileSets"))
         throw pdal_error("RialtoDb: required table 'TileSets' not found");
@@ -200,38 +181,10 @@ void RialtoDb::createTileSetsTable()
         << "tile_set_id INTEGER PRIMARY KEY AUTOINCREMENT,"
         << "name VARCHAR(64),"           // TODO
         << "maxLevel INTEGER,"
-        << "numCols INTEGER,"
-        << "numRows INTEGER,"
-        << "minx DOUBLE,"
-        << "miny DOUBLE,"
-        << "maxx DOUBLE,"
-        << "maxy DOUBLE,"
         << "numDims INTEGER"
         << ")";
 
     m_sqlite->execute(oss1.str());
-}
-
-
-// TODO: belongs in SQLiteCommon
-void RialtoDb::createSpatialIndex(std::string const& tableName,
-                                  std::string const& columnName)
-{
-    std::ostringstream oss;
-    std::ostringstream index_name_ss;
-
-    index_name_ss << tableName << "_spatialindex";
-    std::string index_name = index_name_ss.str().substr(0,29); // TODO: why?
-
-    oss << "SELECT CreateSpatialIndex('"
-        << tableName
-        << "', '"
-        << columnName
-        << "')";
-        
-    m_sqlite->execute(oss.str());
-    log()->get(LogLevel::Debug) << "Created spatial index for " <<
-        tableName << "." << columnName << std::endl;
 }
 
 
@@ -257,13 +210,6 @@ void RialtoDb::createTilesTable()
          << ")";
 
     m_sqlite->execute(oss1.str());
-
-    oss2 << "SELECT AddGeometryColumn('Tiles', 'geom_extent', "
-         << m_srid << ", "
-         << "'POLYGON', 'XY')";
-    m_sqlite->execute(oss2.str());
-    
-    createSpatialIndex("Tiles", "geom_extent");
 }
 
 
@@ -331,7 +277,7 @@ void RialtoDb::readTileSetInfo(uint32_t tileSetId, TileSetInfo& info) const
     }
 
     std::ostringstream oss;
-    oss << "SELECT tile_set_id,name,maxLevel,numCols,numRows,minx,miny,maxx,maxy,numDims "
+    oss << "SELECT tile_set_id,name,maxLevel,numDims "
         << "FROM TileSets WHERE tile_set_id=" << tileSetId;
 
     log()->get(LogLevel::Debug) << "SELECT for tile set" << std::endl;
@@ -345,17 +291,8 @@ void RialtoDb::readTileSetInfo(uint32_t tileSetId, TileSetInfo& info) const
     assert(tileSetId == boost::lexical_cast<uint32_t>(r->at(0).data));
     info.name = r->at(1).data;
     info.maxLevel = boost::lexical_cast<uint32_t>(r->at(2).data);
-    info.numCols = boost::lexical_cast<uint32_t>(r->at(3).data);
-    info.numRows = boost::lexical_cast<uint32_t>(r->at(4).data);
-    info.minx = boost::lexical_cast<double>(r->at(5).data);
-    info.miny = boost::lexical_cast<double>(r->at(6).data);
-    info.maxx = boost::lexical_cast<double>(r->at(7).data);
-    info.maxy = boost::lexical_cast<double>(r->at(8).data);
-    info.numDimensions = boost::lexical_cast<uint32_t>(r->at(9).data);
+    info.numDimensions = boost::lexical_cast<uint32_t>(r->at(3).data);
     
-    assert(info.numCols == 2);
-    assert(info.numRows == 1);
-
     assert(!m_sqlite->next());
 
     info.dimensions.clear();
@@ -485,20 +422,14 @@ uint32_t RialtoDb::writeTileSet(const RialtoDb::TileSetInfo& data)
 
     std::ostringstream oss;
     oss << "INSERT INTO TileSets "
-        << "(name, maxLevel, numCols, numRows, minx, miny, maxx, maxy, numDims) "
-        << "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        << "(name, maxLevel, numDims) "
+        << "VALUES (?, ?, ?)";
 
     records rs;
     row r;
 
     r.push_back(column(data.name));
     r.push_back(column(data.maxLevel));
-    r.push_back(column(data.numCols));
-    r.push_back(column(data.numRows));
-    r.push_back(column(data.minx));
-    r.push_back(column(data.miny));
-    r.push_back(column(data.maxx));
-    r.push_back(column(data.maxy));
     r.push_back(column(data.numDimensions));
     rs.push_back(r);
 
@@ -506,7 +437,6 @@ uint32_t RialtoDb::writeTileSet(const RialtoDb::TileSetInfo& data)
 
     long id = m_sqlite->last_row_id();
     log()->get(LogLevel::Debug) << "inserted TileSet, id=" << id << std::endl;
-    log()->get(LogLevel::Debug) << "     " << data.numCols << data.numRows << std::endl;
 
     writeDimensions(id, data.dimensions);
     
@@ -564,8 +494,8 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
     // note we don't use 'mask' in the database version of tiles
     std::ostringstream oss;
     oss << "INSERT INTO Tiles "
-        << "(tile_set_id, level, column, row, numPoints, points, geom_extent) "
-        << "VALUES (?, ?, ?, ?, ?, ?, ST_GeometryFromText(?, ?))";
+        << "(tile_set_id, level, column, row, numPoints, points) "
+        << "VALUES (?, ?, ?, ?, ?, ?)";
 
     records rs;
     row r;
@@ -582,7 +512,11 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
 
     long id = m_sqlite->last_row_id();
     log()->get(LogLevel::Debug) << "inserted for tile set " << data.tileSetId
-                                << ": tile id " << id << std::endl;
+                                << ": tile id " << id
+                                << "(" << data.column
+                                << ", " << data.row
+                                << ", " << data.level
+                                << ")" << std::endl;
 
     return id;
 }
@@ -598,12 +532,46 @@ void RialtoDb::castPatchAsBuffer(const Patch& patch, unsigned char*& buf, uint32
 }
 
 
+void RialtoDb::xyPointToTileColRow(double x, double y, uint32_t level, uint32_t& col, uint32_t& row)
+{
+    //printf("---\n");
+
+    //printf("x: %f\n", x);
+    //printf("y: %f\n", y);
+    //printf("l: %d\n", level);
+
+    if (x>=180.0) x = -180.0;
+    if (y<=-90.0) y = 90.0;
+    
+    double level2 = pow(2.0, level);
+    //printf("l2: %f\n", level2);
+    
+    double tileWidth = (180.0 - -180.0) / level2;
+    tileWidth /= 2.0;
+    double tileHeight = (90.0 - -90.0) / level2;
+    //printf("tileWidth: %f\n", tileWidth);
+    //printf("tileHeight: %f\n", tileHeight);
+    
+    double c = (x - -180.0) / tileWidth;
+    //printf("c: %f\n", c);
+    col = (uint32_t)floor(c);
+    //printf("col: %u\n", col);
+    
+    double r = (90.0 - y) / tileHeight;
+    //printf("r: %f\n", r);
+    row = (uint32_t)floor(r);
+    //printf("row: %u\n", row);
+
+    //printf("---\n");
+}
+
+
 void RialtoDb::queryForTileIds(uint32_t tileSetId,
                                double minx, double miny,
                                double maxx, double maxy,
                                uint32_t level,
                                std::vector<uint32_t>& ids) const
-{
+{    
     if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
@@ -615,17 +583,29 @@ void RialtoDb::queryForTileIds(uint32_t tileSetId,
     // TODO: for now, just return *all* the tiles at the level
     ids.clear();
     
+    assert(minx <= maxx);
+    assert(miny <= maxy);
+
+    uint32_t mincol, minrow, maxcol, maxrow;
+    xyPointToTileColRow(minx, miny, level, mincol, maxrow);
+    xyPointToTileColRow(maxx, maxy, level, maxcol, minrow);
+    
+    // because boundary conditions
+    if (mincol > maxcol) std::swap(mincol, maxcol);
+    if (minrow > maxrow) std::swap(minrow, maxrow);
+
+    assert(mincol <= maxcol);
+    assert(minrow <= maxrow);
+
     std::ostringstream oss;
     oss << "SELECT tile_id FROM Tiles"
         << " WHERE tile_set_id=" << tileSetId
-        << " AND level=" << level;
-        //<< " AND ("
-        //<< " X(geom_extent) >= " << minx
-        //<< " AND X(geom_extent) <= " << maxx
-        //<< " AND Y(geom_extent) >= " << miny
-        //<< " AND Y(geom_extent) <= " << maxy
-        //<< ")";
-
+        << " AND level=" << level
+        << " AND column >= " << mincol
+        << " AND column <= " << maxcol
+        << " AND row >= " << minrow
+        << " AND row <= " << maxrow;
+        
     m_sqlite->query(oss.str());
 
     do {
@@ -736,7 +716,7 @@ Stage* RialtoDb::query(PointTable& table,
     BOX3D dstBounds(minx, miny, minz, maxx, maxy, maxz);
     Options cropOpts;
     cropOpts.add("bounds", dstBounds);
-    cropOpts.add("verbose", LogLevel::Debug5);
+    //cropOpts.add("verbose", LogLevel::Debug5);
 
     m_cropFilter = new CropFilter(); // TODO: needs ptr
     m_cropFilter->setOptions(cropOpts);

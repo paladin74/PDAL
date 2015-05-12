@@ -69,16 +69,15 @@ public:
         double maximum;
     };
 
-    // note we always use EPSG:4325
+    // Rialto has some hard-coded restrictions:
+    //   we always use EPSG:4325
+    //   we always start with two tiles at the root
+    //   we always cover the whole globe at the root
+    //   we always do power-of-two reductions
+    //   we store all levels between 0 and max, inclusive
     struct TileSetInfo {
         std::string name; // aka filename
         uint32_t maxLevel;
-        uint32_t numCols;
-        uint32_t numRows;
-        double minx; // tile set extents (not extents of actual data)
-        double miny;
-        double maxx;
-        double maxy;
         uint32_t numDimensions;
         std::vector<DimensionInfo> dimensions;
     };
@@ -151,13 +150,13 @@ public:
      // just hides the type punning
      static void castPatchAsBuffer(const Patch&, unsigned char*& buf, uint32_t& bufLen);
 
+     static void xyPointToTileColRow(double x, double y, uint32_t level, uint32_t& col, uint32_t& row);
+
 private:
     // create the req'd tables in the db
     void createTileSetsTable();
     void createTilesTable();
     void createDimensionsTable();
-    void createSpatialIndex(std::string const& tableName,
-                            std::string const& columnName);
 
     // add all the dimensions of the tile set
     void writeDimensions(uint32_t tileSetId,

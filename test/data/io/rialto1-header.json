@@ -1,9 +1,6 @@
 {
     "version": 4,
-    "bbox": [-180.000000, -90.000000, 180.000000, 90.000000],
     "maxLevel": 2,
-    "numCols": 2,
-    "numRows": 1,
     "dimensions": [
         {
             "datatype": "double",
