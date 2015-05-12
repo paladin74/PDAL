@@ -68,13 +68,13 @@ static bool testP2T(double x, double y, uint32_t level, uint32_t expected_col, u
 TEST(RialtoDbWriterTest, testPointToTile)
 {
     using namespace rialtosupport;
-    
+
     uint32_t c, r;
-    
+
     // level 0, four corners
     EXPECT_TRUE(testP2T(-180.0, 90.0, 0, 0, 0)); // nw
     EXPECT_TRUE(testP2T(-179, 89, 0, 0, 0)); // nw
-    
+
     EXPECT_TRUE(testP2T(180, 90, 0, 0, 0)); // ne (180 wraps to -180)
     EXPECT_TRUE(testP2T(179, 89, 0, 1, 0)); // ne
 
@@ -91,13 +91,13 @@ TEST(RialtoDbWriterTest, testPointToTile)
     EXPECT_TRUE(testP2T(1, -1, 0, 1, 0)); // center se
 
     // level 1
-    
+
     EXPECT_TRUE(testP2T(-179, 89, 1, 0, 0));
 
     EXPECT_TRUE(testP2T(89, 1, 1, 2, 0));
 
     // level 2
-    
+
     EXPECT_TRUE(testP2T(-179, 89, 2, 0, 0));
 
     EXPECT_TRUE(testP2T(-1, 89, 2, 3, 0));
@@ -362,24 +362,24 @@ TEST(RialtoDbWriterTest, testWriter)
         EXPECT_EQ(ids[0], 8u);
         EXPECT_EQ(ids[1], 9u);
     }
-    
+
     {
         PointTable table;
         db.setupPointTable(tileSetIds[0], table);
-        
+
         Stage* stage = db.query(table, tileSetIds[0], 0.1, 0.1, 179.9, 89.9, 2);
-        
+
         // execution
         stage->prepare(table);
         PointViewSet outputViews = stage->execute(table);
-        
+
         EXPECT_EQ(outputViews.size(), 1u);
         PointViewPtr outView = *(outputViews.begin());
         EXPECT_EQ(outView->size(), 2u);
         testPoint(outView, 0, data[4]);
         testPoint(outView, 1, data[5]);
     }
-    
+
     db.close();
 
     //FileUtils::deleteDirectory(Support::temppath("rialto2.sqlite"));
@@ -437,7 +437,7 @@ TEST(RialtoDbWriterTest, testOscar)
         PointViewSet outputViews = writer->execute(table);
         delete writer;
     }
-    
+
     // now read from it
     {
         // open the db for reading
@@ -448,7 +448,7 @@ TEST(RialtoDbWriterTest, testOscar)
         std::vector<uint32_t> tileSetIds;
         db.readTileSetIds(tileSetIds);
         const uint32_t tileSetId = tileSetIds[0];
-        
+
         // how many levels do we have?
         rialtosupport::RialtoDb::TileSetInfo tileSetInfo;
         db.readTileSetInfo(tileSetId, tileSetInfo);
@@ -462,19 +462,19 @@ TEST(RialtoDbWriterTest, testOscar)
         db.setupPointTable(tileSetId, table);
         PointViewSet views;
         PointViewPtr view;
-                
+
         // do the big expensive query, which builds your pipeline
         // NOTE: api will change, this should be a StagePtr or some such
         // NOTE: api may change, I should use the BBOX class probably
         Stage* stage1 = db.query(table, tileSetId, 0.1, 0.1, 90.0, 89.9, bestLevel);
-        
+
         // NOTE: we'll always return a valid stage, even if we know there are no points
         EXPECT_TRUE(stage1 != NULL);
-        
+
         // go!
         stage1->prepare(table);
         views = stage1->execute(table);
-        
+
         // check our output: we should have one point view, with 2 points in it
         EXPECT_EQ(views.size(), 1u);
         view = *(views.begin());
@@ -492,7 +492,7 @@ TEST(RialtoDbWriterTest, testOscar)
         EXPECT_EQ(view->size(), 2u);
         testPoint(view, 0, data[2]);
         testPoint(view, 1, data[3]);
-        
+
         // And a third time!
         Stage* stage3 = db.query(table, tileSetId, 50.0, 50.0, 51.0, 51.0, bestLevel);
         stage3->prepare(table);
@@ -509,7 +509,7 @@ TEST(RialtoDbWriterTest, testOscar)
 
 
 
-static const int countP = 100000;
+static const int countP = 10000;
 static const int countQ = 100;
 
 static struct XYZ {
@@ -520,17 +520,17 @@ static struct XYZ {
 static bool expected[countP];
 static bool actual[countP];
 
-static void verify(PointViewPtr view, 
+static void verify(PointViewPtr view,
                    double minx, double miny, double maxx, double maxy)
 {
-    
+
     assert(view->size() <= countP);
-    
+
     for (int i=0; i<countP; i++) expected[i] = actual[i] = false;
 
     int cntE = 0;
     int cntA = 0;
-    
+
     for (uint32_t i=0; i<view->size(); i++)
     {
         const double x = view->getFieldAs<double>(Dimension::Id::X, i);
@@ -550,7 +550,7 @@ static void verify(PointViewPtr view,
         actual[i] = true;
         ++cntA;
     }
-            
+
     for (uint32_t i=0; i<countP; i++)
     {
         if (xyz[i].x >= minx && xyz[i].x <= maxx && xyz[i].y >= miny && xyz[i].y <= maxy)
@@ -559,7 +559,7 @@ static void verify(PointViewPtr view,
             cntE++;
         }
     }
-assert(cntE==cntA);
+
     EXPECT_EQ(cntE, cntA);
 }
 
@@ -567,7 +567,7 @@ assert(cntE==cntA);
 TEST(RialtoDbWriterTest, testLarge)
 {
     FileUtils::deleteFile(Support::temppath("rialto3.sqlite"));
-    
+
     for (int i=0; i<countP; i++)
     {
         xyz[i].x = Utils::random(-179.9, 179.9);
@@ -623,7 +623,7 @@ TEST(RialtoDbWriterTest, testLarge)
         PointViewSet outputViews = writer->execute(table);
         delete writer;
     }
-    
+
     // now read from it
     {
         // open the db for reading
@@ -634,7 +634,7 @@ TEST(RialtoDbWriterTest, testLarge)
         std::vector<uint32_t> tileSetIds;
         db.readTileSetIds(tileSetIds);
         const uint32_t tileSetId = tileSetIds[0];
-        
+
         rialtosupport::RialtoDb::TileSetInfo tileSetInfo;
         db.readTileSetInfo(tileSetId, tileSetInfo);
         const uint32_t bestLevel = tileSetInfo.maxLevel;
@@ -643,7 +643,7 @@ TEST(RialtoDbWriterTest, testLarge)
         db.setupPointTable(tileSetId, table);
         PointViewSet views;
         PointViewPtr view;
-        
+
         for (int i=0; i<countQ; i++)
         {
             double minx = 23.148880;//Utils::random(-179.9, 179.9);
@@ -652,15 +652,15 @@ TEST(RialtoDbWriterTest, testLarge)
             double miny = Utils::random(-89.9, 89.9);
             double maxy = Utils::random(-89.9, 89.9);
             if (miny > maxy) std::swap(miny, maxy);
-            
+
             Stage* stage1 = db.query(table, tileSetId, minx, miny, maxx, maxy, bestLevel);
-            
+
             stage1->prepare(table);
             views = stage1->execute(table);
             EXPECT_EQ(views.size(), 1u);
             view = *(views.begin());
             uint32_t c = view->size();
-            
+
             verify(view, minx, miny, maxx, maxy);
         }
     }
