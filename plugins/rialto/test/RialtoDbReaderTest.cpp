@@ -48,11 +48,73 @@
 
 #include <boost/filesystem.hpp>
 
-#include "../plugins/rialto/io/RialtoDb.hpp" // TODO: fix path
-#include "../plugins/sqlite/io/SQLiteCommon.hpp" // TODO: fix path
+#include "../plugins/rialto/io/RialtoDbReader.hpp" // TODO: fix path
 
 using namespace pdal;
 
 
 TEST(RialtoDbReaderTest, test)
-{}
+{
+  {
+    FileUtils::deleteFile(Support::temppath("rialto2.sqlite"));
+
+    // set up test data
+    PointTable table;
+    PointViewPtr inputView(new PointView(table));
+
+    table.layout()->registerDim(Dimension::Id::X);
+    table.layout()->registerDim(Dimension::Id::Y);
+    table.layout()->registerDim(Dimension::Id::Z);
+
+    for (int i=0; i<8; i++)
+    {
+        inputView->setField(Dimension::Id::X, i, i);
+        inputView->setField(Dimension::Id::Y, i, i * 10);
+        inputView->setField(Dimension::Id::Z, i, i * 100);
+    }
+
+    // stages
+    Options readerOptions;
+    BufferReader reader;
+    reader.setOptions(readerOptions);
+    reader.addView(inputView);
+    reader.setSpatialReference(SpatialReference("EPSG:4326"));
+
+    Options statsOptions;
+    StatsFilter stats;
+    stats.setOptions(statsOptions);
+    stats.setInput(reader);
+
+    Options tilerOptions;
+    tilerOptions.add("maxLevel", 2);
+    TilerFilter tiler;
+    tiler.setOptions(tilerOptions);
+    tiler.setInput(stats);
+
+    Options writerOptions;
+    writerOptions.add("filename", Support::temppath("rialto2.sqlite"));
+    writerOptions.add("overwrite", true);
+    //writerOptions.add("verbose", LogLevel::Debug);
+    StageFactory f;
+    Stage* writer = f.createStage("writers.rialtodb");
+    writer->setOptions(writerOptions);
+    writer->setInput(tiler);
+
+    // execution: write to database
+    writer->prepare(table);
+    PointViewSet outputViews = writer->execute(table);
+    delete writer;
+  }
+
+  RialtoDbReader reader;
+  Options options;
+  options.add("filename", Support::temppath("rialto2.sqlite"));
+  reader.setOptions(options);
+
+  PointTable table;
+  reader.prepare(table);
+  PointViewSet viewSet = reader.execute(table);
+  EXPECT_EQ(viewSet.size(), 1U);
+  PointViewPtr view = *viewSet.begin();
+  EXPECT_EQ(view->size(), 0U);
+}
