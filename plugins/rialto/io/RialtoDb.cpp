@@ -86,13 +86,13 @@ namespace
 } // anonymous namespace
 
 
-RialtoDb::RialtoDb(const std::string& connection) :
+RialtoDb::RialtoDb(const std::string& connection, LogPtr log) :
     m_connection(connection),
+    m_log(log),
     m_srid(4326),
     m_bufferReader(NULL),
     m_cropFilter(NULL)
 {
-    m_log = std::shared_ptr<pdal::Log>(new pdal::Log("RialtoDB", "stdout"));
     //m_log->setLevel(LogLevel::Debug);
 }
 
@@ -620,7 +620,7 @@ void RialtoDb::queryForTileIds(uint32_t tileSetId,
 
 
 // appends points to end of view (does not start with point index 0)
-static void serializeToPointView(const RialtoDb::TileInfo& info, PointViewPtr view, LogPtr log)
+void RialtoDb::serializeToPointView(const TileInfo& info, PointViewPtr view)
 {
     const size_t numPoints = info.numPoints;
     PointId idx = view->size();
@@ -636,7 +636,7 @@ static void serializeToPointView(const RialtoDb::TileInfo& info, PointViewPtr vi
         buf += pointSize;
         ++idx;
         
-        log->get(LogLevel::Debug) << "here" << std::endl;
+        log()->get(LogLevel::Debug) << "here" << std::endl;
     }
 }
 
@@ -648,6 +648,12 @@ void RialtoDb::setupPointTable(uint32_t tileSetId, PointTable& table) const
     TileSetInfo tileSetInfo;
     readTileSetInfo(tileSetId, tileSetInfo);
     
+    setupLayout(tileSetInfo, table.layout());
+}
+
+
+void RialtoDb::setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout) const
+{
     for (uint32_t i=0; i<tileSetInfo.numDimensions; i++)
     {
         const DimensionInfo& dimInfo = tileSetInfo.dimensions[i];
@@ -655,8 +661,8 @@ void RialtoDb::setupPointTable(uint32_t tileSetId, PointTable& table) const
         const Dimension::Id::Enum nameId = Dimension::id(dimInfo.name);
         const Dimension::Type::Enum typeId = Dimension::type(dimInfo.dataType);
         
-        table.layout()->registerDim(nameId, typeId);
-    }        
+        layout->registerDim(nameId, typeId);
+    }            
 }
 
 
@@ -698,7 +704,7 @@ Stage* RialtoDb::query(PointTable& table,
         
         log()->get(LogLevel::Debug) << "  got some points: " << info.numPoints << std::endl;
 
-        serializeToPointView(info, view, log());
+        serializeToPointView(info, view);
 
         log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
     }

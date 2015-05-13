@@ -67,7 +67,9 @@ static bool testP2T(double x, double y, uint32_t level, uint32_t expected_col, u
 
 void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
 {
-    RialtoDb db(filename);
+    LogPtr log(new Log("rialtodbwritertest", "stdout"));
+    
+    RialtoDb db(filename, log);
     db.open(false);
 
     std::vector<uint32_t> tileSetIds;
@@ -220,8 +222,10 @@ TEST(RialtoDbTest, test1)
 
     FileUtils::deleteFile(filename);
 
+    LogPtr log(new Log("rialtodbwritertest", "stdout"));
+
     {
-        RialtoDb db(filename);
+        RialtoDb db(filename, log);
         db.create();
         db.close();
     }
@@ -229,12 +233,12 @@ TEST(RialtoDbTest, test1)
     EXPECT_TRUE(FileUtils::fileExists(filename));
     
     {
-        RialtoDb db(filename);
+        RialtoDb db(filename, log);
         db.open(true);
     }
     
     {
-        RialtoDb db(filename);
+        RialtoDb db(filename, log);
         db.open(false);
         db.close();
     }
@@ -276,7 +280,9 @@ TEST(RialtoDbWriterTest, testWriter)
         //printf(" level: %d\n", info.level);
     }*/
 
-    RialtoDb db(filename);
+    LogPtr log(new Log("rialtodbwritertest", "stdout"));
+
+    RialtoDb db(filename, log);
     db.open(false);
     std::vector<uint32_t> tileSetIds;
     db.readTileSetIds(tileSetIds);
@@ -343,8 +349,10 @@ TEST(RialtoDbWriterTest, testOscar)
 
     // now read from it
     {
+        LogPtr log(new Log("rialtodbwritertest", "stdout"));
+
         // open the db for reading
-        RialtoDb db(filename);
+        RialtoDb db(filename, log);
         db.open(false);
 
         // we only have 1 tile set in the database: get it's id
@@ -434,8 +442,10 @@ TEST(RialtoDbWriterTest, testLarge)
 
     // now read from it
     {
+        LogPtr log(new Log("rialtodbwritertest", "stdout"));
+        
         // open the db for reading
-        RialtoDb db(filename);
+        RialtoDb db(filename, log);
         db.open(false);
 
         // we only have 1 tile set in the database: get it's id

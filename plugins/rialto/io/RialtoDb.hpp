@@ -93,7 +93,7 @@ public:
     };
 
     // pass it the filename of the sqlite db
-    RialtoDb(const std::string& connection);
+    RialtoDb(const std::string& connection, LogPtr log);
 
     ~RialtoDb();
 
@@ -134,6 +134,8 @@ public:
     // the dimension information from the tile set
     void setupPointTable(uint32_t tileSetId, PointTable& table) const;
     
+    void setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout) const;
+    
     // query for all the points of a tile set, bounded by bbox region
     // returns a pipeline made up of a BufferReader and a CropFilter
     // returns NULL if no points found
@@ -152,6 +154,8 @@ public:
 
      static void xyPointToTileColRow(double x, double y, uint32_t level, uint32_t& col, uint32_t& row);
 
+     void serializeToPointView(const TileInfo& info, PointViewPtr view);
+     
 private:
     // create the req'd tables in the db
     void createTileSetsTable();

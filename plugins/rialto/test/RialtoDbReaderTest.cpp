@@ -46,6 +46,7 @@
 
 #include "Support.hpp"
 
+#include "RialtoTest.hpp"
 #include <boost/filesystem.hpp>
 
 #include "../plugins/rialto/io/RialtoDbReader.hpp" // TODO: fix path
@@ -55,66 +56,61 @@ using namespace pdal;
 
 TEST(RialtoDbReaderTest, test)
 {
-  {
-    FileUtils::deleteFile(Support::temppath("rialto2.sqlite"));
+    const std::string filename(Support::temppath("rialto4.sqlite"));
+    
+    FileUtils::deleteFile(filename);
 
-    // set up test data
-    PointTable table;
-    PointViewPtr inputView(new PointView(table));
-
-    table.layout()->registerDim(Dimension::Id::X);
-    table.layout()->registerDim(Dimension::Id::Y);
-    table.layout()->registerDim(Dimension::Id::Z);
-
-    for (int i=0; i<8; i++)
     {
-        inputView->setField(Dimension::Id::X, i, i);
-        inputView->setField(Dimension::Id::Y, i, i * 10);
-        inputView->setField(Dimension::Id::Z, i, i * 100);
+        // set up test database
+        PointTable table;
+        PointViewPtr inputView(new PointView(table));
+        RialtoTest::Data* actualData = RialtoTest::sampleDataInit(table, inputView);
+        RialtoTest::createDatabase(table, inputView, filename);
     }
-
-    // stages
-    Options readerOptions;
-    BufferReader reader;
-    reader.setOptions(readerOptions);
-    reader.addView(inputView);
-    reader.setSpatialReference(SpatialReference("EPSG:4326"));
-
-    Options statsOptions;
-    StatsFilter stats;
-    stats.setOptions(statsOptions);
-    stats.setInput(reader);
-
-    Options tilerOptions;
-    tilerOptions.add("maxLevel", 2);
-    TilerFilter tiler;
-    tiler.setOptions(tilerOptions);
-    tiler.setInput(stats);
-
-    Options writerOptions;
-    writerOptions.add("filename", Support::temppath("rialto2.sqlite"));
-    writerOptions.add("overwrite", true);
-    //writerOptions.add("verbose", LogLevel::Debug);
-    StageFactory f;
-    Stage* writer = f.createStage("writers.rialtodb");
-    writer->setOptions(writerOptions);
-    writer->setInput(tiler);
-
-    // execution: write to database
-    writer->prepare(table);
-    PointViewSet outputViews = writer->execute(table);
-    delete writer;
-  }
 
   RialtoDbReader reader;
   Options options;
-  options.add("filename", Support::temppath("rialto2.sqlite"));
+  options.add("filename", filename);
+  options.add("verbose", LogLevel::Debug);
   reader.setOptions(options);
+  
+  {
+      PointTable table;
+      reader.prepare(table);
 
-  PointTable table;
-  reader.prepare(table);
-  PointViewSet viewSet = reader.execute(table);
-  EXPECT_EQ(viewSet.size(), 1U);
-  PointViewPtr view = *viewSet.begin();
-  EXPECT_EQ(view->size(), 0U);
+      PointViewSet viewSet = reader.execute(table);
+      EXPECT_EQ(viewSet.size(), 1u);
+      PointViewPtr view = *viewSet.begin();
+      EXPECT_EQ(view->size(), 8u);
+  }
+  
+  {
+      Options opts;
+      BOX3D bounds(0.0, 0.0, 0.0, 10.0, 10.0, 10.0);
+      opts.add("bbox", bounds);
+      reader.setOptions(opts);
+  
+      PointTable table;
+      reader.prepare(table);
+
+      PointViewSet viewSet = reader.execute(table);
+      EXPECT_EQ(viewSet.size(), 1u);
+      PointViewPtr view = *viewSet.begin();
+      EXPECT_EQ(view->size(), 0u);
+  }
+
+  {
+      Options opts;
+      BOX3D bounds(1.0, 1.0, -10000, 89.0, 89.0, 10000.0);
+      opts.add("bbox", bounds);
+      reader.setOptions(opts);
+  
+      PointTable table;
+      reader.prepare(table);
+
+      PointViewSet viewSet = reader.execute(table);
+      EXPECT_EQ(viewSet.size(), 1u);
+      PointViewPtr view = *viewSet.begin();
+      EXPECT_EQ(view->size(), 1u);
+  }
 }

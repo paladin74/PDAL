@@ -48,16 +48,39 @@ CREATE_SHARED_PLUGIN(1, 0, RialtoDbReader, Reader, s_info)
 
 std::string RialtoDbReader::getName() const { return s_info.name; }
 
+
+RialtoDbReader::RialtoDbReader() :
+    Reader()
+{}
+
+
 void RialtoDbReader::initialize()
 {
-    m_db = new RialtoDb(m_filename);
-    m_db->open(false);
-    m_tileSetId = 1;
+    log()->get(LogLevel::Debug) << "RialtoDbReader::initialize()" << std::endl;
+    
+    if (!m_db.get())
+    {
+        m_db = std::unique_ptr<RialtoDb>(new RialtoDb(m_filename, log()));
+        m_db->open(false);
+    
+        std::vector<uint32_t> ids;
+        m_db->readTileSetIds(ids);
+        assert(ids.size()==1); // TODO: always take the first one for now
+        m_tileSetId = ids[0];
+    
+        m_tileSetInfo = std::unique_ptr<RialtoDb::TileSetInfo>(new RialtoDb::TileSetInfo());
+
+        m_db->readTileSetInfo(m_tileSetId, *m_tileSetInfo);
+    
+        m_level = m_tileSetInfo->maxLevel;
+    }
 }
 
 
 Options RialtoDbReader::getDefaultOptions()
 {
+    log()->get(LogLevel::Debug) << "RialtoDbReader::getDefaultOptions()" << std::endl;
+
     Options options;
 
     return options;
@@ -66,25 +89,66 @@ Options RialtoDbReader::getDefaultOptions()
 
 void RialtoDbReader::processOptions(const Options& options)
 {
+    printf("STAGE PREPAREddddddd\n");
+    log()->get(LogLevel::Debug) << "RialtoDbReader::processOptions()" << std::endl;
+    
+    static const double minx = -179.9;
+    static const double miny = -89.9;
+    static const double maxx = 179.9;
+    static const double maxy = 89.9;
+    static const double minz = (std::numeric_limits<double>::lowest)();
+    static const double maxz = (std::numeric_limits<double>::max)();
+    static const BOX3D all(minx, miny, minz, maxx, maxy, maxz);
+    
+    m_query = options.getValueOrDefault<BOX3D>("bbox", all);
+    
+    log()->get(LogLevel::Debug) << "process options: bbox="
+        << m_query << std::endl;
 }
 
 
 void RialtoDbReader::addDimensions(PointLayoutPtr layout)
 {
-  PointTable table;
-  m_db->setupPointTable(m_tileSetId, table);
-  layout->registerDims(table.layout()->dims());
+    log()->get(LogLevel::Debug) << "RialtoDbReader::addDimensions()" << std::endl;
+
+    m_db->setupLayout(*m_tileSetInfo, layout);
 }
 
 
 void RialtoDbReader::ready(PointTableRef table)
 {
+    log()->get(LogLevel::Debug) << "RialtoDbReader::ready()" << std::endl;
+    // TODO: anything to do here?
 }
 
 
 point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
 {
-  return 0;
+    log()->get(LogLevel::Debug) << "RialtoDbReader::read()" << std::endl;
+
+    // TODO: `count` is ignored
+    
+    const double minx = m_query.minx;
+    const double miny = m_query.miny;
+    const double maxx = m_query.maxx;
+    const double maxy = m_query.maxy;
+
+    std::vector<uint32_t> ids;
+    m_db->queryForTileIds(m_tileSetId, minx, miny, maxx, maxy, m_level, ids);
+
+    for (auto id: ids) 
+    {
+        RialtoDb::TileInfo info;
+        m_db->readTileInfo(id, true, info);
+        
+        log()->get(LogLevel::Debug) << "  got some points: " << info.numPoints << std::endl;
+
+        m_db->serializeToPointView(info, view);
+
+        log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
+    }
+    
+  return view->size();
 }
 
 } // namespace pdal
