@@ -36,7 +36,6 @@
 
 #include <pdal/pdal_export.hpp>
 #include <pdal/Reader.hpp>
-#include "RialtoReader.hpp"
 
 #include "RialtoDb.hpp" // TODO: do not expose
 

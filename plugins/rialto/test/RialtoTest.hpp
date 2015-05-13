@@ -151,7 +151,7 @@ void RialtoTest::createTileFiles(pdal::PointTable& table, pdal::PointViewPtr vie
     Options writerOptions;
     writerOptions.add("filename", Support::temppath("rialto1"));
     writerOptions.add("overwrite", true);
-    writerOptions.add("verbose", LogLevel::Debug);
+    //writerOptions.add("verbose", LogLevel::Debug);
     StageFactory f;
     std::unique_ptr<Stage> writer(f.createStage("writers.rialtofile"));
     writer->setOptions(writerOptions);

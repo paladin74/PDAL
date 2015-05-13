@@ -89,7 +89,6 @@ Options RialtoDbReader::getDefaultOptions()
 
 void RialtoDbReader::processOptions(const Options& options)
 {
-    printf("STAGE PREPAREddddddd\n");
     log()->get(LogLevel::Debug) << "RialtoDbReader::processOptions()" << std::endl;
     
     static const double minx = -179.9;

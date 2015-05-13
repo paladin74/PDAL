@@ -71,7 +71,7 @@ TEST(RialtoDbReaderTest, test)
   RialtoDbReader reader;
   Options options;
   options.add("filename", filename);
-  options.add("verbose", LogLevel::Debug);
+  //options.add("verbose", LogLevel::Debug);
   reader.setOptions(options);
   
   {

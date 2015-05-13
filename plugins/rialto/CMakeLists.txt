@@ -20,18 +20,9 @@ set(db_writer_srcs
     io/RialtoDbWriter.cpp
 )
 
-set(file_reader_srcs
-    io/RialtoReader.hpp
-    io/RialtoReader.cpp
-    io/RialtoFileReader.hpp
-    io/RialtoFileReader.cpp
-    )
-
 set(db_reader_srcs
     io/RialtoDb.hpp
     io/RialtoDb.cpp
-    io/RialtoReader.hpp
-    io/RialtoReader.cpp
     io/RialtoDbReader.hpp
     io/RialtoDbReader.cpp
 )
@@ -40,16 +31,12 @@ PDAL_ADD_PLUGIN(dbwriter_libname writer rialtodb
     FILES "${db_writer_srcs}"
     LINK_WITH ${SQLITE3_LIBRARY})
 
-PDAL_ADD_PLUGIN(dbreader_libname reader rialtodbreader
+PDAL_ADD_PLUGIN(dbreader_libname reader rialtodb
     FILES "${db_reader_srcs}"
     LINK_WITH ${SQLITE3_LIBRARY})
 
 PDAL_ADD_PLUGIN(filewriter_libname writer rialtofile
     FILES "${file_writer_srcs}"
-    )
-
-PDAL_ADD_PLUGIN(filereader_libname reader rialtofile
-    FILES "${file_reader_srcs}"
     )
 
 #
@@ -63,10 +50,6 @@ if(BUILD_RIALTO_TESTS)
     PDAL_ADD_TEST(rialtodbwritertest
         FILES test/RialtoDbWriterTest.cpp
         LINK_WITH ${dbwriter_libname}
-    )
-    PDAL_ADD_TEST(rialtofilereadertest
-        FILES test/RialtoFileReaderTest.cpp
-        LINK_WITH ${filereader_libname}
     )
     PDAL_ADD_TEST(rialtodbreadertest
         FILES test/RialtoDbReaderTest.cpp
