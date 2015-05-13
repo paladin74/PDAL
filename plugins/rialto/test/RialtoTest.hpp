@@ -55,44 +55,56 @@ public:
         double z;
     };
     
-    static Data sampleData[8];
-    static void sampleDataInit(pdal::PointTable&, pdal::PointViewPtr);
+    // always 8 points
+    static Data* sampleDataInit(pdal::PointTable&, pdal::PointViewPtr);
     
-    static Data *randomData;
-    static void randomDataInit(pdal::PointTable&, pdal::PointViewPtr, uint32_t numPoints);
+    static Data* randomDataInit(pdal::PointTable&, pdal::PointViewPtr, uint32_t numPoints);
+    
+    static void createTileFiles(pdal::PointTable& table, pdal::PointViewPtr view, const std::string& filename);
 
     static void createDatabase(pdal::PointTable& table, pdal::PointViewPtr view, const std::string& filename);
-    static void verifyDatabase(const std::string& filename);
-    
+
+    static void verifyPointToData(pdal::PointViewPtr view, pdal::PointId idx, const Data& data);
     static void verifyPointFromBuffer(std::vector<unsigned char>& buf,
-                                           const RialtoTest::Data& expectedData);
+                                      const Data& expectedData);
     static void verifyPointsInBounds(pdal::PointViewPtr view,
-                                 double minx, double miny, double maxx, double maxy);
+                                     double minx, double miny, double maxx, double maxy);
     static uint32_t countPointsInBounds(Data* xyz, uint32_t numPoints,
-                                                    double minx, double miny, double maxx, double maxy);
+                                        double minx, double miny, double maxx, double maxy);
 
 };
 
 
-void RialtoTest::sampleDataInit(pdal::PointTable& table, pdal::PointViewPtr view)
+RialtoTest::Data* RialtoTest::sampleDataInit(pdal::PointTable& table, pdal::PointViewPtr view)
 {
+    Data* data = new Data[8];
+    data[0] = { -179.0, 89.0, 0.0};
+    data[1] = { -1.0, 89.0, 11.0};
+    data[2] = { -179.0, -89.0, 22.0};
+    data[3] = { -1.0, -89.0, 33.0};
+    data[4] = { 89.0, 1.0, 44.0};
+    data[5] = { 91.0, 1.0, 55.0};
+    data[6] = { 89.0, -1.0, 66.0};
+    data[7] = { 91.0, -1.0, 77.0};
+
     table.layout()->registerDim(Dimension::Id::X);
     table.layout()->registerDim(Dimension::Id::Y);
     table.layout()->registerDim(Dimension::Id::Z);
 
     for (int i=0; i<8; i++)
     {
-        view->setField(Dimension::Id::X, i, sampleData[i].x);
-        view->setField(Dimension::Id::Y, i, sampleData[i].y);
-        view->setField(Dimension::Id::Z, i, sampleData[i].z);
+        view->setField(Dimension::Id::X, i, data[i].x);
+        view->setField(Dimension::Id::Y, i, data[i].y);
+        view->setField(Dimension::Id::Z, i, data[i].z);
     }
+    
+    return data;
 }
 
 
-void RialtoTest::randomDataInit(pdal::PointTable& table, pdal::PointViewPtr view, uint32_t numPoints)
+RialtoTest::Data* RialtoTest::randomDataInit(pdal::PointTable& table, pdal::PointViewPtr view, uint32_t numPoints)
 {
-    delete randomData;
-    randomData = new Data[numPoints];
+    Data* data = new Data[numPoints];
     
     table.layout()->registerDim(Dimension::Id::X);
     table.layout()->registerDim(Dimension::Id::Y);
@@ -100,17 +112,54 @@ void RialtoTest::randomDataInit(pdal::PointTable& table, pdal::PointViewPtr view
 
     for (uint32_t i=0; i<numPoints; i++)
     {
-        randomData[i].x = Utils::random(-179.9, 179.9);
-        randomData[i].y = Utils::random(-89.9, 89.9);
-        randomData[i].z = i;
+        data[i].x = Utils::random(-179.9, 179.9);
+        data[i].y = Utils::random(-89.9, 89.9);
+        data[i].z = i;
     }
 
     for (uint32_t i=0; i<numPoints; i++)
     {
-        view->setField(Dimension::Id::X, i, randomData[i].x);
-        view->setField(Dimension::Id::Y, i, randomData[i].y);
-        view->setField(Dimension::Id::Z, i, randomData[i].z);
+        view->setField(Dimension::Id::X, i, data[i].x);
+        view->setField(Dimension::Id::Y, i, data[i].y);
+        view->setField(Dimension::Id::Z, i, data[i].z);
     }
+    
+    return data;
+}
+
+
+void RialtoTest::createTileFiles(pdal::PointTable& table, pdal::PointViewPtr view, const std::string& filename)
+{
+    // stages
+    Options readerOptions;
+    BufferReader reader;
+    reader.setOptions(readerOptions);
+    reader.addView(view);
+    reader.setSpatialReference(SpatialReference("EPSG:4326"));
+
+    Options statsOptions;
+    StatsFilter stats;
+    stats.setOptions(statsOptions);
+    stats.setInput(reader);
+
+    Options tilerOptions;
+    tilerOptions.add("maxLevel", 2);
+    TilerFilter tiler;
+    tiler.setOptions(tilerOptions);
+    tiler.setInput(stats);
+
+    Options writerOptions;
+    writerOptions.add("filename", Support::temppath("rialto1"));
+    writerOptions.add("overwrite", true);
+    writerOptions.add("verbose", LogLevel::Debug);
+    StageFactory f;
+    std::unique_ptr<Stage> writer(f.createStage("writers.rialtofile"));
+    writer->setOptions(writerOptions);
+    writer->setInput(tiler);
+
+    // execution
+    writer->prepare(table);
+    PointViewSet outputViews = writer->execute(table);
 }
 
 
@@ -149,114 +198,15 @@ void RialtoTest::createDatabase(pdal::PointTable& table, pdal::PointViewPtr view
 }
 
 
-void RialtoTest::verifyDatabase(const std::string& filename)
+void RialtoTest::verifyPointToData(pdal::PointViewPtr view, pdal::PointId idx, const RialtoTest::Data& data)
 {
-    RialtoDb db(filename);
-    db.open(false);
+    const double x = view->getFieldAs<double>(pdal::Dimension::Id::X, idx);
+    const double y = view->getFieldAs<double>(pdal::Dimension::Id::Y, idx);
+    const double z = view->getFieldAs<double>(pdal::Dimension::Id::Z, idx);
 
-    std::vector<uint32_t> tileSetIds;
-    db.readTileSetIds(tileSetIds);
-    EXPECT_EQ(tileSetIds.size(), 1u);
-
-    RialtoDb::TileSetInfo tileSetInfo;
-    db.readTileSetInfo(tileSetIds[0], tileSetInfo);
-    EXPECT_EQ(tileSetInfo.maxLevel, 2u);
-    EXPECT_EQ(tileSetInfo.numDimensions, 3u);
-
-    const std::vector<RialtoDb::DimensionInfo>& dimensionsInfo = tileSetInfo.dimensions;
-    EXPECT_EQ(dimensionsInfo[0].name, "X");
-    EXPECT_EQ(dimensionsInfo[0].dataType, "double");
-    EXPECT_DOUBLE_EQ(dimensionsInfo[0].minimum, -179.0);
-    EXPECT_DOUBLE_EQ(dimensionsInfo[0].mean+100.0, 0.0+100.0); // TODO
-    EXPECT_DOUBLE_EQ(dimensionsInfo[0].maximum, 91.0);
-    EXPECT_EQ(dimensionsInfo[1].name, "Y");
-    EXPECT_EQ(dimensionsInfo[1].dataType, "double");
-    EXPECT_DOUBLE_EQ(dimensionsInfo[1].minimum, -89.0);
-    EXPECT_DOUBLE_EQ(dimensionsInfo[1].mean+100.0, 0.0+100.0); // TODO
-    EXPECT_DOUBLE_EQ(dimensionsInfo[1].maximum, 89.0);
-    EXPECT_EQ(dimensionsInfo[2].name, "Z");
-    EXPECT_EQ(dimensionsInfo[2].dataType, "double");
-    EXPECT_DOUBLE_EQ(dimensionsInfo[2].minimum, 0.0);
-    EXPECT_DOUBLE_EQ(dimensionsInfo[2].mean+100.0, 38.5+100.0); // TODO
-    EXPECT_DOUBLE_EQ(dimensionsInfo[2].maximum, 77.0);
-
-    std::vector<uint32_t> tilesAt0;
-    db.readTileIdsAtLevel(tileSetIds[0], 0, tilesAt0);
-    EXPECT_EQ(tilesAt0.size(), 1u);
-    std::vector<uint32_t> tilesAt1;
-    db.readTileIdsAtLevel(tileSetIds[0], 1, tilesAt1);
-    EXPECT_EQ(tilesAt1.size(), 2u);
-    std::vector<uint32_t> tilesAt2;
-    db.readTileIdsAtLevel(tileSetIds[0], 2, tilesAt2);
-    EXPECT_EQ(tilesAt2.size(), 8u);
-    std::vector<uint32_t> tilesAt3;
-    db.readTileIdsAtLevel(tileSetIds[0], 3, tilesAt3);
-    EXPECT_EQ(tilesAt3.size(), 0u);
-
-    RialtoDb::TileInfo info;
-    
-    {
-        db.readTileInfo(tilesAt0[0], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        verifyPointFromBuffer(info.patch.buf, RialtoTest::sampleData[0]);
-    }
-
-    {
-        // TODO: these two are order-dependent
-        db.readTileInfo(tilesAt1[0], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        verifyPointFromBuffer(info.patch.buf, RialtoTest::sampleData[0]);
-
-        db.readTileInfo(tilesAt1[1], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        verifyPointFromBuffer(info.patch.buf, RialtoTest::sampleData[4]);
-    }
-
-    {
-        // TODO: these eight are order-dependent
-        db.readTileInfo(tilesAt2[0], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        verifyPointFromBuffer(info.patch.buf, RialtoTest::sampleData[0]);
-
-        db.readTileInfo(tilesAt2[1], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        verifyPointFromBuffer(info.patch.buf, RialtoTest::sampleData[1]);
-
-        db.readTileInfo(tilesAt2[2], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        verifyPointFromBuffer(info.patch.buf, RialtoTest::sampleData[2]);
-
-        db.readTileInfo(tilesAt2[3], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        verifyPointFromBuffer(info.patch.buf, RialtoTest::sampleData[3]);
-
-        db.readTileInfo(tilesAt2[4], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        verifyPointFromBuffer(info.patch.buf, RialtoTest::sampleData[4]);
-
-        db.readTileInfo(tilesAt2[5], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        verifyPointFromBuffer(info.patch.buf, RialtoTest::sampleData[5]);
-
-        db.readTileInfo(tilesAt2[6], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        verifyPointFromBuffer(info.patch.buf, RialtoTest::sampleData[6]);
-
-        db.readTileInfo(tilesAt2[7], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        verifyPointFromBuffer(info.patch.buf, RialtoTest::sampleData[7]);
-    }
+    EXPECT_FLOAT_EQ(x, data.x);
+    EXPECT_FLOAT_EQ(y, data.y);
+    EXPECT_FLOAT_EQ(z, data.z);
 }
 
 

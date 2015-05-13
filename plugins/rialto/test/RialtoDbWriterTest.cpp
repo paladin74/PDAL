@@ -55,21 +55,6 @@
 using namespace pdal;
 
 
-
-RialtoTest::Data RialtoTest::sampleData[8] = 
-{
-    /*0*/ { -179.0, 89.0, 0.0},
-    /*1*/ { -1.0, 89.0, 11.0},
-    /*2*/ { -179.0, -89.0, 22.0},
-    /*3*/ { -1.0, -89.0, 33.0},
-    /*4*/ { 89.0, 1.0, 44.0},
-    /*5*/ { 91.0, 1.0, 55.0},
-    /*6*/ { 89.0, -1.0, 66.0},
-    /*7*/ { 91.0, -1.0, 77.0}
-};
-
-RialtoTest::Data *RialtoTest::randomData = NULL;
-
 static bool testP2T(double x, double y, uint32_t level, uint32_t expected_col, uint32_t expected_row)
 {
     uint32_t actual_col, actual_row;
@@ -79,6 +64,116 @@ static bool testP2T(double x, double y, uint32_t level, uint32_t expected_col, u
     return r && c;
 }
 
+
+void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
+{
+    RialtoDb db(filename);
+    db.open(false);
+
+    std::vector<uint32_t> tileSetIds;
+    db.readTileSetIds(tileSetIds);
+    EXPECT_EQ(tileSetIds.size(), 1u);
+
+    RialtoDb::TileSetInfo tileSetInfo;
+    db.readTileSetInfo(tileSetIds[0], tileSetInfo);
+    EXPECT_EQ(tileSetInfo.maxLevel, 2u);
+    EXPECT_EQ(tileSetInfo.numDimensions, 3u);
+
+    const std::vector<RialtoDb::DimensionInfo>& dimensionsInfo = tileSetInfo.dimensions;
+    EXPECT_EQ(dimensionsInfo[0].name, "X");
+    EXPECT_EQ(dimensionsInfo[0].dataType, "double");
+    EXPECT_DOUBLE_EQ(dimensionsInfo[0].minimum, -179.0);
+    EXPECT_DOUBLE_EQ(dimensionsInfo[0].mean+100.0, 0.0+100.0); // TODO
+    EXPECT_DOUBLE_EQ(dimensionsInfo[0].maximum, 91.0);
+    EXPECT_EQ(dimensionsInfo[1].name, "Y");
+    EXPECT_EQ(dimensionsInfo[1].dataType, "double");
+    EXPECT_DOUBLE_EQ(dimensionsInfo[1].minimum, -89.0);
+    EXPECT_DOUBLE_EQ(dimensionsInfo[1].mean+100.0, 0.0+100.0); // TODO
+    EXPECT_DOUBLE_EQ(dimensionsInfo[1].maximum, 89.0);
+    EXPECT_EQ(dimensionsInfo[2].name, "Z");
+    EXPECT_EQ(dimensionsInfo[2].dataType, "double");
+    EXPECT_DOUBLE_EQ(dimensionsInfo[2].minimum, 0.0);
+    EXPECT_DOUBLE_EQ(dimensionsInfo[2].mean+100.0, 38.5+100.0); // TODO
+    EXPECT_DOUBLE_EQ(dimensionsInfo[2].maximum, 77.0);
+
+    std::vector<uint32_t> tilesAt0;
+    db.readTileIdsAtLevel(tileSetIds[0], 0, tilesAt0);
+    EXPECT_EQ(tilesAt0.size(), 1u);
+    std::vector<uint32_t> tilesAt1;
+    db.readTileIdsAtLevel(tileSetIds[0], 1, tilesAt1);
+    EXPECT_EQ(tilesAt1.size(), 2u);
+    std::vector<uint32_t> tilesAt2;
+    db.readTileIdsAtLevel(tileSetIds[0], 2, tilesAt2);
+    EXPECT_EQ(tilesAt2.size(), 8u);
+    std::vector<uint32_t> tilesAt3;
+    db.readTileIdsAtLevel(tileSetIds[0], 3, tilesAt3);
+    EXPECT_EQ(tilesAt3.size(), 0u);
+
+    RialtoDb::TileInfo info;
+    
+    {
+        db.readTileInfo(tilesAt0[0], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[0]);
+    }
+
+    {
+        // TODO: these two are order-dependent
+        db.readTileInfo(tilesAt1[0], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[0]);
+
+        db.readTileInfo(tilesAt1[1], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[4]);
+    }
+
+    {
+        // TODO: these eight are order-dependent
+        db.readTileInfo(tilesAt2[0], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[0]);
+
+        db.readTileInfo(tilesAt2[1], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[1]);
+
+        db.readTileInfo(tilesAt2[2], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[2]);
+
+        db.readTileInfo(tilesAt2[3], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[3]);
+
+        db.readTileInfo(tilesAt2[4], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[4]);
+
+        db.readTileInfo(tilesAt2[5], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[5]);
+
+        db.readTileInfo(tilesAt2[6], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[6]);
+
+        db.readTileInfo(tilesAt2[7], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[7]);
+    }
+}
 
 TEST(RialtoDbWriterTest, testPointToTile)
 {
@@ -121,30 +216,30 @@ TEST(RialtoDbWriterTest, testPointToTile)
 
 TEST(RialtoDbTest, test1)
 {
-    const std::string connection = Support::temppath("./test1.sqlite");
+    const std::string filename = Support::temppath("./test1.sqlite");
 
-    FileUtils::deleteFile(connection);
+    FileUtils::deleteFile(filename);
 
     {
-        RialtoDb db(connection);
+        RialtoDb db(filename);
         db.create();
         db.close();
     }
     
-    EXPECT_TRUE(FileUtils::fileExists(connection));
+    EXPECT_TRUE(FileUtils::fileExists(filename));
     
     {
-        RialtoDb db(connection);
+        RialtoDb db(filename);
         db.open(true);
     }
     
     {
-        RialtoDb db(connection);
+        RialtoDb db(filename);
         db.open(false);
         db.close();
     }
 
-    FileUtils::deleteFile(connection);
+    FileUtils::deleteFile(filename);
 }
 
 
@@ -156,24 +251,8 @@ TEST(RialtoDbWriterTest, createWriter)
 }
 
 
-
-
-
-// verify point view has the correct data
-static void testPoint(PointViewPtr view, PointId idx, const RialtoTest::Data& data)
-{
-    const double x = view->getFieldAs<double>(Dimension::Id::X, idx);
-    const double y = view->getFieldAs<double>(Dimension::Id::Y, idx);
-    const double z = view->getFieldAs<double>(Dimension::Id::Z, idx);
-
-    EXPECT_FLOAT_EQ(x, data.x);
-    EXPECT_FLOAT_EQ(y, data.y);
-    EXPECT_FLOAT_EQ(z, data.z);
-}
-
-
 TEST(RialtoDbWriterTest, testWriter)
-{return;
+{
     const std::string filename(Support::temppath("rialto2.sqlite"));
     
     FileUtils::deleteFile(filename);
@@ -181,12 +260,12 @@ TEST(RialtoDbWriterTest, testWriter)
     // set up test data
     PointTable table;
     PointViewPtr inputView(new PointView(table));
-    RialtoTest::sampleDataInit(table, inputView);
+    RialtoTest::Data* actualData = RialtoTest::sampleDataInit(table, inputView);
 
     // stages
     RialtoTest::createDatabase(table, inputView, filename);
     
-    RialtoTest::verifyDatabase(filename);
+    verifyDatabase(filename, actualData);
     
     // verification
     /*for (int i=0; i<8; i++) {
@@ -232,27 +311,31 @@ TEST(RialtoDbWriterTest, testWriter)
         EXPECT_EQ(outputViews.size(), 1u);
         PointViewPtr outView = *(outputViews.begin());
         EXPECT_EQ(outView->size(), 2u);
-        testPoint(outView, 0, RialtoTest::sampleData[4]);
-        testPoint(outView, 1, RialtoTest::sampleData[5]);
+        RialtoTest::verifyPointToData(outView, 0, actualData[4]);
+        RialtoTest::verifyPointToData(outView, 1, actualData[5]);
     }
 
     db.close();
 
-    //FileUtils::deleteDirectory(Support::temppath("rialto2.sqlite"));
+    delete[] actualData;
+    
+    FileUtils::deleteFile(filename);
 }
 
 
 TEST(RialtoDbWriterTest, testOscar)
-{return;
+{
     const std::string filename(Support::temppath("oscar.sqlite"));
     
     FileUtils::deleteFile(filename);
+
+    RialtoTest::Data* actualData;
 
     // make a test database
     {
         PointTable table;
         PointViewPtr inputView(new PointView(table));
-        RialtoTest::sampleDataInit(table, inputView);
+        actualData = RialtoTest::sampleDataInit(table, inputView);
 
         // stages
         RialtoTest::createDatabase(table, inputView, filename);
@@ -299,7 +382,7 @@ TEST(RialtoDbWriterTest, testOscar)
         EXPECT_EQ(views.size(), 1u);
         view = *(views.begin());
         EXPECT_EQ(view->size(), 1u);
-        testPoint(view, 0, RialtoTest::sampleData[4]);
+        RialtoTest::verifyPointToData(view, 0, actualData[4]);
 
         // That was so much fun, let's do it again!
         Stage* stage2 = db.query(table, tileSetId, -179.9, -89.9, -0.1, -0.1, bestLevel);
@@ -310,8 +393,8 @@ TEST(RialtoDbWriterTest, testOscar)
         EXPECT_EQ(views.size(), 1u);
         view = *(views.begin());
         EXPECT_EQ(view->size(), 2u);
-        testPoint(view, 0, RialtoTest::sampleData[2]);
-        testPoint(view, 1, RialtoTest::sampleData[3]);
+        RialtoTest::verifyPointToData(view, 0, actualData[2]);
+        RialtoTest::verifyPointToData(view, 1, actualData[3]);
 
         // And a third time!
         Stage* stage3 = db.query(table, tileSetId, 50.0, 50.0, 51.0, 51.0, bestLevel);
@@ -324,26 +407,27 @@ TEST(RialtoDbWriterTest, testOscar)
         db.close();
     }
 
-    //FileUtils::deleteDirectory(Support::temppath("oscar.sqlite"));
+    delete[] actualData;
+
+    FileUtils::deleteFile(filename);
 }
 
 
-
-static const int countP = 10000;
-static const int countQ = 100;
-
-
-
 TEST(RialtoDbWriterTest, testLarge)
-{return;
+{
+    static const int NUM_POINTS = 10000;
+    static const int NUM_QUERIES = 100;
+
     const std::string filename(Support::temppath("rialto3.sqlite"));
     FileUtils::deleteFile(filename);
+
+    RialtoTest::Data* actualData;
 
     // make a test database
     {
         PointTable table;
         PointViewPtr inputView(new PointView(table));
-        RialtoTest::randomDataInit(table, inputView, countP);
+        actualData = RialtoTest::randomDataInit(table, inputView, NUM_POINTS);
 
         RialtoTest::createDatabase(table, inputView, filename);
     }
@@ -368,7 +452,7 @@ TEST(RialtoDbWriterTest, testLarge)
         PointViewSet views;
         PointViewPtr view;
 
-        for (int i=0; i<countQ; i++)
+        for (int i=0; i<NUM_QUERIES; i++)
         {
             double minx = 23.148880;//Utils::random(-179.9, 179.9);
             double maxx = 75.463685;//Utils::random(-179.9, 179.9);
@@ -386,8 +470,12 @@ TEST(RialtoDbWriterTest, testLarge)
             uint32_t c = view->size();
 
             RialtoTest::verifyPointsInBounds(view, minx, miny, maxx, maxy);
-            uint32_t expected = RialtoTest::countPointsInBounds(RialtoTest::randomData, countP, minx, miny, maxx, maxy);
+            uint32_t expected = RialtoTest::countPointsInBounds(actualData, NUM_POINTS, minx, miny, maxx, maxy);
             EXPECT_EQ(expected, view->size());
         }
     }
+    
+    delete[] actualData;
+    
+    FileUtils::deleteFile(filename);
 }

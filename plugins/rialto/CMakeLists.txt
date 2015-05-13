@@ -5,81 +5,71 @@
 include (${PDAL_CMAKE_DIR}/sqlite.cmake)
 
 set(file_writer_srcs
+    io/RialtoWriter.hpp
     io/RialtoWriter.cpp
+    io/RialtoFileWriter.hpp
     io/RialtoFileWriter.cpp
     )
 
-set(file_writer_incs
-    io/RialtoWriter.hpp
-    io/RialtoFileWriter.hpp
-    )
-
 set(db_writer_srcs
-    io/RialtoWriter.cpp
-    io/RialtoDbWriter.cpp
-    io/RialtoDb.cpp
-    )
-
-set(db_writer_incs
-    io/RialtoWriter.hpp
-    io/RialtoDbWriter.hpp
     io/RialtoDb.hpp
+    io/RialtoDb.cpp
+    io/RialtoWriter.hpp
+    io/RialtoWriter.cpp
+    io/RialtoDbWriter.hpp
+    io/RialtoDbWriter.cpp
 )
 
 set(file_reader_srcs
+    io/RialtoReader.hpp
     io/RialtoReader.cpp
+    io/RialtoFileReader.hpp
     io/RialtoFileReader.cpp
     )
 
-set(file_reader_incs
-    io/RialtoReader.hpp
-    io/RialtoFileReader.hpp
-    )
-
 set(db_reader_srcs
-    io/RialtoReader.cpp
-    io/RialtoDbReader.cpp
-    io/RialtoDb.cpp
-    )
-
-set(db_reader_incs
-    io/RialtoReader.hpp
-    io/RialtoDbReader.hpp
     io/RialtoDb.hpp
+    io/RialtoDb.cpp
+    io/RialtoReader.hpp
+    io/RialtoReader.cpp
+    io/RialtoDbReader.hpp
+    io/RialtoDbReader.cpp
 )
 
 PDAL_ADD_PLUGIN(dbwriter_libname writer rialtodb
-    FILES "${db_writer_srcs}" "${db_writer_incs}"
+    FILES "${db_writer_srcs}"
     LINK_WITH ${SQLITE3_LIBRARY})
 
 PDAL_ADD_PLUGIN(dbreader_libname reader rialtodbreader
-    FILES "${db_reader_srcs}" "${db_reader_incs}"
+    FILES "${db_reader_srcs}"
     LINK_WITH ${SQLITE3_LIBRARY})
 
 PDAL_ADD_PLUGIN(filewriter_libname writer rialtofile
-    FILES "${file_writer_srcs}" "${file_writer_incs}")
+    FILES "${file_writer_srcs}"
+    )
 
 PDAL_ADD_PLUGIN(filereader_libname reader rialtofile
-    FILES "${file_reader_srcs}" "${file_reader_incs}")
+    FILES "${file_reader_srcs}"
+    )
 
 #
 # Rialto tests
 #
 if(BUILD_RIALTO_TESTS)
 	  PDAL_ADD_TEST(rialtofilewritertest
-        FILES test/RialtoFileWriterTest.cpp test/RialtoTest.cpp
+        FILES test/RialtoFileWriterTest.cpp
         LINK_WITH ${filewriter_libname}
     )
     PDAL_ADD_TEST(rialtodbwritertest
-        FILES test/RialtoDbWriterTest.cpp test/RialtoTest.cpp
+        FILES test/RialtoDbWriterTest.cpp
         LINK_WITH ${dbwriter_libname}
     )
     PDAL_ADD_TEST(rialtofilereadertest
-        FILES test/RialtoFileReaderTest.cpp test/RialtoTest.cpp
+        FILES test/RialtoFileReaderTest.cpp
         LINK_WITH ${filereader_libname}
     )
     PDAL_ADD_TEST(rialtodbreadertest
-        FILES test/RialtoDbReaderTest.cpp test/RialtoTest.cpp
+        FILES test/RialtoDbReaderTest.cpp
         LINK_WITH ${dbreader_libname}
     )
 endif()

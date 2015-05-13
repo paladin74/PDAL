@@ -47,6 +47,7 @@
 #include "Support.hpp"
 
 #include <boost/filesystem.hpp>
+#include "RialtoTest.hpp"
 
 using namespace pdal;
 
@@ -58,20 +59,6 @@ TEST(RialtoFileWriterTest, createWriter)
 }
 
 
-const struct Data {
-    double x;
-    double y;
-    double z;
-} data[8] = {
-    /*0*/ { -179.0, 89.0, 0.0},
-    /*1*/ { -1.0, 89.0, 11.0},
-    /*2*/ { -179.0, -89.0, 22.0},
-    /*3*/ { -1.0, -89.0, 33.0},
-    /*4*/ { 89.0, 1.0, 44.0},
-    /*5*/ { 91.0, 1.0, 55.0},
-    /*6*/ { 89.0, -1.0, 66.0},
-    /*7*/ { 91.0, -1.0, 77.0}
-};
 
 
 static void readBytes(const std::string& filename, uint8_t* buf, uint32_t len)
@@ -85,28 +72,16 @@ static void readBytes(const std::string& filename, uint8_t* buf, uint32_t len)
 }
 
 
-static void verify(const std::string& filename,
-                   const Data* expectedData,
+static void verifyFile(const std::string& filename,
+                   const RialtoTest::Data* expectedData,
                    uint8_t expectedMask)
 {
     uint32_t actualSize = FileUtils::fileSize(Support::temppath(filename));
 
     if (expectedData) {
-        EXPECT_EQ(actualSize, 25u);
-        union {
-          uint8_t buf[25];
-          struct {
-            double x;
-            double y;
-            double z;
-            uint8_t m;
-          } actualData;
-        } u;
-        readBytes(filename, u.buf, 25);
-        EXPECT_EQ(u.actualData.x, expectedData->x);
-        EXPECT_EQ(u.actualData.y, expectedData->y);
-        EXPECT_EQ(u.actualData.z, expectedData->z);
-        EXPECT_EQ(u.actualData.m, expectedMask);
+        std::vector<unsigned char> buf(25);
+        readBytes(filename, &buf[0], 25);
+        RialtoTest::verifyPointFromBuffer(buf, *expectedData);
     } else {
         EXPECT_EQ(actualSize, 1u);
         uint8_t actualMask;
@@ -130,79 +105,42 @@ static void verifyDirectorySize(const std::string& path, uint32_t expectedSize)
 
 TEST(RialtoFileWriterTest, testWriter)
 {
-    //FileUtils::deleteFile(Support::temppath("RialtoTest/header.json"));
+    const std::string dir(Support::temppath("rialto1"));
+    
+    FileUtils::deleteDirectory(Support::temppath("rialto1"));
 
+    // set up test data
     // set up test data
     PointTable table;
     PointViewPtr inputView(new PointView(table));
-
-    table.layout()->registerDim(Dimension::Id::X);
-    table.layout()->registerDim(Dimension::Id::Y);
-    table.layout()->registerDim(Dimension::Id::Z);
-
-    for (int i=0; i<8; i++)
-    {
-        inputView->setField(Dimension::Id::X, i, data[i].x);
-        inputView->setField(Dimension::Id::Y, i, data[i].y);
-        inputView->setField(Dimension::Id::Z, i, data[i].z);
-    }
-
+    RialtoTest::Data* actualData = RialtoTest::sampleDataInit(table, inputView);
     
-    // stages
-    Options readerOptions;
-    BufferReader reader;
-    reader.setOptions(readerOptions);
-    reader.addView(inputView);
-    reader.setSpatialReference(SpatialReference("EPSG:4326"));
+    RialtoTest::createTileFiles(table, inputView, dir);
 
-    Options statsOptions;
-    StatsFilter stats;
-    stats.setOptions(statsOptions);
-    stats.setInput(reader);
-
-    Options tilerOptions;
-    tilerOptions.add("maxLevel", 2);
-    TilerFilter tiler;
-    tiler.setOptions(tilerOptions);
-    tiler.setInput(stats);
-
-    Options writerOptions;
-    writerOptions.add("filename", Support::temppath("rialto1"));
-    writerOptions.add("overwrite", true);
-    writerOptions.add("verbose", LogLevel::Debug);
-    StageFactory f;
-    std::unique_ptr<Stage> writer(f.createStage("writers.rialtofile"));
-    writer->setOptions(writerOptions);
-    writer->setInput(tiler);
-
-    // execution
-    writer->prepare(table);
-    PointViewSet outputViews = writer->execute(table);
-    
     bool ok = Support::compare_text_files(Support::temppath("rialto1/header.json"),
                                           Support::datapath("io/rialto1-header.json"));
     EXPECT_TRUE(ok);
 
-    verify("rialto1/0/0/0.ria", &data[0], 15);
-    verify("rialto1/0/1/0.ria", NULL, 15);
+    verifyFile("rialto1/0/0/0.ria", &actualData[0], 15);
+    verifyFile("rialto1/0/1/0.ria", NULL, 15);
 
-    verify("rialto1/1/0/0.ria", &data[0], 8);
-    verify("rialto1/1/0/1.ria", NULL, 1);
-    verify("rialto1/1/1/0.ria", NULL, 4);
-    verify("rialto1/1/1/1.ria", NULL, 2);
-    verify("rialto1/1/2/0.ria", &data[4], 2);
-    verify("rialto1/1/2/1.ria", NULL, 4);
-    verify("rialto1/1/3/0.ria", NULL, 1);
-    verify("rialto1/1/3/1.ria", NULL, 8);
+    verifyFile("rialto1/1/0/0.ria", &actualData[0], 8);
+    verifyFile("rialto1/1/0/1.ria", NULL, 1);
+    verifyFile("rialto1/1/1/0.ria", NULL, 4);
+    verifyFile("rialto1/1/1/1.ria", NULL, 2);
+    verifyFile("rialto1/1/2/0.ria", &actualData[4], 2);
+    verifyFile("rialto1/1/2/1.ria", NULL, 4);
+    verifyFile("rialto1/1/3/0.ria", NULL, 1);
+    verifyFile("rialto1/1/3/1.ria", NULL, 8);
 
-    verify("rialto1/2/0/0.ria", &data[0], 0);
-    verify("rialto1/2/0/3.ria", &data[2], 0);
-    verify("rialto1/2/3/0.ria", &data[1], 0);
-    verify("rialto1/2/3/3.ria", &data[3], 0);
-    verify("rialto1/2/5/1.ria", &data[4], 0);
-    verify("rialto1/2/5/2.ria", &data[6], 0);
-    verify("rialto1/2/6/1.ria", &data[5], 0);
-    verify("rialto1/2/6/2.ria", &data[7], 0);
+    verifyFile("rialto1/2/0/0.ria", &actualData[0], 0);
+    verifyFile("rialto1/2/0/3.ria", &actualData[2], 0);
+    verifyFile("rialto1/2/3/0.ria", &actualData[1], 0);
+    verifyFile("rialto1/2/3/3.ria", &actualData[3], 0);
+    verifyFile("rialto1/2/5/1.ria", &actualData[4], 0);
+    verifyFile("rialto1/2/5/2.ria", &actualData[6], 0);
+    verifyFile("rialto1/2/6/1.ria", &actualData[5], 0);
+    verifyFile("rialto1/2/6/2.ria", &actualData[7], 0);
 
     verifyDirectorySize("rialto1", 4);
     verifyDirectorySize("rialto1/0", 2);
@@ -219,7 +157,7 @@ TEST(RialtoFileWriterTest, testWriter)
     verifyDirectorySize("rialto1/2/5", 2);
     verifyDirectorySize("rialto1/2/6", 2);
 
-    if (ok) {
-        //FileUtils::deleteDirectory(Support::temppath("rialto1"));
-    }
+    delete[] actualData;
+    
+    FileUtils::deleteDirectory(Support::temppath("rialto1"));
 }
