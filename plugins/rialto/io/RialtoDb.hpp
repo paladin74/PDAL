@@ -156,6 +156,12 @@ public:
 
      void serializeToPointView(const TileInfo& info, PointViewPtr view);
      
+     // clock_t start = timerStart();
+     // <spin cycles>
+     // uint32_t millis = timerStop(start);
+     static clock_t timerStart();
+     static uint32_t timerStop(clock_t start);
+     
 private:
     // create the req'd tables in the db
     void createTileSetsTable();
@@ -180,6 +186,7 @@ private:
     int m_srid;
     BufferReader* m_bufferReader;
     CropFilter* m_cropFilter;
+    bool m_needsIndexing;
 
     RialtoDb& operator=(const RialtoDb&); // not implemented
     RialtoDb(const RialtoDb&); // not implemented

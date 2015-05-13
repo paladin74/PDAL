@@ -91,7 +91,8 @@ RialtoDb::RialtoDb(const std::string& connection, LogPtr log) :
     m_log(log),
     m_srid(4326),
     m_bufferReader(NULL),
-    m_cropFilter(NULL)
+    m_cropFilter(NULL),
+    m_needsIndexing(false)
 {
     //m_log->setLevel(LogLevel::Debug);
 }
@@ -125,6 +126,8 @@ void RialtoDb::create()
     createTileSetsTable();
     createTilesTable();
     createDimensionsTable();
+    
+    m_needsIndexing = true;
 }
 
 
@@ -161,6 +164,17 @@ void RialtoDb::close()
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
+    if (m_needsIndexing)
+    {
+        std::ostringstream oss2;
+        oss2 << "CREATE INDEX index_name ON Tiles(column,row)";
+        m_sqlite->execute(oss2.str());
+
+        std::ostringstream oss3;
+        oss3 << "CREATE INDEX index_name2 ON Tiles(level)";
+        m_sqlite->execute(oss3.str());
+    }
+    
     m_sqlite.reset();
 }
 
@@ -179,9 +193,9 @@ void RialtoDb::createTileSetsTable()
 
     oss1 << "CREATE TABLE TileSets("
         << "tile_set_id INTEGER PRIMARY KEY AUTOINCREMENT,"
-        << "name VARCHAR(64),"           // TODO
-        << "maxLevel INTEGER,"
-        << "numDims INTEGER"
+        << "name VARCHAR(64) NOT NULL,"           // TODO
+        << "maxLevel INTEGER NOT NULL,"
+        << "numDims INTEGER NOT NULL"
         << ")";
 
     m_sqlite->execute(oss1.str());
@@ -196,17 +210,16 @@ void RialtoDb::createTilesTable()
     }
 
     std::ostringstream oss1;
-    std::ostringstream oss2;
-
     oss1 << "CREATE TABLE Tiles("
          << "tile_id INTEGER PRIMARY KEY AUTOINCREMENT,"
-         << " tile_set_id INTEGER,"
-         << " level INTEGER,"
-         << " column INTEGER,"
-         << " row INTEGER,"
-         << " numPoints INTEGER,"
-         << " points BLOB,"
+         << " tile_set_id INTEGER NOT NULL,"
+         << " level INTEGER NOT NULL,"
+         << " column INTEGER NOT NULL,"
+         << " row INTEGER NOT NULL,"
+         << " numPoints INTEGER NOT NULL,"
+         << " points BLOB NOT NULL,"
          << " FOREIGN KEY(tile_set_id) REFERENCES TileSets(tile_set_id)"
+//         << " UNIQUE(level,column,row)"
          << ")";
 
     m_sqlite->execute(oss1.str());
@@ -226,13 +239,13 @@ void RialtoDb::createDimensionsTable()
     std::ostringstream oss2;
 
     oss1 << "CREATE TABLE Dimensions("
-        << "tile_set_id INTEGER,"
-        << "name VARCHAR(256),"           // TODO
-        << "position INTEGER,"
-        << "dataType VARCHAR(256),"
-        << "minimum DOUBLE,"
-        << "mean DOUBLE,"
-        << "maximum DOUBLE,"
+        << "tile_set_id INTEGER NOT NULL,"
+        << "name VARCHAR(256) NOT NULL,"           // TODO
+        << "position INTEGER NOT NULL,"
+        << "dataType VARCHAR(256) NOT NULL,"
+        << "minimum DOUBLE NOT NULL,"
+        << "mean DOUBLE NOT NULL,"
+        << "maximum DOUBLE NOT NULL,"
         << "FOREIGN KEY(tile_set_id) REFERENCES TileSets(tile_set_id)"
         << ")";
 
@@ -729,6 +742,20 @@ Stage* RialtoDb::query(PointTable& table,
     m_cropFilter->setInput(*m_bufferReader);
 
     return m_cropFilter;
+}
+
+
+clock_t RialtoDb::timerStart()
+{
+     return std::clock();
+}
+
+
+uint32_t RialtoDb::timerStop(clock_t start)
+{
+    clock_t stop = std::clock();
+    const double secs = (double)(stop - start) / (double)CLOCKS_PER_SEC;
+    return secs * 1000.0;
 }
 
 

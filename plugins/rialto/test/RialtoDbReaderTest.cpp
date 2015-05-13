@@ -65,7 +65,7 @@ TEST(RialtoDbReaderTest, test)
         PointTable table;
         PointViewPtr inputView(new PointView(table));
         RialtoTest::Data* actualData = RialtoTest::sampleDataInit(table, inputView);
-        RialtoTest::createDatabase(table, inputView, filename);
+        RialtoTest::createDatabase(table, inputView, filename, 2);
     }
 
   RialtoDbReader reader;

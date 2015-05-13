@@ -267,7 +267,7 @@ TEST(RialtoDbWriterTest, testWriter)
     RialtoTest::Data* actualData = RialtoTest::sampleDataInit(table, inputView);
 
     // stages
-    RialtoTest::createDatabase(table, inputView, filename);
+    RialtoTest::createDatabase(table, inputView, filename, 2);
     
     verifyDatabase(filename, actualData);
     
@@ -344,7 +344,7 @@ TEST(RialtoDbWriterTest, testOscar)
         actualData = RialtoTest::sampleDataInit(table, inputView);
 
         // stages
-        RialtoTest::createDatabase(table, inputView, filename);
+        RialtoTest::createDatabase(table, inputView, filename, 2);
     }
 
     // now read from it
@@ -423,21 +423,23 @@ TEST(RialtoDbWriterTest, testOscar)
 
 TEST(RialtoDbWriterTest, testLarge)
 {
-    static const int NUM_POINTS = 10000;
-    static const int NUM_QUERIES = 100;
+    static const int NUM_POINTS = 1000;
+    static const int NUM_QUERIES = 1000;
 
     const std::string filename(Support::temppath("rialto3.sqlite"));
     FileUtils::deleteFile(filename);
 
     RialtoTest::Data* actualData;
 
+    const uint32_t maxLevel = 3;
+    
     // make a test database
     {
         PointTable table;
         PointViewPtr inputView(new PointView(table));
         actualData = RialtoTest::randomDataInit(table, inputView, NUM_POINTS);
 
-        RialtoTest::createDatabase(table, inputView, filename);
+        RialtoTest::createDatabase(table, inputView, filename, maxLevel);
     }
 
     // now read from it
@@ -464,9 +466,9 @@ TEST(RialtoDbWriterTest, testLarge)
 
         for (int i=0; i<NUM_QUERIES; i++)
         {
-            double minx = 23.148880;//Utils::random(-179.9, 179.9);
-            double maxx = 75.463685;//Utils::random(-179.9, 179.9);
-            //if (minx > maxx) std::swap(minx, maxx);
+            double minx = Utils::random(-179.9, 179.9);
+            double maxx = Utils::random(-179.9, 179.9);
+            if (minx > maxx) std::swap(minx, maxx);
             double miny = Utils::random(-89.9, 89.9);
             double maxy = Utils::random(-89.9, 89.9);
             if (miny > maxy) std::swap(miny, maxy);
@@ -483,6 +485,100 @@ TEST(RialtoDbWriterTest, testLarge)
             uint32_t expected = RialtoTest::countPointsInBounds(actualData, NUM_POINTS, minx, miny, maxx, maxy);
             EXPECT_EQ(expected, view->size());
         }
+    }
+    
+    delete[] actualData;
+    
+    FileUtils::deleteFile(filename);
+}
+
+
+TEST(RialtoDbWriterTest, testPerf)
+{
+    return;
+    
+    static const int NUM_POINTS = 50000;
+    static const int NUM_QUERIES = 50;
+    
+    Utils::random_seed(17);
+    
+    const std::string filename(Support::temppath("perf.sqlite"));
+    FileUtils::deleteFile(filename);
+
+    const uint32_t maxLevel = 6;
+    
+    RialtoTest::Data* actualData;
+
+    // make a test database
+    /***/ double create_ms = 0.0;
+    for (int i=0; i<3; i++)
+    {
+        PointTable table;
+        PointViewPtr inputView(new PointView(table));
+        actualData = RialtoTest::randomDataInit(table, inputView, NUM_POINTS);
+
+        /***/clock_t start = RialtoDb::timerStart();
+        RialtoTest::createDatabase(table, inputView, filename, maxLevel);
+        /***/double ms = RialtoDb::timerStop(start);
+        /***/printf("CREATE: %f\n", ms);
+        create_ms += ms;
+    }
+    /***/printf("CREATE avg: %f\n", create_ms/3.0);
+
+    // now read from it
+    {
+        LogPtr log(new Log("rialtodbwritertest", "stdout"));
+        
+        // open the db for reading
+        RialtoDb db(filename, log);
+        db.open(false);
+
+        // we only have 1 tile set in the database: get it's id
+        std::vector<uint32_t> tileSetIds;
+        db.readTileSetIds(tileSetIds);
+        const uint32_t tileSetId = tileSetIds[0];
+
+        RialtoDb::TileSetInfo tileSetInfo;
+        db.readTileSetInfo(tileSetId, tileSetInfo);
+        const uint32_t bestLevel = tileSetInfo.maxLevel;
+
+        PointTable table;
+        db.setupPointTable(tileSetId, table);
+        PointViewSet views;
+        PointViewPtr view;
+
+        /***/ double query_ms = 0.0;
+        
+        for (int i=0; i<NUM_QUERIES; i++)
+        {
+            double minx = Utils::random(-179.9, 179.9);
+            double maxx = Utils::random(-179.9, 179.9);
+            if (minx > maxx) std::swap(minx, maxx);
+            double miny = Utils::random(-89.9, 89.9);
+            double maxy = Utils::random(-89.9, 89.9);
+            if (miny > maxy) std::swap(miny, maxy);
+
+            /***/clock_t start = RialtoDb::timerStart();
+            
+            Stage* stage1 = db.query(table, tileSetId, minx, miny, maxx, maxy, bestLevel);
+
+            stage1->prepare(table);
+            views = stage1->execute(table);
+            
+            /***/double ms = RialtoDb::timerStop(start);
+            /***/printf("QUERY: %f\n", ms);
+            /***/ query_ms += ms;
+            
+            EXPECT_EQ(views.size(), 1u);
+            view = *(views.begin());
+            uint32_t c = view->size();
+
+            RialtoTest::verifyPointsInBounds(view, minx, miny, maxx, maxy);
+            uint32_t expected = RialtoTest::countPointsInBounds(actualData, NUM_POINTS, minx, miny, maxx, maxy);
+            EXPECT_EQ(expected, view->size());
+        }
+        /***/printf("QUERY tot: %f\n", query_ms);
+        /***/printf("QUERY avg: %f\n", query_ms/(double)NUM_QUERIES);
     }
     
     delete[] actualData;

@@ -62,7 +62,10 @@ public:
     
     static void createTileFiles(pdal::PointTable& table, pdal::PointViewPtr view, const std::string& filename);
 
-    static void createDatabase(pdal::PointTable& table, pdal::PointViewPtr view, const std::string& filename);
+    static void createDatabase(pdal::PointTable& table,
+                               pdal::PointViewPtr view,
+                               const std::string& filename,
+                               uint32_t maxLevel);
 
     static void verifyPointToData(pdal::PointViewPtr view, pdal::PointId idx, const Data& data);
     static void verifyPointFromBuffer(std::vector<unsigned char>& buf,
@@ -163,7 +166,10 @@ void RialtoTest::createTileFiles(pdal::PointTable& table, pdal::PointViewPtr vie
 }
 
 
-void RialtoTest::createDatabase(pdal::PointTable& table, pdal::PointViewPtr view, const std::string& filename)
+void RialtoTest::createDatabase(pdal::PointTable& table,
+                                pdal::PointViewPtr view,
+                                const std::string& filename,
+                                uint32_t maxLevel)
 {
     pdal::Options readerOptions;
     pdal::BufferReader reader;
@@ -177,7 +183,7 @@ void RialtoTest::createDatabase(pdal::PointTable& table, pdal::PointViewPtr view
     stats.setInput(reader);
 
     pdal::Options tilerOptions;
-    tilerOptions.add("maxLevel", 2);
+    tilerOptions.add("maxLevel", maxLevel);
     pdal::TilerFilter tiler;
     tiler.setOptions(tilerOptions);
     tiler.setInput(stats);
