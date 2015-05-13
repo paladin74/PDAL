@@ -43,14 +43,9 @@
 extern "C" int32_t RialtoDbWriter_ExitFunc();
 extern "C" PF_ExitFunc RialtoDbWriter_InitPlugin();
 
-namespace rialtosupport
-{
-    class RialtoDb;
-}
 
 namespace pdal
 {
-    using namespace rialtosupport;
 
 class Options;
 

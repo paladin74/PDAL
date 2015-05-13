@@ -77,7 +77,7 @@
 //    maximum
 
 
-namespace rialtosupport
+namespace pdal
 {
 
 namespace
@@ -620,7 +620,7 @@ void RialtoDb::queryForTileIds(uint32_t tileSetId,
 
 
 // appends points to end of view (does not start with point index 0)
-static void serializeToPointView(const rialtosupport::RialtoDb::TileInfo& info, PointViewPtr view, LogPtr log)
+static void serializeToPointView(const RialtoDb::TileInfo& info, PointViewPtr view, LogPtr log)
 {
     const size_t numPoints = info.numPoints;
     PointId idx = view->size();
@@ -726,4 +726,4 @@ Stage* RialtoDb::query(PointTable& table,
 }
 
 
-} // namespace rialtosupport
+} // namespace pdal

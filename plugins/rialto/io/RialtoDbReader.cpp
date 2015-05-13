@@ -38,7 +38,6 @@
 
 namespace pdal
 {
-using namespace rialtosupport;
 
 static PluginInfo const s_info = PluginInfo(
     "readers.rialtodb",

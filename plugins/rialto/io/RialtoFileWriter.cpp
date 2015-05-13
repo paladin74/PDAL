@@ -67,7 +67,7 @@ uint32_t RialtoFileWriter::writeHeader(const std::string& tileSetName,
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::writeHeader()" << std::endl;
 
-    rialtosupport::RialtoDb::TileSetInfo tileSetInfo;
+    RialtoDb::TileSetInfo tileSetInfo;
     serializeToTileSetInfo(tileSetName, tileSetNode, layout, tileSetInfo);
     
     const std::string filename(m_directory + "/header.json");
@@ -79,7 +79,7 @@ uint32_t RialtoFileWriter::writeHeader(const std::string& tileSetName,
     fprintf(fp, "    \"dimensions\": [\n");
 
     
-    std::vector<rialtosupport::RialtoDb::DimensionInfo> dimsInfo;
+    std::vector<RialtoDb::DimensionInfo> dimsInfo;
     serializeToDimensionInfo(tileSetNode, layout, dimsInfo);
 
     const size_t numDims = dimsInfo.size();
@@ -106,7 +106,7 @@ void RialtoFileWriter::writeTile(uint32_t tileSetId, MetadataNode tileNode, Poin
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::writeTile()" << std::endl;
 
-    rialtosupport::RialtoDb::TileInfo tileInfo;
+    RialtoDb::TileInfo tileInfo;
     serializeToTileInfo(tileSetId, tileNode, view, tileInfo);
 
     std::ostringstream os;

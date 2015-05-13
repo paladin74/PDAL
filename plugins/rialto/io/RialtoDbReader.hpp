@@ -38,13 +38,10 @@
 #include <pdal/Reader.hpp>
 #include "RialtoReader.hpp"
 
-namespace rialtosupport
-{
-      class RialtoDb;
-}
 
 namespace pdal
 {
+    class RialtoDb;
 
 
 class PDAL_DLL RialtoDbReader : public RialtoReader
@@ -66,7 +63,7 @@ protected:
   point_count_t read(PointViewPtr view, point_count_t count);
 
 private:
-  rialtosupport::RialtoDb* m_db;
+  RialtoDb* m_db;
   uint32_t m_tileSetId;
 
   RialtoDbReader& operator=(const RialtoDbReader&); // not implemented

@@ -66,12 +66,12 @@ public:
     static void serializeToTileSetInfo(const std::string& tileSetName,
                                        MetadataNode tileSetNode,
                                        PointLayoutPtr layout,
-                                       rialtosupport::RialtoDb::TileSetInfo& tileSetInfo);
+                                       RialtoDb::TileSetInfo& tileSetInfo);
     static void serializeToDimensionInfo(MetadataNode tileSetNode,
                                          PointLayoutPtr layout,
-                                         std::vector<rialtosupport::RialtoDb::DimensionInfo>& infoList);
+                                         std::vector<RialtoDb::DimensionInfo>& infoList);
     static void serializeToPatch(const PointView& view, Patch& patch);
-    static void serializeToTileInfo(uint32_t tileSetId, MetadataNode tileNode, PointView* view, rialtosupport::RialtoDb::TileInfo& tileInfo);
+    static void serializeToTileInfo(uint32_t tileSetId, MetadataNode tileNode, PointView* view, RialtoDb::TileInfo& tileInfo);
     
     static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name);
     static double getMetadataF64(const MetadataNode& parent, const std::string& name);

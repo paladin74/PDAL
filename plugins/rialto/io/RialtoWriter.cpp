@@ -57,7 +57,7 @@ namespace
 void RialtoWriter::serializeToTileSetInfo(const std::string& tileSetName,
                                           MetadataNode tileSetNode,
                                           PointLayoutPtr layout,
-                                          rialtosupport::RialtoDb::TileSetInfo& tileSetInfo)
+                                          RialtoDb::TileSetInfo& tileSetInfo)
 {
     tileSetInfo.name = tileSetName;
 
@@ -72,7 +72,7 @@ void RialtoWriter::serializeToTileSetInfo(const std::string& tileSetName,
 
 void RialtoWriter::serializeToDimensionInfo(MetadataNode tileSetNode,
                                             PointLayoutPtr layout,
-                                            std::vector<rialtosupport::RialtoDb::DimensionInfo>& infoList)
+                                            std::vector<RialtoDb::DimensionInfo>& infoList)
 {    
     const uint32_t numDims = layout->dims().size();
     
@@ -88,9 +88,9 @@ void RialtoWriter::serializeToDimensionInfo(MetadataNode tileSetNode,
         const std::string& dataTypeName = Dimension::interpretationName(layout->dimType(dim));
 
         double minimum, mean, maximum;
-        rialtosupport::RialtoWriter::extractStatistics(tileSetNode, name, minimum, mean, maximum);
+        RialtoWriter::extractStatistics(tileSetNode, name, minimum, mean, maximum);
 
-        rialtosupport::RialtoDb::DimensionInfo& info = infoList[i];
+        RialtoDb::DimensionInfo& info = infoList[i];
         info.name = name;
         info.dataType = dataTypeName;
         info.position = i;
@@ -131,7 +131,7 @@ void RialtoWriter::serializeToPatch(const PointView& view, Patch& patch)
 }
 
 
-void RialtoWriter::serializeToTileInfo(uint32_t tileSetId, MetadataNode tileNode, PointView* view, rialtosupport::RialtoDb::TileInfo& tileInfo)
+void RialtoWriter::serializeToTileInfo(uint32_t tileSetId, MetadataNode tileNode, PointView* view, RialtoDb::TileInfo& tileInfo)
 {
     tileInfo.tileSetId = tileSetId;
     

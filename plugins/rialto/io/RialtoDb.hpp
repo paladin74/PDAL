@@ -50,7 +50,7 @@ namespace pdal {
     class CropFilter;
 }
 
-namespace rialtosupport
+namespace pdal
 {
 
 using namespace pdal;
@@ -181,4 +181,4 @@ private:
     RialtoDb(const RialtoDb&); // not implemented
 };
 
-} // namespace rialtosupport
+} // namespace pdal
