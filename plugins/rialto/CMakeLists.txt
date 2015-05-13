@@ -48,7 +48,7 @@ set(db_reader_incs
     io/RialtoDb.hpp
 )
 
-PDAL_ADD_PLUGIN(dbwriter_libname writer rialtodbwriter
+PDAL_ADD_PLUGIN(dbwriter_libname writer rialtodb
     FILES "${db_writer_srcs}" "${db_writer_incs}"
     LINK_WITH ${SQLITE3_LIBRARY})
 
@@ -56,10 +56,10 @@ PDAL_ADD_PLUGIN(dbreader_libname reader rialtodbreader
     FILES "${db_reader_srcs}" "${db_reader_incs}"
     LINK_WITH ${SQLITE3_LIBRARY})
 
-PDAL_ADD_PLUGIN(filewriter_libname writer rialtofilewriter
+PDAL_ADD_PLUGIN(filewriter_libname writer rialtofile
     FILES "${file_writer_srcs}" "${file_writer_incs}")
 
-PDAL_ADD_PLUGIN(filereader_libname reader rialtofilereader
+PDAL_ADD_PLUGIN(filereader_libname reader rialtofile
     FILES "${file_reader_srcs}" "${file_reader_incs}")
 
 #
