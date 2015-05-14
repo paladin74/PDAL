@@ -184,8 +184,7 @@ public:
     ~Tile();
 
     void add(PointViewPtr pointView, PointId pointNumber, double lon, double lat);
-    void setTileMetadata(MetadataNode&);
-    void setTileMetadata2(uint32_t* data) const;
+    void setTileMetadata(uint32_t* data) const;
     void setMask();
     
 private:

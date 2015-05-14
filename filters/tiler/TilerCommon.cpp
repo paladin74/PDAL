@@ -101,11 +101,6 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
         addPoint(idx, lon, lat);
     }
 
-    //std::vector<uint32_t> numTilesPerLevel(m_maxLevel+1);
-    //std::vector<uint64_t> numPointsPerLevel(m_maxLevel+1);
-    //m_roots[0]->collectCounts(numTilesPerLevel, numPointsPerLevel);
-    //m_roots[1]->collectCounts(numTilesPerLevel, numPointsPerLevel);
-
     setHeaderMetadata();
     setStatisticsMetadata();
 
@@ -114,8 +109,8 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
         m_roots[1]->setMask();
         
         uint32_t* data = new uint32_t[m_tileId*5]; // level, col, row, mask, pv id
-        m_roots[0]->setTileMetadata2(data);
-        m_roots[1]->setTileMetadata2(data);
+        m_roots[0]->setTileMetadata(data);
+        m_roots[1]->setTileMetadata(data);
         unsigned char* p = (unsigned char*)data;
         std::string b64 = Utils::base64_encode(p, m_tileId*5*4);
         MetadataNode tilesMetadata3 = m_tileSetMetadata.add("tilesdata", b64);
@@ -124,8 +119,6 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
     
     MetadataNode tilesMetadata = m_tileSetMetadata.addList("tiles");
     assert(tilesMetadata.valid());
-    m_roots[0]->setTileMetadata(tilesMetadata);
-    m_roots[1]->setTileMetadata(tilesMetadata);
 }
 
 void TileSet::done(PointTableRef table)
@@ -270,7 +263,7 @@ Tile::~Tile()
 
 
 // set the metaadata for this node, and then recurse down
-void Tile::setTileMetadata2(uint32_t* data) const
+void Tile::setTileMetadata(uint32_t* data) const
 {
     data[m_id*5+0] = m_level;
     data[m_id*5+1] = m_tileX;
@@ -284,34 +277,10 @@ void Tile::setTileMetadata2(uint32_t* data) const
     }
 
     if (m_children) {
-        if (m_children[0]) m_children[0]->setTileMetadata2(data);
-        if (m_children[1]) m_children[1]->setTileMetadata2(data);
-        if (m_children[2]) m_children[2]->setTileMetadata2(data);
-        if (m_children[3]) m_children[3]->setTileMetadata2(data);
-    }
-}
-
-
-void Tile::setTileMetadata(MetadataNode& tileSetNode)
-{
-  const std::string idString = std::to_string(m_id);
-  MetadataNode tileNode = tileSetNode.addList(idString);
-
-  tileNode.add("level", m_level);
-  tileNode.add("tileX", m_tileX);
-  tileNode.add("tileY", m_tileY);
-  tileNode.add("mask", m_mask);
-
-  if (m_pointView)
-  {
-      tileNode.add("pointView", m_pointView->id());
-  }
-
-  if (m_children) {
-      if (m_children[0]) m_children[0]->setTileMetadata(tileSetNode);
-      if (m_children[1]) m_children[1]->setTileMetadata(tileSetNode);
-      if (m_children[2]) m_children[2]->setTileMetadata(tileSetNode);
-      if (m_children[3]) m_children[3]->setTileMetadata(tileSetNode);
+        if (m_children[0]) m_children[0]->setTileMetadata(data);
+        if (m_children[1]) m_children[1]->setTileMetadata(data);
+        if (m_children[2]) m_children[2]->setTileMetadata(data);
+        if (m_children[3]) m_children[3]->setTileMetadata(data);
     }
 }
 

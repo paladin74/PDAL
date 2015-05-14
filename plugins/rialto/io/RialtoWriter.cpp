@@ -131,25 +131,21 @@ void RialtoWriter::serializeToPatch(const PointView& view, Patch& patch)
 }
 
 
-void RialtoWriter::serializeToTileInfo(uint32_t tileSetId, MetadataNode tileNode, PointView* view, RialtoDb::TileInfo& tileInfo)
+void RialtoWriter::serializeToTileInfo(uint32_t tileSetId, PointView* view, RialtoDb::TileInfo& tileInfo,
+    uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
 {
     tileInfo.tileSetId = tileSetId;
     
-    tileInfo.level = RialtoWriter::getMetadataU32(tileNode, "level");
-    tileInfo.column = RialtoWriter::getMetadataU32(tileNode, "tileX");
-    tileInfo.row = RialtoWriter::getMetadataU32(tileNode, "tileY");
-    tileInfo.mask = RialtoWriter::getMetadataU32(tileNode, "mask");
+    tileInfo.level = level;
+    tileInfo.column = col;
+    tileInfo.row = row;
+    tileInfo.mask = mask;
 
     tileInfo.numPoints = 0;
     if (view)
     {
         tileInfo.numPoints = view->size();
     }
-
-    //log()->get(LogLevel::Debug) << "RialtoDbWriter::writeTile for "
-    //    << tileInfo.level << "," << info.x << "," << info.y << " "
-    //    << (view==0 ? "no" : "yes")
-    //    << std::endl;
 
     Patch& patch = tileInfo.patch;
     if (!view)
@@ -233,31 +229,15 @@ void RialtoWriter::write(const PointViewPtr viewPtr)
     
     PointView* view = viewPtr.get();
 
-    MetadataNode tileNode = m_pointViewMap[viewPtr->id()];
-#if 1
-    assert(tileNode.valid());
-    uint32_t level = 0;
-    uint32_t col = 0;
-    uint32_t row = 0;
-    uint32_t mask = 0;
-    uint32_t pvid = 0;
-#else
     uint32_t idx = m_pointViewMap2[viewPtr->id()];
-    /*printf("%d/%d:  l%d x%d y%d m%d pvid%d\n",
-        idx, viewPtr->id(),
-        m_tileMetadata[idx],
-        m_tileMetadata[idx+1],
-        m_tileMetadata[idx+2],
-        m_tileMetadata[idx+3],
-        m_tileMetadata[idx+4]);*/
     uint32_t level = m_tileMetadata[idx];
     uint32_t col = m_tileMetadata[idx+1];
     uint32_t row = m_tileMetadata[idx+2];
     uint32_t mask = m_tileMetadata[idx+3];
     uint32_t pvid = m_tileMetadata[idx+4];
     assert(pvid == 0xffffffff || pvid == (uint32_t)viewPtr->id());
-#endif
-    writeTile(m_tileSetId, tileNode, view, level, col, row, mask);
+
+    writeTile(m_tileSetId, view, level, col, row, mask);
 }
 
 
@@ -284,17 +264,6 @@ void RialtoWriter::makePointViewMap(MetadataNode tileSetNode)
         throw pdal_error("RialtoWriter: \"filters.tiler/tiles\" metadata not found");
     }
     
-#if 1
-    const MetadataNodeList tileNodes = tilesNode.children();
-    for (auto node: tileNodes)
-    {
-        MetadataNode n = node.findChild("pointView");
-        if (n.valid()) {
-          const uint32_t viewId = boost::lexical_cast<uint32_t>(n.value());
-          m_pointViewMap[viewId] = node;
-        }
-    }
-#else
     MetadataNode numTilesNode = tileSetNode.findChild("tilesdatacount");
     m_numTiles = boost::lexical_cast<uint32_t>(numTilesNode.value());
 
@@ -311,16 +280,8 @@ void RialtoWriter::makePointViewMap(MetadataNode tileSetNode)
         if (pv != 0xffffffff)
         {
             m_pointViewMap2[pv] = i;
-            /*printf("i%d/pvid%d:  l%d x%d y%d m%d pvid%d\n",
-                i, pv,
-                m_tileMetadata[i],
-                m_tileMetadata[i+1],
-                m_tileMetadata[i+2],
-                m_tileMetadata[i+3],
-                m_tileMetadata[i+4]);*/
         }
     }
-#endif
 }
 
 
@@ -330,12 +291,17 @@ void RialtoWriter::writeEmptyTiles()
     const MetadataNode tilesNode = tileSetNode.findChild("tiles");
     const MetadataNodeList tileNodes = tilesNode.children();
 
-    for (auto iter = tileNodes.begin(); iter != tileNodes.end(); ++iter)
+    for (uint32_t i=0; i<m_numTiles*5; i+=5)
     {
-        MetadataNode tileNode = *iter;
-        const MetadataNode nodeP = tileNode.findChild("pointView");
-        if (!nodeP.valid()) {
-          writeTile(m_tileSetId, tileNode, NULL, 0, 0, 0, 0);
+        uint32_t level = m_tileMetadata[i];
+        uint32_t col = m_tileMetadata[i+1];
+        uint32_t row = m_tileMetadata[i+2];
+        uint32_t mask = m_tileMetadata[i+3];
+        uint32_t pvid = m_tileMetadata[i+4];
+        
+        if (pvid == 0xffffffff)
+        {
+            writeTile(m_tileSetId, NULL, level, col, row, mask);
         }
     }
 }

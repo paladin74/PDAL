@@ -71,7 +71,8 @@ public:
                                          PointLayoutPtr layout,
                                          std::vector<RialtoDb::DimensionInfo>& infoList);
     static void serializeToPatch(const PointView& view, Patch& patch);
-    static void serializeToTileInfo(uint32_t tileSetId, MetadataNode tileNode, PointView* view, RialtoDb::TileInfo& tileInfo);
+    static void serializeToTileInfo(uint32_t tileSetId, PointView* view, RialtoDb::TileInfo& tileInfo,
+        uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
     
     static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name);
     static double getMetadataF64(const MetadataNode& parent, const std::string& name);
@@ -91,7 +92,7 @@ protected:
     virtual uint32_t writeHeader(const std::string& tileSetName,
                              MetadataNode tileSetNode,
                              PointLayoutPtr layout) = 0;
-    virtual void writeTile(uint32_t tileSetId, MetadataNode, PointView*, uint32_t level, uint32_t col, uint32_t row, uint32_t mask) = 0;
+    virtual void writeTile(uint32_t tileSetId, PointView*, uint32_t level, uint32_t col, uint32_t row, uint32_t mask) = 0;
     virtual void localFinish() = 0;
 
     std::string m_tileSetName;
@@ -108,7 +109,6 @@ private:
     BasePointTable *m_table;
     std::string m_directory;
 
-    std::map<uint32_t, MetadataNode> m_pointViewMap;
     uint32_t m_tileSetId;
 
     std::map<uint32_t, uint32_t> m_pointViewMap2; // PV id to array index

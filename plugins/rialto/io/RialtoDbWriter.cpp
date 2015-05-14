@@ -80,12 +80,12 @@ uint32_t RialtoDbWriter::writeHeader(const std::string& tileSetName,
 }
 
 
-void RialtoDbWriter::writeTile(uint32_t tileSetId, MetadataNode tileNode, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
+void RialtoDbWriter::writeTile(uint32_t tileSetId, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
 {
     log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
 
     RialtoDb::TileInfo tileInfo;
-    serializeToTileInfo(tileSetId, tileNode, view, tileInfo);
+    serializeToTileInfo(tileSetId, view, tileInfo, level, col, row, mask);
 
     if (tileInfo.patch.buf.size())
     {
