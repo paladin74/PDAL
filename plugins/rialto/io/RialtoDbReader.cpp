@@ -132,6 +132,7 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
     const double maxx = m_query.maxx;
     const double maxy = m_query.maxy;
 
+#if 0
     std::vector<uint32_t> ids;
     m_db->queryForTileIds(m_tileSetId, minx, miny, maxx, maxy, m_level, ids);
 
@@ -146,8 +147,24 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
 
         log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
     }
-    
-  return view->size();
+#else
+    std::vector<uint32_t> ids;
+    m_db->queryForTileInfosBegin(m_tileSetId, minx, miny, maxx, maxy, m_level);
+
+    RialtoDb::TileInfo info;
+    do {    
+        bool ok = m_db->queryForTileInfos(info);
+        if (!ok) break;
+        
+        log()->get(LogLevel::Debug) << "  got some points: " << info.numPoints << std::endl;
+
+        m_db->serializeToPointView(info, view);
+
+        log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
+    } while (m_db->queryForTileInfosNext());
+#endif
+  
+    return view->size();
 }
 
 } // namespace pdal

@@ -43,6 +43,8 @@
 // TODO: just used for Patch? (SQLite can be fwd declared)
 #include "../plugins/sqlite/io/SQLiteCommon.hpp" // TODO: fix path
 
+#include "RialtoEvent.hpp"
+
 namespace pdal {
     class Log;
     class SQLite;
@@ -126,9 +128,17 @@ public:
     // query for all the tiles of a tile set, bounded by bbox region
     void queryForTileIds(uint32_t tileSetId,
                          double minx, double miny,
-                         double max, double maxy,
+                         double maxx, double maxy,
                          uint32_t level,
                          std::vector<uint32_t>& ids) const;
+
+     // combines query-for-tile-ids with query-for-tile-info
+     void queryForTileInfosBegin(uint32_t tileSetId,
+                                 double minx, double miny,
+                                 double maxx, double maxy,
+                                 uint32_t level);
+     bool queryForTileInfos(TileInfo& tileInfo);
+     bool queryForTileInfosNext();
 
     // fills in the dimensions of an otherwise empty point table with
     // the dimension information from the tile set
@@ -155,12 +165,6 @@ public:
      static void xyPointToTileColRow(double x, double y, uint32_t level, uint32_t& col, uint32_t& row);
 
      void serializeToPointView(const TileInfo& info, PointViewPtr view);
-
-     // clock_t start = timerStart();
-     // <spin cycles>
-     // uint32_t millis = timerStop(start);
-     static clock_t timerStart();
-     static double timerStop(clock_t start);
 
      void dumpStats() const;
 
@@ -189,39 +193,15 @@ private:
     BufferReader* m_bufferReader;
     CropFilter* m_cropFilter;
     bool m_needsIndexing;
-
-    class Event
-    {
-    public:
-        Event(const std::string& name) :
-          name(name),
-          count(0),
-          millis(0.0),
-          t(0)
-        {}
-        ~Event() { assert(t==0); }
-        void start() { assert(t==0); t = timerStart(); }
-        void stop() { assert(t!=0); ++count; millis += timerStop(t); t=0; }
-        void dump() const
-        {
-            if (count)
-              printf("%s: tot=%.1f avg=%.1f (%u)\n", name.c_str(), millis, millis/(double)count, count);
-            else
-            printf("%s: -\n", name.c_str());
-        }
-        const std::string name;
-        uint32_t count;
-        double millis;
-      private:
-        clock_t t;
-    };
-    mutable Event e_tilesRead;
-    mutable Event e_tileSetsRead;
-    mutable Event e_tilesWritten;
-    mutable Event e_tileSetsWritten;
-    mutable Event e_queries;
-    mutable Event e_creation;
-    mutable Event e_indexCreation;
+    bool m_txStarted;
+    
+    mutable RialtoEvent e_tilesRead;
+    mutable RialtoEvent e_tileSetsRead;
+    mutable RialtoEvent e_tilesWritten;
+    mutable RialtoEvent e_tileSetsWritten;
+    mutable RialtoEvent e_queries;
+    mutable RialtoEvent e_creation;
+    mutable RialtoEvent e_indexCreation;
     mutable uint32_t m_numPointsRead;
     mutable uint32_t m_numPointsWritten;
 

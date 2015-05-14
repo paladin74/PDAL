@@ -55,19 +55,17 @@ public:
         QuadrantSW=0, QuadrantNW=1, QuadrantSE=2, QuadrantNE=3,
     };
 
-    Rectangle() : m_north(0.0), m_south(0.0), m_east(0.0), m_west(0.0), m_midx(0.0), m_midy(0.0)
+    Rectangle() :
+        m_north(0.0), m_south(0.0), m_east(0.0), m_west(0.0),
+        m_midx(0.0), m_midy(0.0)
         {}
 
     Rectangle(double w, double s, double e, double n) :
-        m_north(n), m_south(s), m_east(e), m_west(w), m_midx((w+e)*0.5), m_midy((s+n)*0.5)
+        m_north(n), m_south(s), m_east(e), m_west(w),
+        m_midx((w+e)*0.5), m_midy((s+n)*0.5)
         {}
 
-    Rectangle(const Rectangle& r) :
-        m_north(r.m_north), m_south(r.m_south), m_east(r.m_east), m_west(r.m_west),
-        m_midx((r.m_west+r.m_east)*0.5), m_midy((r.m_south+r.m_north)*0.5)
-        {}
-
-    Rectangle& operator=(const Rectangle& r)
+    void set(const Rectangle& r)
     {
         m_north = r.m_north;
         m_south = r.m_south;
@@ -75,11 +73,20 @@ public:
         m_west = r.m_west;
         m_midx = r.m_midx;
         m_midy = r.m_midy;
-        return *this;
     }
 
+    void set(double w, double s, double e, double n) // same order as ctor
+    {
+        m_north = n;
+        m_south = s;
+        m_east = e;
+        m_west = w;
+        m_midx = (w + e) * 0.5;
+        m_midy = (s + n) * 0.5;
+    }
+    
     // return the quadrant of the child of this rect, for the given point
-    Quadrant getQuadrantOf(double lon, double lat)
+    Quadrant getQuadrantOf(double lon, double lat) const
     {
         // NW=1  NE=3
         // SW=0  SE=2
@@ -96,20 +103,24 @@ public:
     }
 
     // return the rect of the given child quadrant of this rect
-    Rectangle getQuadrantRect(Quadrant q)
+    void getRectangleOfQuadrant(Quadrant q, Rectangle& rect) const
     {
         switch (q) {
         case QuadrantSW:
-            return Rectangle(m_west, m_south, m_midx, m_midy);
+            rect.set(m_west, m_south, m_midx, m_midy);
+            break;
         case QuadrantNW:
-            return Rectangle(m_west, m_midy, m_midx, m_north);
+            rect.set(m_west, m_midy, m_midx, m_north);
+            break;
         case QuadrantSE:
-            return Rectangle(m_midx, m_south, m_east, m_midy);
+            rect.set(m_midx, m_south, m_east, m_midy);
+            break;
         case QuadrantNE:
-            return Rectangle(m_midx, m_midy, m_east, m_north);
+            rect.set(m_midx, m_midy, m_east, m_north);
+            break;
+        default:
+            throw pdal_error("invalid quadrant");
         }
-
-        throw pdal_error("invalid quadrant");
     }
 
     bool contains(double lon, double lat) const
@@ -127,6 +138,10 @@ public:
 
 private:
     double m_north, m_south, m_east, m_west, m_midx, m_midy;
+
+    // not implemented
+    Rectangle(const Rectangle&);
+    Rectangle& operator=(const Rectangle&);
 };
 
 
@@ -155,8 +170,6 @@ class TileSet
         uint32_t newTileId() { uint32_t t = m_tileId; ++m_tileId; return t; }
         
     private:
-        void addPoint(PointId, double lon, double lat);
-
         void setHeaderMetadata();
         void setStatisticsMetadata();
 
@@ -180,7 +193,7 @@ class TileSet
 class Tile
 {
 public:
-    Tile(TileSet& tileSet, uint32_t level, uint32_t tileX, uint32_t tileY, Rectangle r);
+    Tile(TileSet& tileSet, uint32_t level, uint32_t tileX, uint32_t tileY, const Rectangle &r);
     ~Tile();
 
     void add(PointViewPtr pointView, PointId pointNumber, double lon, double lat);

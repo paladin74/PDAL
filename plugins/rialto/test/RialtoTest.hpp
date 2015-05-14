@@ -58,7 +58,7 @@ public:
     // always 8 points
     static Data* sampleDataInit(pdal::PointTable&, pdal::PointViewPtr);
     
-    static Data* randomDataInit(pdal::PointTable&, pdal::PointViewPtr, uint32_t numPoints);
+    static Data* randomDataInit(pdal::PointTable&, pdal::PointViewPtr, uint32_t numPoints, bool global=true);
     
     static void createTileFiles(pdal::PointTable& table, pdal::PointViewPtr view, const std::string& filename);
 
@@ -105,7 +105,7 @@ RialtoTest::Data* RialtoTest::sampleDataInit(pdal::PointTable& table, pdal::Poin
 }
 
 
-RialtoTest::Data* RialtoTest::randomDataInit(pdal::PointTable& table, pdal::PointViewPtr view, uint32_t numPoints)
+RialtoTest::Data* RialtoTest::randomDataInit(pdal::PointTable& table, pdal::PointViewPtr view, uint32_t numPoints, bool global)
 {
     Data* data = new Data[numPoints];
     
@@ -113,10 +113,15 @@ RialtoTest::Data* RialtoTest::randomDataInit(pdal::PointTable& table, pdal::Poin
     table.layout()->registerDim(Dimension::Id::Y);
     table.layout()->registerDim(Dimension::Id::Z);
 
+    double minx = global ? -179.9 : 12.3;
+    double miny = global ? -89.9 : 12.4;
+    double maxx = global ? 179.9 : 45.6;
+    double maxy = global ? 89.9 : 45.7;
+    
     for (uint32_t i=0; i<numPoints; i++)
     {
-        data[i].x = Utils::random(-179.9, 179.9);
-        data[i].y = Utils::random(-89.9, 89.9);
+        data[i].x = Utils::random(minx, maxx);
+        data[i].y = Utils::random(miny, maxy);
         data[i].z = i;
     }
 

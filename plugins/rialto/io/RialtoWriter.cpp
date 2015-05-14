@@ -225,7 +225,7 @@ void RialtoWriter::ready(PointTableRef table)
 // write out the tile with this pointview
 void RialtoWriter::write(const PointViewPtr viewPtr)
 {
-    log()->get(LogLevel::Debug1) << "RialtoWriter::write()" << std::endl;
+    //log()->get(LogLevel::Debug1) << "RialtoWriter::write()" << std::endl;
     
     PointView* view = viewPtr.get();
 
@@ -272,7 +272,6 @@ void RialtoWriter::makePointViewMap(MetadataNode tileSetNode)
     std::vector<uint8_t> a = Utils::base64_decode(b64);
 
     m_tileMetadata = new uint32_t[m_numTiles*5];
-    printf("read num tiles: %d\n", m_numTiles);
     memcpy((unsigned char*)m_tileMetadata, a.data(), m_numTiles*5*4);
     for (uint32_t i=0; i<m_numTiles*5; i+=5)
     {

@@ -93,6 +93,7 @@ RialtoDb::RialtoDb(const std::string& connection, LogPtr log) :
     m_bufferReader(NULL),
     m_cropFilter(NULL),
     m_needsIndexing(false),
+    m_txStarted(false),
     e_tilesRead("tilesRead"),
     e_tileSetsRead("tileSetsRead"),
     e_tilesWritten("tilesWritten"),
@@ -109,6 +110,11 @@ RialtoDb::RialtoDb(const std::string& connection, LogPtr log) :
 
 RialtoDb::~RialtoDb()
 {
+    if (m_sqlite)
+    {
+        close();
+    }
+    
     delete m_bufferReader;
     delete m_cropFilter;
     log()->get(LogLevel::Debug) << "~RialtoDB" << std::endl;
@@ -179,13 +185,18 @@ void RialtoDb::close()
     {
         e_indexCreation.start();
 
+        if (m_txStarted)
+        {
+            m_sqlite->commit();
+        }
+        
         std::ostringstream oss2;
         oss2 << "CREATE INDEX index_name ON Tiles(column,row)";
-        //m_sqlite->execute(oss2.str());
+        m_sqlite->execute(oss2.str());
 
         std::ostringstream oss3;
         oss3 << "CREATE INDEX index_name2 ON Tiles(level)";
-        //m_sqlite->execute(oss3.str());
+        m_sqlite->execute(oss3.str());
 
         e_indexCreation.stop();
     }
@@ -350,7 +361,7 @@ void RialtoDb::readTileInfo(uint32_t tileId, bool withPoints, RialtoDb::TileInfo
         << "FROM Tiles "
         << "WHERE tile_id=" << tileId;
 
-    log()->get(LogLevel::Debug) << "SELECT for tile" << std::endl;
+    //log()->get(LogLevel::Debug) << "SELECT for tile" << std::endl;
 
     m_sqlite->query(oss.str());
 
@@ -405,7 +416,7 @@ void RialtoDb::readTileIdsAtLevel(uint32_t tileSetId, uint32_t level, std::vecto
         if (!r) break;
 
         uint32_t id = boost::lexical_cast<uint32_t>(r->at(0).data);
-        log()->get(LogLevel::Debug) << "  got tile id=" << id << std::endl;
+        //log()->get(LogLevel::Debug) << "  got tile id=" << id << std::endl;
         ids.push_back(id);
     } while (m_sqlite->next());
 }
@@ -531,6 +542,12 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
 
     e_tilesWritten.start();
 
+    if (!m_txStarted)
+    {
+        m_sqlite->begin();
+        m_txStarted = true;
+    }
+    
     unsigned char* buf = NULL;
     uint32_t buflen = 0;
     castPatchAsBuffer(data.patch, buf, buflen);
@@ -538,10 +555,10 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
     assert(buflen);
 
     // note we don't use 'mask' in the database version of tiles
-    std::ostringstream oss;
-    oss << "INSERT INTO Tiles "
-        << "(tile_set_id, level, column, row, numPoints, points) "
-        << "VALUES (?, ?, ?, ?, ?, ?)";
+    const std::string sql = 
+        "INSERT INTO Tiles "
+        "(tile_set_id, level, column, row, numPoints, points) "
+        "VALUES (?, ?, ?, ?, ?, ?)";
 
     records rs;
     row r;
@@ -554,15 +571,15 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
     r.push_back(blob((char*)buf, (size_t)buflen));
     rs.push_back(r);
 
-    m_sqlite->insert(oss.str(), rs);
+    m_sqlite->insert(sql, rs);
 
     long id = m_sqlite->last_row_id();
-    log()->get(LogLevel::Debug) << "inserted for tile set " << data.tileSetId
-                                << ": tile id " << id
-                                << "(" << data.column
-                                << ", " << data.row
-                                << ", " << data.level
-                                << ")" << std::endl;
+    //log()->get(LogLevel::Debug) << "inserted for tile set " << data.tileSetId
+    //                            << ": tile id " << id
+    //                            << "(" << data.column
+    //                            << ", " << data.row
+    //                            << ", " << data.level
+    //                            << ")" << std::endl;
 
     e_tilesWritten.stop();
 
@@ -630,7 +647,6 @@ void RialtoDb::queryForTileIds(uint32_t tileSetId,
     log()->get(LogLevel::Debug) << "Querying tile set " << tileSetId
                                 << " for some tile ids" << std::endl;
 
-    // TODO: for now, just return *all* the tiles at the level
     ids.clear();
 
     e_queries.start();
@@ -673,6 +689,89 @@ void RialtoDb::queryForTileIds(uint32_t tileSetId,
 }
 
 
+void RialtoDb::queryForTileInfosBegin(uint32_t tileSetId,
+                                      double minx, double miny,
+                                      double maxx, double maxy,
+                                      uint32_t level)
+{
+    if (!m_sqlite)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
+    e_tilesRead.start();
+    
+    log()->get(LogLevel::Debug) << "Querying tile set " << tileSetId
+                                << " for some tile infos" << std::endl;
+
+    assert(minx <= maxx);
+    assert(miny <= maxy);
+
+    uint32_t mincol, minrow, maxcol, maxrow;
+    xyPointToTileColRow(minx, miny, level, mincol, maxrow);
+    xyPointToTileColRow(maxx, maxy, level, maxcol, minrow);
+
+    // because boundary conditions
+    if (mincol > maxcol) std::swap(mincol, maxcol);
+    if (minrow > maxrow) std::swap(minrow, maxrow);
+
+    assert(mincol <= maxcol);
+    assert(minrow <= maxrow);
+
+    std::ostringstream oss;
+    oss << "SELECT tile_id,tile_set_id,level,column,row,numPoints,points"
+        << " FROM Tiles "
+        << " WHERE tile_set_id=" << tileSetId
+        << " AND level=" << level
+        << " AND column >= " << mincol
+        << " AND column <= " << maxcol
+        << " AND row >= " << minrow
+        << " AND row <= " << maxrow;
+
+    m_sqlite->query(oss.str());
+    
+    e_tilesRead.stop();
+}
+
+
+bool RialtoDb::queryForTileInfos(TileInfo& info)
+{
+    e_tilesRead.start();
+    
+    const row* r = m_sqlite->get();
+    
+    if (!r) return false;
+
+    //assert(tileId == boost::lexical_cast<uint32_t>(r->at(0).data));
+    info.tileSetId = boost::lexical_cast<uint32_t>(r->at(1).data);
+    info.level = boost::lexical_cast<double>(r->at(2).data);
+    info.column = boost::lexical_cast<double>(r->at(3).data);
+    info.row = boost::lexical_cast<double>(r->at(4).data);
+    info.numPoints = boost::lexical_cast<double>(r->at(5).data);
+
+    // this query always reads the points
+    info.patch.buf.clear();
+    {
+        const uint32_t blobLen = r->at(6).blobLen;
+        const std::vector<uint8_t>& blobBuf = r->at(6).blobBuf;
+        const unsigned char *pos = (const unsigned char *)&(blobBuf[0]);
+        info.patch.putBytes(pos, blobLen);
+    }
+    
+    e_tilesRead.stop();
+    
+    m_numPointsRead += info.numPoints;
+    
+    return true;
+}
+
+
+bool RialtoDb::queryForTileInfosNext()
+{
+    return m_sqlite->next();
+}
+
+
 // appends points to end of view (does not start with point index 0)
 void RialtoDb::serializeToPointView(const TileInfo& info, PointViewPtr view)
 {
@@ -689,8 +788,6 @@ void RialtoDb::serializeToPointView(const TileInfo& info, PointViewPtr view)
         view->setPackedPoint(dtl, idx, buf);
         buf += pointSize;
         ++idx;
-
-        log()->get(LogLevel::Debug) << "here" << std::endl;
     }
 }
 
@@ -783,20 +880,6 @@ Stage* RialtoDb::query(PointTable& table,
     m_cropFilter->setInput(*m_bufferReader);
 
     return m_cropFilter;
-}
-
-
-clock_t RialtoDb::timerStart()
-{
-     return std::clock();
-}
-
-
-double RialtoDb::timerStop(clock_t start)
-{
-    clock_t stop = std::clock();
-    const double secs = (double)(stop - start) / (double)CLOCKS_PER_SEC;
-    return secs * 1000.0;
 }
 
 

@@ -67,7 +67,7 @@ void TilerFilter::processOptions(const Options& options)
 
     m_numTilesX = 2;
     m_numTilesY = 1;
-    m_rectangle = tilercommon::Rectangle(-180.0, -90.0, 180.0, 90.0);
+    m_rectangle.set(-180.0, -90.0, 180.0, 90.0);
 }
 
 

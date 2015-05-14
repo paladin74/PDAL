@@ -421,33 +421,6 @@ TEST(RialtoDbWriterTest, testOscar)
 }
 
 
-TEST(RialtoDbWriterTest, writePerf)
-{
-    static const int NUM_POINTS = 10000;
-
-    const std::string filename(Support::temppath("rialto3.sqlite"));
-    FileUtils::deleteFile(filename);
-
-    RialtoTest::Data* actualData;
-
-    const uint32_t maxLevel = 5;
-
-    // make a test database
-    {
-        PointTable table;
-        PointViewPtr inputView(new PointView(table));
-        actualData = RialtoTest::randomDataInit(table, inputView, NUM_POINTS);
-printf("begin\n");
-        RialtoTest::createDatabase(table, inputView, filename, maxLevel);
-printf("end\n");
-    }
-
-    delete[] actualData;
-
-    FileUtils::deleteFile(filename);
-}
-
-
 TEST(RialtoDbWriterTest, testRandom)
 {
     static const int NUM_POINTS = 1000;
@@ -520,37 +493,66 @@ TEST(RialtoDbWriterTest, testRandom)
 }
 
 
-TEST(RialtoDbWriterTest, testPerf)
-{
-    return;
+TEST(RialtoDbWriterTest, writePerf)
+{return;
+    RialtoEvent e_all("allTests");
+    RialtoEvent e_write("writePart");
+        
+    static const int M = 1000 * 1000;
+    static const int NUM_POINTS = 1 * M;
 
-    static const int NUM_POINTS = 50000;
-    static const int NUM_QUERIES = 50;
-
-    Utils::random_seed(17);
-
-    const std::string filename(Support::temppath("perf.sqlite"));
+    const std::string filename(Support::temppath("writeperf.sqlite"));
     FileUtils::deleteFile(filename);
 
-    const uint32_t maxLevel = 6;
+    e_all.start();
 
     RialtoTest::Data* actualData;
+    const uint32_t maxLevel = 11;
 
-    // make a test database
-    /***/ double create_ms = 0.0;
-    for (int i=0; i<3; i++)
     {
         PointTable table;
         PointViewPtr inputView(new PointView(table));
-        actualData = RialtoTest::randomDataInit(table, inputView, NUM_POINTS);
+        actualData = RialtoTest::randomDataInit(table, inputView, NUM_POINTS, false);
 
-        /***/clock_t start = RialtoDb::timerStart();
+        e_write.start();
         RialtoTest::createDatabase(table, inputView, filename, maxLevel);
-        /***/double ms = RialtoDb::timerStop(start);
-        /***/printf("CREATE: %f\n", ms);
-        create_ms += ms;
+        e_write.stop();
     }
-    /***/printf("CREATE avg: %f\n", create_ms/3.0);
+
+    delete[] actualData;
+
+    e_all.stop();
+
+    e_all.dump();
+    e_write.dump();
+    
+    FileUtils::deleteFile(filename);
+}
+
+
+TEST(RialtoDbWriterTest, readPerf)
+{return;
+    RialtoEvent e_all("allTests");
+    RialtoEvent e_read("readPart");
+        
+    static const int M = 1000 * 1000;
+    static const int NUM_POINTS = 2 * M;
+    static const int NUM_QUERIES = 100;
+
+    const std::string filename(Support::temppath("readperf.sqlite"));
+    FileUtils::deleteFile(filename);
+
+    const uint32_t maxLevel = 7;
+
+    {
+        PointTable table;
+        PointViewPtr inputView(new PointView(table));
+        RialtoTest::Data* actualData = RialtoTest::randomDataInit(table, inputView, NUM_POINTS, true);
+        RialtoTest::createDatabase(table, inputView, filename, maxLevel);
+        delete[] actualData;
+    }
+
+    e_all.start();
 
     // now read from it
     {
@@ -574,8 +576,6 @@ TEST(RialtoDbWriterTest, testPerf)
         PointViewSet views;
         PointViewPtr view;
 
-        /***/ double query_ms = 0.0;
-
         for (int i=0; i<NUM_QUERIES; i++)
         {
             double minx = Utils::random(-179.9, 179.9);
@@ -585,30 +585,21 @@ TEST(RialtoDbWriterTest, testPerf)
             double maxy = Utils::random(-89.9, 89.9);
             if (miny > maxy) std::swap(miny, maxy);
 
-            /***/clock_t start = RialtoDb::timerStart();
+            e_read.start();
 
             Stage* stage1 = db.query(table, tileSetId, minx, miny, maxx, maxy, bestLevel);
 
             stage1->prepare(table);
             views = stage1->execute(table);
 
-            /***/double ms = RialtoDb::timerStop(start);
-            /***/printf("QUERY: %f\n", ms);
-            /***/ query_ms += ms;
-
-            EXPECT_EQ(views.size(), 1u);
-            view = *(views.begin());
-            uint32_t c = view->size();
-
-            RialtoTest::verifyPointsInBounds(view, minx, miny, maxx, maxy);
-            uint32_t expected = RialtoTest::countPointsInBounds(actualData, NUM_POINTS, minx, miny, maxx, maxy);
-            EXPECT_EQ(expected, view->size());
+            e_read.stop();
         }
-        /***/printf("QUERY tot: %f\n", query_ms);
-        /***/printf("QUERY avg: %f\n", query_ms/(double)NUM_QUERIES);
     }
 
-    delete[] actualData;
-
+    e_all.stop();
+    
+    e_all.dump();
+    e_read.dump();
+    
     FileUtils::deleteFile(filename);
 }

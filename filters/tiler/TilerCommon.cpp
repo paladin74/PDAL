@@ -94,23 +94,31 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
     m_outputSet = outputSet;
 
     // enter each point into the tile set
-    for (PointId idx = 0; idx < sourceView->size(); ++idx)
+    Tile& westTile = *(m_roots[0]);
+    Tile& eastTile = *(m_roots[1]);
+    
+    const uint32_t numPoints = sourceView->size();
+    for (PointId idx = 0; idx < numPoints; ++idx)
     {
         const double lon = sourceView->getFieldAs<double>(Dimension::Id::X, idx);
         const double lat = sourceView->getFieldAs<double>(Dimension::Id::Y, idx);
-        addPoint(idx, lon, lat);
+        
+        if (lon < 0.0)
+            westTile.add(m_sourceView, idx, lon, lat);
+        else
+            eastTile.add(m_sourceView, idx, lon, lat);
     }
 
     setHeaderMetadata();
     setStatisticsMetadata();
 
     {
-        m_roots[0]->setMask();
-        m_roots[1]->setMask();
+        westTile.setMask();
+        eastTile.setMask();
         
         uint32_t* data = new uint32_t[m_tileId*5]; // level, col, row, mask, pv id
-        m_roots[0]->setTileMetadata(data);
-        m_roots[1]->setTileMetadata(data);
+        westTile.setTileMetadata(data);
+        eastTile.setTileMetadata(data);
         unsigned char* p = (unsigned char*)data;
         std::string b64 = Utils::base64_encode(p, m_tileId*5*4);
         MetadataNode tilesMetadata3 = m_tileSetMetadata.add("tilesdata", b64);
@@ -173,16 +181,6 @@ PointViewPtr TileSet::createPointView()
 }
 
 
-// enter the point into the tree
-void TileSet::addPoint(PointId idx, double lon, double lat)
-{
-    if (lon < 0)
-        m_roots[0]->add(m_sourceView, idx, lon, lat);
-    else
-        m_roots[1]->add(m_sourceView, idx, lon, lat);
-}
-
-
 void TileSet::setHeaderMetadata()
 {
     MetadataNode node = m_tileSetMetadata.addList("header");
@@ -203,29 +201,30 @@ Tile::Tile(
         uint32_t level,
         uint32_t tx,
         uint32_t ty,
-        Rectangle r) :
+        const Rectangle& r) :
     m_tileSet(tileSet),
     m_level(level),
     m_tileX(tx),
     m_tileY(ty),
     m_children(NULL),
-    m_rect(r),
     m_skip(0),
     m_pointView(NULL),
     m_mask(0)
 {
+    m_rect.set(r);
+
     m_id = tileSet.newTileId();
 
     assert(m_level <= m_tileSet.getMaxLevel());
 
-    log()->get(LogLevel::Debug1) << "created tb (l=" << m_level
-        << ", tx=" << m_tileX
-        << ", ty=" << m_tileY
-        << ") (slip" << m_skip
-        << ")  --  w" << m_rect.west()
-        << " s" << m_rect.south()
-        << " e" << m_rect.east()
-        << " n" << m_rect.north() << "\n";
+    //log()->get(LogLevel::Debug1) << "created tb (l=" << m_level
+        //<< ", tx=" << m_tileX
+        //<< ", ty=" << m_tileY
+        //<< ") (slip" << m_skip
+        //<< ")  --  w" << m_rect.west()
+        //<< " s" << m_rect.south()
+        //<< " e" << m_rect.east()
+        //<< " n" << m_rect.north() << "\n";
 
     // level N+1 has 1/4 the points of level N
     //
@@ -241,8 +240,8 @@ Tile::Tile(
     // 3-0=3  skip 64    4^3
     //
     m_skip = std::pow(4, (m_tileSet.getMaxLevel() - m_level));
-    log()->get(LogLevel::Debug1) << "level=" << m_level
-        << "  skip=" << m_skip << "\n";
+    //log()->get(LogLevel::Debug1) << "level=" << m_level
+        //<< "  skip=" << m_skip << "\n";
 }
 
 
@@ -316,9 +315,9 @@ void Tile::add(PointViewPtr sourcePointView, PointId pointNumber, double lon, do
 {
     assert(m_rect.contains(lon, lat));
 
-    log()->get(LogLevel::Debug5) << "-- -- " << pointNumber
-        << " " << m_skip
-        << " " << (pointNumber % m_skip == 0) << "\n";
+    //log()->get(LogLevel::Debug5) << "-- -- " << pointNumber
+        //<< " " << m_skip
+        //<< " " << (pointNumber % m_skip == 0) << "\n";
 
     // put the point into this tile, if we're at the right level of decimation
     if (pointNumber % m_skip == 0)
@@ -343,12 +342,13 @@ void Tile::add(PointViewPtr sourcePointView, PointId pointNumber, double lon, do
     }
 
     Rectangle::Quadrant q = m_rect.getQuadrantOf(lon, lat);
-    log()->get(LogLevel::Debug5) << "which=" << q << "\n";
+    //log()->get(LogLevel::Debug5) << "which=" << q << "\n";
 
     Tile* child = m_children[q];
     if (child == NULL)
     {
-        Rectangle r = m_rect.getQuadrantRect(q);
+        Rectangle r;
+        m_rect.getRectangleOfQuadrant(q, r);
         switch (q)
         {
             case Rectangle::QuadrantSW:
