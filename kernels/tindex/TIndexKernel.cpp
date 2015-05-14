@@ -248,7 +248,6 @@ void TIndexKernel::createFile()
     for (auto f : m_files)
     {
         f = FileUtils::toAbsolutePath(f);
-std::cerr << "Processing file = " << f << "!\n";
         FileInfo info = getFileInfo(factory, f);
         if (createFeature(indexes, info))
             m_log.get(LogLevel::Info) << "Indexed file " << f << std::endl;
@@ -295,11 +294,12 @@ void TIndexKernel::mergeFile()
 
     std::vector<FileInfo> files;
 
-    // Fetch the files from the index file that match the filter geometry.
+    // Docs are bad here.  You need this call even if you haven't read anything
+    // at or nothing happens.
+    OGR_L_ResetReading(m_layer);
     while (true)
     {
         OGRFeatureH feature = OGR_L_GetNextFeature(m_layer);
-        std::cerr << "Tried to read a feature!\n";
         if (!feature)
             break;
 
@@ -330,6 +330,9 @@ void TIndexKernel::mergeFile()
             out << "Unable to create reader for file '" << f.m_filename << "'.";
             throw pdal_error(out.str());
         }
+        Options readerOptions;
+        readerOptions.add("filename", f.m_filename);
+        reader->setOptions(readerOptions);
 
         Stage *repro = factory.createStage("filters.reprojection", true);
         repro->setInput(*reader);
