@@ -143,6 +143,7 @@ protected:
     }
     bool argumentExists(const std::string& name)
         { return (bool)m_variablesMap.count(name); }
+    bool argumentSpecified(const std::string& name);
 
     bool m_usestdin;
     int m_argc;

@@ -34,6 +34,7 @@
 
 #pragma once
 
+#include <pdal/GDALUtils.hpp>
 #include <pdal/Kernel.hpp>
 #include <pdal/Stage.hpp>
 #include <pdal/util/FileUtils.hpp>
@@ -42,8 +43,6 @@
 
 extern "C" int32_t TIndexKernel_ExitFunc();
 extern "C" PF_ExitFunc TIndexKernel_InitPlugin();
-
-typedef void *OGRGeometryH;
 
 namespace pdal
 {
@@ -81,6 +80,7 @@ private:
     void validateSwitches(); // overrride
 
     void createFile();
+    void mergeFile();
     bool openDataset(const std::string& filename);
     bool createDataset(const std::string& filename);
     bool openLayer(const std::string& layerName);
@@ -88,21 +88,24 @@ private:
     FieldIndexes getFields();
     FileInfo getFileInfo(KernelFactory& factory, const std::string& filename);
     bool createFeature(const FieldIndexes& indexes, const FileInfo& info);
-    OGRGeometryH prepareGeometry(const FileInfo& fileInfo);
+    gdal::Geometry prepareGeometry(const FileInfo& fileInfo);
+    gdal::Geometry prepareGeometry(const std::string& wkt,
+        const gdal::SpatialRef& inSrs, const gdal::SpatialRef& outSrs);
     void createFields();
 
-    std::string m_filename;
-    std::string m_indexDirectory;
-    std::vector<std::string> m_files;
+    std::string m_idxFilename;
+    std::string m_filespec;
+    StringList m_files;
     std::string m_layerName;
     std::string m_driverName;
     std::string m_tileIndexColumnName;
     std::string m_srsColumnName;
+    std::string m_filterGeom;
     bool m_merge;
 
     void *m_dataset;
     void *m_layer;
-    std::string m_targetSRSString;
+    std::string m_tgtSrsString;
 };
 
 } // namespace pdal

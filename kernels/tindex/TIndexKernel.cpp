@@ -43,17 +43,12 @@
 #include <memory>
 #include <vector>
 
-#include <pdal/PDALUtils.hpp>
 #include <pdal/GlobalEnvironment.hpp>
 #include <pdal/KernelFactory.hpp>
 #include <pdal/util/FileUtils.hpp>
+#include <merge/MergeFilter.hpp>
 
-#include <ogr_api.h>
-#include <ogr_srs_api.h>
-#include <cpl_port.h>
-#include <cpl_vsi.h>
 #include <cpl_string.h>
-#include <gdal.h>
 
 #include <boost/program_options.hpp>
 
@@ -68,14 +63,14 @@ void setDate(OGRFeatureH feature, const tm& tyme, int fieldNumber)
 }
 
 
-pdal::StringList glob(const std::string& pat)
+pdal::StringList glob(std::string& path)
 {
     pdal::StringList filenames;
 
 #ifndef WIN32
     glob_t glob_result;
 
-    glob(pat.c_str(), GLOB_TILDE, NULL,& glob_result);
+    glob(path.c_str(), GLOB_TILDE, NULL, &glob_result);
     for (unsigned int i = 0; i < glob_result.gl_pathc; ++i)
         filenames.push_back(std::string(glob_result.gl_pathv[i]));
     globfree(&glob_result);
@@ -89,6 +84,8 @@ pdal::StringList glob(const std::string& pat)
 
 namespace pdal
 {
+
+using namespace gdal;
 
 static PluginInfo const s_info = PluginInfo(
     "kernels.tindex",
@@ -121,10 +118,10 @@ void TIndexKernel::addSwitches()
         new po::options_description("file options");
 
     file_options->add_options()
-        ("filename", po::value<std::string>(&m_filename),
+        ("tindex", po::value<std::string>(&m_idxFilename),
             "OGR-readable/writeable tile index output")
-        ("directory", po::value<std::string>(&m_indexDirectory),
-            "Directory to index")
+        ("filespec", po::value<std::string>(&m_filespec),
+            "Build: Pattern of files to index. Merge: Output filename")
         ("lyr_name", po::value<std::string>(&m_layerName),
             "OGR layer name to write into datasource")
         ("tile_index", po::value<std::string>(&m_tileIndexColumnName),
@@ -134,8 +131,10 @@ void TIndexKernel::addSwitches()
         ("driver_name,f",
             po::value<std::string>(&m_driverName)->default_value(
             "ESRI Shapefile"), "OGR driver name to use ")
-        ("t_srs", po::value<std::string>(&m_targetSRSString)->
+        ("t_srs", po::value<std::string>(&m_tgtSrsString)->
             default_value("EPSG:4326"), "Target SRS of tile index")
+        ("geometry", po::value<std::string>(&m_filterGeom),
+            "Geometry to filter points when merging.")
         ("merge", "Whether we're merging the entries in a tindex file.")
     ;
 
@@ -147,8 +146,8 @@ void TIndexKernel::addSwitches()
 
     addSwitchSet(processing_options);
 
-    addPositionalSwitch("filename", 1);
-    addPositionalSwitch("directory", 2);
+    addPositionalSwitch("tindex", 1);
+    addPositionalSwitch("filespec", 1);
 }
 
 
@@ -156,11 +155,30 @@ void TIndexKernel::validateSwitches()
 {
     m_merge = argumentExists("merge");
 
-    if (!m_filename.size())
+    if (m_idxFilename.empty())
+        throw pdal_error("No index filename provided.");
+
+    if (m_merge)
     {
-        std::string err = m_merge ? "No input tindex filename provided." :
-            "No output filename provided.";
-        throw pdal_error(err);
+        if (m_filespec.empty())
+            throw pdal_error("No output filename provided.");
+        StringList invalidArgs { "t_srs", "srs_srs_name" };
+        for (auto arg : invalidArgs)
+            if (argumentSpecified(arg))
+            {
+                std::ostringstream out;
+
+                out << "option '--" << arg << "' not supported during merge.";
+                throw pdal_error(out.str());
+            }
+    }
+    else
+    {
+        if (m_filespec.empty())
+            throw pdal_error("No input pattern specified.");
+        if (argumentExists("geometry"))
+            throw pdal_error("--geometry option not supported when building "
+                "index.");
     }
 }
 
@@ -170,36 +188,47 @@ int TIndexKernel::execute()
     GlobalEnvironment::get().initializeGDAL(0);
 
     if (m_merge)
-        ;
+        mergeFile();
     else
-        createFile();
+    {
+        try
+        {
+            createFile();
+        }
+        catch (pdal_error& error)
+        {
+            if (m_dataset)
+                OGR_DS_Destroy(m_dataset);
+            throw;
+        }
+    }
     return 0;
 }
 
 
 void TIndexKernel::createFile()
 {
-    StringList files = glob(m_indexDirectory);
+    m_files = glob(m_filespec);
 
-    if (files.empty())
+    if (m_files.empty())
     {
         std::ostringstream out;
-        out << "Couldn't open or create index dataset file '" <<
-            m_filename << "'.";
+        out << "Couldn't find files to index: " << m_filespec << ".";
         throw pdal_error(out.str());
     }
 
-    const std::string filename = files.front();
+//ABELL - Remove CPLGetBasename use.
+    const std::string filename = m_files.front();
     if (m_layerName.empty())
        m_layerName = CPLGetBasename(filename.c_str());
 
     // Open or create the dataset.
-    if (!openDataset(m_filename))
-        if (!createDataset(m_filename))
+    if (!openDataset(m_idxFilename))
+        if (!createDataset(m_idxFilename))
         {
             std::ostringstream out;
             out << "Couldn't open or create index dataset file '" <<
-                m_filename << "'.";
+                m_idxFilename << "'.";
             throw pdal_error(out.str());
         }
 
@@ -209,16 +238,17 @@ void TIndexKernel::createFile()
         {
             std::ostringstream out;
             out << "Couldn't open or create layer '" << m_layerName <<
-                "' in output file '" << m_filename << "'.";
+                "' in output file '" << m_idxFilename << "'.";
             throw pdal_error(out.str());
         }
 
     FieldIndexes indexes = getFields();
 
     KernelFactory factory(false);
-    for (auto f : files)
+    for (auto f : m_files)
     {
         f = FileUtils::toAbsolutePath(f);
+std::cerr << "Processing file = " << f << "!\n";
         FileInfo info = getFileInfo(factory, f);
         if (createFeature(indexes, info))
             m_log.get(LogLevel::Info) << "Indexed file " << f << std::endl;
@@ -226,6 +256,117 @@ void TIndexKernel::createFile()
             m_log.get(LogLevel::Error) << "Failed to create feature for "
                 "file '" << f << "'" << std::endl;
     }
+    OGR_DS_Destroy(m_dataset);
+}
+
+
+void TIndexKernel::mergeFile()
+{
+    std::ostringstream out;
+
+    if (!openDataset(m_idxFilename))
+    {
+        std::ostringstream out;
+        out << "Couldn't open index dataset file '" << m_idxFilename << "'.";
+        throw pdal_error(out.str());
+    }
+    if (!openLayer(m_layerName))
+    {
+        std::ostringstream out;
+        out << "Couldn't open layer '" << m_layerName <<
+            "' in output file '" << m_idxFilename << "'.";
+        throw pdal_error(out.str());
+    }
+
+    FieldIndexes indexes = getFields();
+    
+    SpatialRef outSrs(m_tgtSrsString);
+    if (!outSrs)
+        throw pdal_error("Couldn't interpret target SRS string.");
+
+    if (!m_filterGeom.empty())
+    {
+        Geometry g(m_filterGeom, outSrs);
+
+        if (!g)
+            throw pdal_error("Couldn't interpret geometry filter string.");
+        OGR_L_SetSpatialFilter(m_layer, g.get());
+    }
+
+    std::vector<FileInfo> files;
+
+    // Fetch the files from the index file that match the filter geometry.
+    while (true)
+    {
+        OGRFeatureH feature = OGR_L_GetNextFeature(m_layer);
+        std::cerr << "Tried to read a feature!\n";
+        if (!feature)
+            break;
+
+        FileInfo fileInfo;
+        fileInfo.m_filename =
+            OGR_F_GetFieldAsString(feature, indexes.m_filename);
+        fileInfo.m_srs =
+            OGR_F_GetFieldAsString(feature, indexes.m_srs);
+        files.push_back(fileInfo);
+    
+        OGR_F_Destroy(feature);
+    }
+
+    StageFactory factory;
+
+    MergeFilter merge;
+
+    Options cropOptions;
+    cropOptions.add("polygon", m_filterGeom);
+
+    for (auto f : files)
+    {
+        Stage *premerge = NULL;
+        std::string driver = factory.inferReaderDriver(f.m_filename);
+        Stage *reader = factory.createStage(driver, true);
+        if (!reader)
+        {
+            out << "Unable to create reader for file '" << f.m_filename << "'.";
+            throw pdal_error(out.str());
+        }
+
+        Stage *repro = factory.createStage("filters.reprojection", true);
+        repro->setInput(*reader);
+        Options reproOptions;
+        reproOptions.add("out_srs", m_tgtSrsString);
+        reproOptions.add("in_srs", f.m_srs);
+        repro->setOptions(reproOptions);
+        premerge = repro;
+
+        if (!m_filterGeom.empty())
+        {
+            Stage *crop = factory.createStage("filters.crop", true);
+            crop->setOptions(cropOptions);
+            crop->setInput(*repro);
+            premerge = crop;
+        }
+
+        merge.setInput(*premerge);
+    }
+
+    std::string driver = factory.inferWriterDriver(m_filespec);
+    Stage *writer = factory.createStage(driver, true);
+    if (!writer)
+    {
+        out << "Unable to create reader for file '" << m_filespec << "'.";
+        throw pdal_error(out.str());
+    }
+    writer->setInput(merge);
+
+    Options writerOptions;
+    writerOptions.add("filename", m_filespec);
+    writer->setOptions(writerOptions);
+
+    PointTable table;
+
+    writer->prepare(table);
+    writer->execute(table);
 }
 
 
@@ -245,10 +386,8 @@ bool TIndexKernel::createFeature(const FieldIndexes& indexes,
         fileInfo.m_filename.c_str());
 
     // Set the SRS into the feature.
-    OGRSpatialReferenceH hSourceSRS = OSRNewSpatialReference("");
-    std::string srs = fileInfo.m_srs;
-
-    if (OSRSetFromUserInput(hSourceSRS, srs.c_str()) != OGRERR_NONE)
+    SpatialRef srcSrs(fileInfo.m_srs);
+    if (!srcSrs)
     {
         m_log.get(LogLevel::Error) << "Unable to import spatial "
             "reference '" << fileInfo.m_srs << "' for file '" <<
@@ -261,18 +400,18 @@ bool TIndexKernel::createFeature(const FieldIndexes& indexes,
     // Failing that, get the proj.4 version.  Not sure what's supposed to
     // happen if we overflow 254 with proj.4.
 
-    const char* pszAuthorityCode = OSRGetAuthorityCode(hSourceSRS, NULL);
-    const char* pszAuthorityName = OSRGetAuthorityName(hSourceSRS, NULL);
+    const char* pszAuthorityCode = OSRGetAuthorityCode(srcSrs.get(), NULL);
+    const char* pszAuthorityName = OSRGetAuthorityName(srcSrs.get(), NULL);
     if (pszAuthorityName && pszAuthorityCode)
     {
         std::string auth = std::string(pszAuthorityName) + ":" +
             pszAuthorityCode;
-        OGR_F_SetFieldString(hFeature, indexes.m_srs, auth.data());
+        OGR_F_SetFieldString(srcSrs.get(), indexes.m_srs, auth.data());
     }
     else
     {
         char* pszProj4 = NULL;
-        if (OSRExportToProj4(hSourceSRS, &pszProj4) != OGRERR_NONE)
+        if (OSRExportToProj4(srcSrs.get(), &pszProj4) != OGRERR_NONE)
         {
             std::ostringstream out;
 
@@ -280,20 +419,18 @@ bool TIndexKernel::createFeature(const FieldIndexes& indexes,
                 fileInfo.m_filename << "'";
             throw pdal_error(out.str());
         }
-        srs = std::string(pszProj4);
+        std::string srs = std::string(pszProj4);
         OGR_F_SetFieldString(hFeature, indexes.m_srs, srs.c_str());
         CPLFree(pszProj4);
     }
 
-    OSRDestroySpatialReference(hSourceSRS);
-
     // Set the geometry in the feature
-    OGRGeometryH g = prepareGeometry(fileInfo);
-    OGR_F_SetGeometry(hFeature, g);
-    OGR_G_DestroyGeometry(g);
+    Geometry g = prepareGeometry(fileInfo);
+    char *pgeom;
+    OGR_G_ExportToWkt(g.get(), &pgeom);
+    OGR_F_SetGeometry(hFeature, g.get());
 
-    bool ok = (OGR_L_CreateFeature(m_layer, hFeature) != OGRERR_NONE);
-
+    bool ok = (OGR_L_CreateFeature(m_layer, hFeature) == OGRERR_NONE);
     OGR_F_Destroy(hFeature);
     return ok;
 }
@@ -319,6 +456,7 @@ TIndexKernel::FileInfo TIndexKernel::getFileInfo(KernelFactory& factory,
         // empty metdata
     }
 
+    fileInfo.m_filename = filename;
     fileInfo.m_boundary = metadata.findChild("boundary:boundary").value();
     fileInfo.m_srs = metadata.findChild("summary:spatial_reference").value();
 
@@ -370,17 +508,13 @@ bool TIndexKernel::openLayer(const std::string& layerName)
 
 bool TIndexKernel::createLayer(std::string const& layername)
 {
-    OGRSpatialReferenceH hSpatialRef = OSRNewSpatialReference("");
-
-    if (OSRSetFromUserInput(hSpatialRef,
-        m_targetSRSString.c_str()) != OGRERR_NONE)
-    {
+    SpatialRef srs(m_tgtSrsString);
+    if (!srs)
         m_log.get(LogLevel::Error) << "Unable to import srs for layer "
            "creation" << std::endl;
-    }
+
     m_layer = OGR_DS_CreateLayer(m_dataset, m_layerName.c_str(),
-        hSpatialRef, wkbPolygon, NULL);
-    OSRRelease(hSpatialRef);
+        srs.get(), wkbPolygon, NULL);
 
     if (m_layer)
         createFields();
@@ -398,7 +532,7 @@ void TIndexKernel::createFields()
 
     hFieldDefn = OGR_Fld_Create(m_srsColumnName.c_str(), OFTString);
     OGR_Fld_SetWidth(hFieldDefn, 254);
-    OGR_L_CreateField( m_layer, hFieldDefn, TRUE );
+    OGR_L_CreateField(m_layer, hFieldDefn, TRUE );
     OGR_Fld_Destroy(hFieldDefn);
 
     hFieldDefn = OGR_Fld_Create("modified", OFTDateTime);
@@ -408,8 +542,6 @@ void TIndexKernel::createFields()
     hFieldDefn = OGR_Fld_Create("created", OFTDateTime);
     OGR_L_CreateField(m_layer, hFieldDefn, TRUE);
     OGR_Fld_Destroy(hFieldDefn);
-
-    OGR_L_SyncToDisk(m_layer);
 }
 
 
@@ -418,6 +550,7 @@ TIndexKernel::FieldIndexes TIndexKernel::getFields()
     FieldIndexes indexes;
 
     void *fDefn = OGR_L_GetLayerDefn(m_layer);
+
     indexes.m_filename = OGR_FD_GetFieldIndex(fDefn,
         m_tileIndexColumnName.c_str());
     if (indexes.m_filename < 0)
@@ -425,7 +558,7 @@ TIndexKernel::FieldIndexes TIndexKernel::getFields()
         std::ostringstream out;
 
         out << "Unable to find field '" << m_tileIndexColumnName <<
-            "' in file '" << m_filename << "'.";
+            "' in file '" << m_idxFilename << "'.";
         throw pdal_error(out.str());
     }
     indexes.m_srs = OGR_FD_GetFieldIndex(fDefn, m_srsColumnName.c_str());
@@ -434,7 +567,7 @@ TIndexKernel::FieldIndexes TIndexKernel::getFields()
         std::ostringstream out;
 
         out << "Unable to find field '" << m_srsColumnName << "' in file '" <<
-            m_filename << "'.";
+            m_idxFilename << "'.";
         throw pdal_error(out.str());
     }
 
@@ -453,37 +586,56 @@ TIndexKernel::FieldIndexes TIndexKernel::getFields()
 }
 
 
-OGRGeometryH TIndexKernel::prepareGeometry(const FileInfo& fileInfo)
+Geometry TIndexKernel::prepareGeometry(const FileInfo& fileInfo)
+{
+    std::ostringstream oss;
+
+    SpatialRef srcSrs(fileInfo.m_srs);
+    if (!srcSrs)
+    {
+        oss << "Unable to import source SRS for file '" <<
+            fileInfo.m_filename << "'.";
+        throw pdal_error(oss.str());
+    }
+
+    SpatialRef tgtSrs(m_tgtSrsString);
+    if (!tgtSrs)
+        throw pdal_error("Unable to import target SRS.");
+
+    Geometry g;
+
+    try
+    {
+       g = prepareGeometry(fileInfo.m_boundary, srcSrs, tgtSrs);
+    }
+    catch (pdal_error)
+    {
+        oss << "Unable to transform geometry from source to target SRS for " <<
+            fileInfo.m_filename << "'.";
+        throw pdal_error(oss.str());
+    }
+    if (!g)
+    {
+        oss << "Update to create geometry from WKT for '" <<
+            fileInfo.m_filename << "'.";
+        throw pdal_error(oss.str());
+    }
+    return g;
+}
+
+
+Geometry TIndexKernel::prepareGeometry(const std::string& wkt,
+   const SpatialRef& inSrs, const SpatialRef& outSrs)
 {
     // Create OGR geometry from text.
 
-    OGRGeometryH hGeometry(0);
-    OGRSpatialReferenceH hSRS = OSRNewSpatialReference("");
+    Geometry g(wkt, inSrs);
 
-    char* p_srs = const_cast<char *>(fileInfo.m_srs.data());
-    if (OSRImportFromWkt(hSRS, &p_srs) != OGRERR_NONE)
-        m_log.get(LogLevel::Error) << "Unable to import SRS for file '" <<
-            fileInfo.m_filename << "'" << std::endl;
+    if (g)
+        if (OGR_G_TransformTo(g.get(), outSrs.get()) != OGRERR_NONE)
+            throw pdal_error("Unable to transform geometry.");
 
-    char* p_wkt = const_cast<char *>(fileInfo.m_boundary.data());
-    if (OGR_G_CreateFromWkt(&p_wkt, hSRS, &hGeometry) != OGRERR_NONE)
-        m_log.get(LogLevel::Error) << "Unable to create WKT for file '" <<
-            fileInfo.m_filename << "'" << std::endl;
-
-    OGRSpatialReferenceH hTargetSRS = OSRNewSpatialReference("");
-    if (OSRSetFromUserInput(hTargetSRS, m_targetSRSString.c_str()) !=
-            OGRERR_NONE)
-        m_log.get(LogLevel::Error) << "Unable to import SRS for "
-            "--t_srs '" << m_targetSRSString << "'" << std::endl;
-
-    if (OGR_G_TransformTo(hGeometry, hTargetSRS) != OGRERR_NONE)
-        m_log.get(LogLevel::Error) << "Unable to transform geometry to "
-            "output srs" << std::endl;
-
-    OSRDestroySpatialReference(hTargetSRS);
-    OSRDestroySpatialReference(hSRS);
-
-    return hGeometry;
+    return g;
 }
 
 } // namespace pdal
