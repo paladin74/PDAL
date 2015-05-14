@@ -92,7 +92,16 @@ RialtoDb::RialtoDb(const std::string& connection, LogPtr log) :
     m_srid(4326),
     m_bufferReader(NULL),
     m_cropFilter(NULL),
-    m_needsIndexing(false)
+    m_needsIndexing(false),
+    e_tilesRead("tilesRead"),
+    e_tileSetsRead("tileSetsRead"),
+    e_tilesWritten("tilesWritten"),
+    e_tileSetsWritten("tileSetsWritten"),
+    e_queries("queries"),
+    e_creation("creation"),
+    e_indexCreation("indexCreation"),
+    m_numPointsRead(0),
+    m_numPointsWritten(0)
 {
     //m_log->setLevel(LogLevel::Debug);
 }
@@ -112,7 +121,7 @@ void RialtoDb::create()
     {
         throw pdal_error("RialtoDB: invalid state (session already exists)");
     }
-    
+
     log()->get(LogLevel::Debug) << "RialtoDB::create()" << std::endl;
 
     if (FileUtils::fileExists(m_connection))
@@ -123,10 +132,12 @@ void RialtoDb::create()
     m_sqlite = std::unique_ptr<SQLite>(new SQLite(m_connection, m_log));
     m_sqlite->connect(true);
 
+    e_creation.start();
     createTileSetsTable();
     createTilesTable();
     createDimensionsTable();
-    
+    e_creation.stop();
+
     m_needsIndexing = true;
 }
 
@@ -166,16 +177,22 @@ void RialtoDb::close()
 
     if (m_needsIndexing)
     {
+        e_indexCreation.start();
+
         std::ostringstream oss2;
         oss2 << "CREATE INDEX index_name ON Tiles(column,row)";
-        m_sqlite->execute(oss2.str());
+        //m_sqlite->execute(oss2.str());
 
         std::ostringstream oss3;
         oss3 << "CREATE INDEX index_name2 ON Tiles(level)";
-        m_sqlite->execute(oss3.str());
+        //m_sqlite->execute(oss3.str());
+
+        e_indexCreation.stop();
     }
-    
+
     m_sqlite.reset();
+
+    dumpStats();
 }
 
 
@@ -261,7 +278,7 @@ void RialtoDb::readTileSetIds(std::vector<uint32_t>& ids) const
     }
 
     ids.clear();
-    
+
     std::ostringstream oss;
     oss << "SELECT tile_set_id FROM TileSets";
 
@@ -289,6 +306,8 @@ void RialtoDb::readTileSetInfo(uint32_t tileSetId, TileSetInfo& info) const
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
+    e_tileSetsRead.start();
+
     std::ostringstream oss;
     oss << "SELECT tile_set_id,name,maxLevel,numDims "
         << "FROM TileSets WHERE tile_set_id=" << tileSetId;
@@ -305,12 +324,14 @@ void RialtoDb::readTileSetInfo(uint32_t tileSetId, TileSetInfo& info) const
     info.name = r->at(1).data;
     info.maxLevel = boost::lexical_cast<uint32_t>(r->at(2).data);
     info.numDimensions = boost::lexical_cast<uint32_t>(r->at(3).data);
-    
+
     assert(!m_sqlite->next());
 
     info.dimensions.clear();
     info.dimensions.resize(info.numDimensions);
     readDimensionsInfo(tileSetId, info.dimensions);
+
+    e_tileSetsRead.stop();
 }
 
 
@@ -320,6 +341,8 @@ void RialtoDb::readTileInfo(uint32_t tileId, bool withPoints, RialtoDb::TileInfo
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
+
+    e_tilesRead.start();
 
     std::ostringstream oss;
     oss << "SELECT tile_id,tile_set_id,level,column,row,numPoints"
@@ -349,7 +372,11 @@ void RialtoDb::readTileInfo(uint32_t tileId, bool withPoints, RialtoDb::TileInfo
       const std::vector<uint8_t>& blobBuf = r->at(6).blobBuf;
       const unsigned char *pos = (const unsigned char *)&(blobBuf[0]);
       info.patch.putBytes(pos, blobLen);
+
+      ++m_numPointsRead;
     }
+
+    e_tilesRead.stop();
 
     assert(!m_sqlite->next());
 }
@@ -363,7 +390,7 @@ void RialtoDb::readTileIdsAtLevel(uint32_t tileSetId, uint32_t level, std::vecto
     }
 
     ids.clear();
-    
+
     std::ostringstream oss;
     oss << "SELECT tile_id FROM Tiles"
         << " WHERE tile_set_id=" << tileSetId
@@ -392,7 +419,7 @@ void RialtoDb::readDimensionsInfo(uint32_t tileSetId, std::vector<DimensionInfo>
     }
 
     dimensionsInfo.clear();
-    
+
     std::ostringstream oss;
     oss << "SELECT tile_set_id,name,position,dataType,minimum,mean,maximum "
         << "FROM Dimensions "
@@ -408,7 +435,7 @@ void RialtoDb::readDimensionsInfo(uint32_t tileSetId, std::vector<DimensionInfo>
         if (!r) break;
 
         DimensionInfo& info = dimensionsInfo[i];
-        
+
         assert(tileSetId == boost::lexical_cast<uint32_t>(r->at(0).data));
         info.name = r->at(1).data;
         info.position = boost::lexical_cast<double>(r->at(2).data);
@@ -418,7 +445,7 @@ void RialtoDb::readDimensionsInfo(uint32_t tileSetId, std::vector<DimensionInfo>
         info.maximum = boost::lexical_cast<double>(r->at(6).data);
 
         log()->get(LogLevel::Debug1) << "read dim: " << info.name << std::endl;
-        
+
         ++i;
     } while (m_sqlite->next());
 }
@@ -432,6 +459,8 @@ uint32_t RialtoDb::writeTileSet(const RialtoDb::TileSetInfo& data)
     }
 
     log()->get(LogLevel::Debug) << "RialtoDb::addTileSet()" << std::endl;
+
+    e_tileSetsWritten.start();
 
     std::ostringstream oss;
     oss << "INSERT INTO TileSets "
@@ -452,7 +481,9 @@ uint32_t RialtoDb::writeTileSet(const RialtoDb::TileSetInfo& data)
     log()->get(LogLevel::Debug) << "inserted TileSet, id=" << id << std::endl;
 
     writeDimensions(id, data.dimensions);
-    
+
+    e_tileSetsWritten.stop();
+
     return id;
 }
 
@@ -498,6 +529,8 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
+    e_tilesWritten.start();
+
     unsigned char* buf = NULL;
     uint32_t buflen = 0;
     castPatchAsBuffer(data.patch, buf, buflen);
@@ -531,6 +564,10 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
                                 << ", " << data.level
                                 << ")" << std::endl;
 
+    e_tilesWritten.stop();
+
+    m_numPointsWritten += data.numPoints;
+
     return id;
 }
 
@@ -538,7 +575,7 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
 void RialtoDb::castPatchAsBuffer(const Patch& patch, unsigned char*& buf, uint32_t& bufLen)
 {
     buf = NULL;
-    bufLen = patch.buf.size();    
+    bufLen = patch.buf.size();
     if (bufLen) {
         buf = (unsigned char*)&patch.buf[0];
     }
@@ -555,21 +592,21 @@ void RialtoDb::xyPointToTileColRow(double x, double y, uint32_t level, uint32_t&
 
     if (x>=180.0) x = -180.0;
     if (y<=-90.0) y = 90.0;
-    
+
     double level2 = pow(2.0, level);
     //printf("l2: %f\n", level2);
-    
+
     double tileWidth = (180.0 - -180.0) / level2;
     tileWidth /= 2.0;
     double tileHeight = (90.0 - -90.0) / level2;
     //printf("tileWidth: %f\n", tileWidth);
     //printf("tileHeight: %f\n", tileHeight);
-    
+
     double c = (x - -180.0) / tileWidth;
     //printf("c: %f\n", c);
     col = (uint32_t)floor(c);
     //printf("col: %u\n", col);
-    
+
     double r = (90.0 - y) / tileHeight;
     //printf("r: %f\n", r);
     row = (uint32_t)floor(r);
@@ -584,7 +621,7 @@ void RialtoDb::queryForTileIds(uint32_t tileSetId,
                                double maxx, double maxy,
                                uint32_t level,
                                std::vector<uint32_t>& ids) const
-{    
+{
     if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
@@ -595,14 +632,16 @@ void RialtoDb::queryForTileIds(uint32_t tileSetId,
 
     // TODO: for now, just return *all* the tiles at the level
     ids.clear();
-    
+
+    e_queries.start();
+
     assert(minx <= maxx);
     assert(miny <= maxy);
 
     uint32_t mincol, minrow, maxcol, maxrow;
     xyPointToTileColRow(minx, miny, level, mincol, maxrow);
     xyPointToTileColRow(maxx, maxy, level, maxcol, minrow);
-    
+
     // because boundary conditions
     if (mincol > maxcol) std::swap(mincol, maxcol);
     if (minrow > maxrow) std::swap(minrow, maxrow);
@@ -618,7 +657,7 @@ void RialtoDb::queryForTileIds(uint32_t tileSetId,
         << " AND column <= " << maxcol
         << " AND row >= " << minrow
         << " AND row <= " << maxrow;
-        
+
     m_sqlite->query(oss.str());
 
     do {
@@ -629,6 +668,8 @@ void RialtoDb::queryForTileIds(uint32_t tileSetId,
         log()->get(LogLevel::Debug) << "  got tile id=" << id << std::endl;
         ids.push_back(id);
     } while (m_sqlite->next());
+
+    e_queries.stop();
 }
 
 
@@ -638,9 +679,9 @@ void RialtoDb::serializeToPointView(const TileInfo& info, PointViewPtr view)
     const size_t numPoints = info.numPoints;
     PointId idx = view->size();
     const uint32_t pointSize = view->pointSize();
-    
+
     const Patch& patch = info.patch;
-    
+
     const char* buf = (const char*)(&patch.buf[0]);
     const DimTypeList& dtl = view->dimTypes();
     for (size_t i=0; i<numPoints; ++i)
@@ -648,7 +689,7 @@ void RialtoDb::serializeToPointView(const TileInfo& info, PointViewPtr view)
         view->setPackedPoint(dtl, idx, buf);
         buf += pointSize;
         ++idx;
-        
+
         log()->get(LogLevel::Debug) << "here" << std::endl;
     }
 }
@@ -657,10 +698,10 @@ void RialtoDb::serializeToPointView(const TileInfo& info, PointViewPtr view)
 void RialtoDb::setupPointTable(uint32_t tileSetId, PointTable& table) const
 {
     // TODO: this should all be done in 1 query
-    
+
     TileSetInfo tileSetInfo;
     readTileSetInfo(tileSetId, tileSetInfo);
-    
+
     setupLayout(tileSetInfo, table.layout());
 }
 
@@ -673,9 +714,9 @@ void RialtoDb::setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout
 
         const Dimension::Id::Enum nameId = Dimension::id(dimInfo.name);
         const Dimension::Type::Enum typeId = Dimension::type(dimInfo.dataType);
-        
+
         layout->registerDim(nameId, typeId);
-    }            
+    }
 }
 
 
@@ -710,18 +751,18 @@ Stage* RialtoDb::query(PointTable& table,
     PointViewPtr view(new PointView(table));
 
     uint32_t pointIndex = 0;
-    for (auto id: ids) 
+    for (auto id: ids)
     {
         TileInfo info;
         readTileInfo(id, true, info);
-        
+
         log()->get(LogLevel::Debug) << "  got some points: " << info.numPoints << std::endl;
 
         serializeToPointView(info, view);
 
         log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
     }
-    
+
     Options readerOptions;
     m_bufferReader = new BufferReader(); // TODO: needs ptr
     m_bufferReader->setOptions(readerOptions);
@@ -751,12 +792,26 @@ clock_t RialtoDb::timerStart()
 }
 
 
-uint32_t RialtoDb::timerStop(clock_t start)
+double RialtoDb::timerStop(clock_t start)
 {
     clock_t stop = std::clock();
     const double secs = (double)(stop - start) / (double)CLOCKS_PER_SEC;
     return secs * 1000.0;
 }
 
+
+void RialtoDb::dumpStats() const
+{
+    e_tilesRead.dump();
+    e_tileSetsRead.dump();
+    e_tilesWritten.dump();
+    e_tileSetsWritten.dump();
+    e_queries.dump();
+    e_creation.dump();
+    e_indexCreation.dump();
+
+    printf("pointsRead: %u\n", m_numPointsRead);
+    printf("pointsWritten: %u\n", m_numPointsWritten);
+}
 
 } // namespace pdal

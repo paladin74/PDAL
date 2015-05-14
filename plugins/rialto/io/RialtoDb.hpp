@@ -98,7 +98,7 @@ public:
     ~RialtoDb();
 
     void create();
-    
+
     void open(bool writable=false);
 
     void close();
@@ -133,9 +133,9 @@ public:
     // fills in the dimensions of an otherwise empty point table with
     // the dimension information from the tile set
     void setupPointTable(uint32_t tileSetId, PointTable& table) const;
-    
+
     void setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout) const;
-    
+
     // query for all the points of a tile set, bounded by bbox region
     // returns a pipeline made up of a BufferReader and a CropFilter
     // returns NULL if no points found
@@ -155,13 +155,15 @@ public:
      static void xyPointToTileColRow(double x, double y, uint32_t level, uint32_t& col, uint32_t& row);
 
      void serializeToPointView(const TileInfo& info, PointViewPtr view);
-     
+
      // clock_t start = timerStart();
      // <spin cycles>
      // uint32_t millis = timerStop(start);
      static clock_t timerStart();
-     static uint32_t timerStop(clock_t start);
-     
+     static double timerStop(clock_t start);
+
+     void dumpStats() const;
+
 private:
     // create the req'd tables in the db
     void createTileSetsTable();
@@ -187,6 +189,41 @@ private:
     BufferReader* m_bufferReader;
     CropFilter* m_cropFilter;
     bool m_needsIndexing;
+
+    class Event
+    {
+    public:
+        Event(const std::string& name) :
+          name(name),
+          count(0),
+          millis(0.0),
+          t(0)
+        {}
+        ~Event() { assert(t==0); }
+        void start() { assert(t==0); t = timerStart(); }
+        void stop() { assert(t!=0); ++count; millis += timerStop(t); t=0; }
+        void dump() const
+        {
+            if (count)
+              printf("%s: tot=%.1f avg=%.1f (%u)\n", name.c_str(), millis, millis/(double)count, count);
+            else
+            printf("%s: -\n", name.c_str());
+        }
+        const std::string name;
+        uint32_t count;
+        double millis;
+      private:
+        clock_t t;
+    };
+    mutable Event e_tilesRead;
+    mutable Event e_tileSetsRead;
+    mutable Event e_tilesWritten;
+    mutable Event e_tileSetsWritten;
+    mutable Event e_queries;
+    mutable Event e_creation;
+    mutable Event e_indexCreation;
+    mutable uint32_t m_numPointsRead;
+    mutable uint32_t m_numPointsWritten;
 
     RialtoDb& operator=(const RialtoDb&); // not implemented
     RialtoDb(const RialtoDb&); // not implemented

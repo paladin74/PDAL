@@ -68,7 +68,7 @@ static bool testP2T(double x, double y, uint32_t level, uint32_t expected_col, u
 void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
 {
     LogPtr log(new Log("rialtodbwritertest", "stdout"));
-    
+
     RialtoDb db(filename, log);
     db.open(false);
 
@@ -112,7 +112,7 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     EXPECT_EQ(tilesAt3.size(), 0u);
 
     RialtoDb::TileInfo info;
-    
+
     {
         db.readTileInfo(tilesAt0[0], true, info);
         EXPECT_EQ(info.numPoints, 1u);
@@ -229,14 +229,14 @@ TEST(RialtoDbTest, test1)
         db.create();
         db.close();
     }
-    
+
     EXPECT_TRUE(FileUtils::fileExists(filename));
-    
+
     {
         RialtoDb db(filename, log);
         db.open(true);
     }
-    
+
     {
         RialtoDb db(filename, log);
         db.open(false);
@@ -258,7 +258,7 @@ TEST(RialtoDbWriterTest, createWriter)
 TEST(RialtoDbWriterTest, testWriter)
 {
     const std::string filename(Support::temppath("rialto2.sqlite"));
-    
+
     FileUtils::deleteFile(filename);
 
     // set up test data
@@ -268,9 +268,9 @@ TEST(RialtoDbWriterTest, testWriter)
 
     // stages
     RialtoTest::createDatabase(table, inputView, filename, 2);
-    
+
     verifyDatabase(filename, actualData);
-    
+
     // verification
     /*for (int i=0; i<8; i++) {
         db.readTileInfo(tilesAt2[i], true, info);
@@ -324,7 +324,7 @@ TEST(RialtoDbWriterTest, testWriter)
     db.close();
 
     delete[] actualData;
-    
+
     FileUtils::deleteFile(filename);
 }
 
@@ -332,7 +332,7 @@ TEST(RialtoDbWriterTest, testWriter)
 TEST(RialtoDbWriterTest, testOscar)
 {
     const std::string filename(Support::temppath("oscar.sqlite"));
-    
+
     FileUtils::deleteFile(filename);
 
     RialtoTest::Data* actualData;
@@ -421,18 +421,44 @@ TEST(RialtoDbWriterTest, testOscar)
 }
 
 
-TEST(RialtoDbWriterTest, testLarge)
+TEST(RialtoDbWriterTest, writePerf)
 {
-    static const int NUM_POINTS = 1000;
-    static const int NUM_QUERIES = 1000;
+    static const int NUM_POINTS = 50000;
 
     const std::string filename(Support::temppath("rialto3.sqlite"));
     FileUtils::deleteFile(filename);
 
     RialtoTest::Data* actualData;
 
-    const uint32_t maxLevel = 3;
-    
+    const uint32_t maxLevel = 18;
+
+    // make a test database
+    {
+        PointTable table;
+        PointViewPtr inputView(new PointView(table));
+        actualData = RialtoTest::randomDataInit(table, inputView, NUM_POINTS);
+
+        RialtoTest::createDatabase(table, inputView, filename, maxLevel);
+    }
+
+    delete[] actualData;
+
+    FileUtils::deleteFile(filename);
+}
+
+
+TEST(RialtoDbWriterTest, readPerf) // TODO
+{
+    static const int NUM_POINTS = 50000;
+    static const int NUM_QUERIES = 10;
+
+    const std::string filename(Support::temppath("rialto3.sqlite"));
+    FileUtils::deleteFile(filename);
+
+    RialtoTest::Data* actualData;
+
+    const uint32_t maxLevel = 18;
+
     // make a test database
     {
         PointTable table;
@@ -445,7 +471,7 @@ TEST(RialtoDbWriterTest, testLarge)
     // now read from it
     {
         LogPtr log(new Log("rialtodbwritertest", "stdout"));
-        
+
         // open the db for reading
         RialtoDb db(filename, log);
         db.open(false);
@@ -486,9 +512,9 @@ TEST(RialtoDbWriterTest, testLarge)
             EXPECT_EQ(expected, view->size());
         }
     }
-    
+
     delete[] actualData;
-    
+
     FileUtils::deleteFile(filename);
 }
 
@@ -496,17 +522,17 @@ TEST(RialtoDbWriterTest, testLarge)
 TEST(RialtoDbWriterTest, testPerf)
 {
     return;
-    
+
     static const int NUM_POINTS = 50000;
     static const int NUM_QUERIES = 50;
-    
+
     Utils::random_seed(17);
-    
+
     const std::string filename(Support::temppath("perf.sqlite"));
     FileUtils::deleteFile(filename);
 
     const uint32_t maxLevel = 6;
-    
+
     RialtoTest::Data* actualData;
 
     // make a test database
@@ -528,7 +554,7 @@ TEST(RialtoDbWriterTest, testPerf)
     // now read from it
     {
         LogPtr log(new Log("rialtodbwritertest", "stdout"));
-        
+
         // open the db for reading
         RialtoDb db(filename, log);
         db.open(false);
@@ -548,7 +574,7 @@ TEST(RialtoDbWriterTest, testPerf)
         PointViewPtr view;
 
         /***/ double query_ms = 0.0;
-        
+
         for (int i=0; i<NUM_QUERIES; i++)
         {
             double minx = Utils::random(-179.9, 179.9);
@@ -559,16 +585,16 @@ TEST(RialtoDbWriterTest, testPerf)
             if (miny > maxy) std::swap(miny, maxy);
 
             /***/clock_t start = RialtoDb::timerStart();
-            
+
             Stage* stage1 = db.query(table, tileSetId, minx, miny, maxx, maxy, bestLevel);
 
             stage1->prepare(table);
             views = stage1->execute(table);
-            
+
             /***/double ms = RialtoDb::timerStop(start);
             /***/printf("QUERY: %f\n", ms);
             /***/ query_ms += ms;
-            
+
             EXPECT_EQ(views.size(), 1u);
             view = *(views.begin());
             uint32_t c = view->size();
@@ -580,8 +606,8 @@ TEST(RialtoDbWriterTest, testPerf)
         /***/printf("QUERY tot: %f\n", query_ms);
         /***/printf("QUERY avg: %f\n", query_ms/(double)NUM_QUERIES);
     }
-    
+
     delete[] actualData;
-    
+
     FileUtils::deleteFile(filename);
 }
