@@ -801,7 +801,7 @@ void RialtoDb::setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout
 
 
 void RialtoDb::dumpStats() const
-{return;
+{
     e_tilesRead.dump();
     e_tileSetsRead.dump();
     e_tilesWritten.dump();

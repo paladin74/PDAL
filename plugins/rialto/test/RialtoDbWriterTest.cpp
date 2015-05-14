@@ -428,15 +428,15 @@ TEST(RialtoDbWriterTest, testOscar)
 
 TEST(RialtoDbWriterTest, testRandom)
 {
-    static const int NUM_POINTS = 1000;
-    static const int NUM_QUERIES = 100;
+    static const int NUM_POINTS = 100 * 1000;
+    static const int NUM_QUERIES = 200;
 
     const std::string filename(Support::temppath("rialto3.sqlite"));
     FileUtils::deleteFile(filename);
 
     RialtoTest::Data* actualData;
 
-    const uint32_t maxLevel = 3;
+    const uint32_t maxLevel = 5;
 
     // make a test database
     {
@@ -504,7 +504,7 @@ TEST(RialtoDbWriterTest, testRandom)
 
 
 TEST(RialtoDbWriterTest, writePerf)
-{return;
+{
     RialtoEvent e_all("allTests");
     RialtoEvent e_write("writePart");
         
@@ -541,7 +541,7 @@ TEST(RialtoDbWriterTest, writePerf)
 
 
 TEST(RialtoDbWriterTest, readPerf)
-{return;
+{
     RialtoEvent e_all("allTests");
     RialtoEvent e_read("readPart");
         
@@ -567,19 +567,6 @@ TEST(RialtoDbWriterTest, readPerf)
     // now read from it
     {
         LogPtr log(new Log("rialtodbwritertest", "stdout"));
-
-        // open the db for reading
-        RialtoDb db(filename, log);
-        db.open(false);
-
-        // we only have 1 tile set in the database: get it's id
-        std::vector<uint32_t> tileSetIds;
-        db.readTileSetIds(tileSetIds);
-        const uint32_t tileSetId = tileSetIds[0];
-
-        RialtoDb::TileSetInfo tileSetInfo;
-        db.readTileSetInfo(tileSetId, tileSetInfo);
-        const uint32_t bestLevel = tileSetInfo.maxLevel;
 
         PointViewSet views;
         PointViewPtr view;
