@@ -152,6 +152,8 @@ class TileSet
         PointViewPtr createPointView();
         LogPtr log() { return m_log; }
 
+        uint32_t newTileId() { uint32_t t = m_tileId; ++m_tileId; return t; }
+        
     private:
         void addPoint(PointId, double lon, double lat);
 
@@ -163,7 +165,8 @@ class TileSet
         uint32_t m_maxLevel;
         LogPtr m_log;
         Tile** m_roots;
-
+        uint32_t m_tileId;
+        
         MetadataNode m_tableMetadata;
         MetadataNode m_tileSetMetadata;
 };
@@ -182,13 +185,15 @@ public:
 
     void add(PointViewPtr pointView, PointId pointNumber, double lon, double lat);
     void setTileMetadata(MetadataNode&);
-
+    void setTileMetadata2(uint32_t* data) const;
+    void setMask();
+    
 private:
     LogPtr log() { return m_tileSet.log(); }
     char* getPointData(const PointView& buf, PointId& idx) const;
     void setMaskMetadata();
 
-    int m_id;
+    uint32_t m_id;
     TileSet& m_tileSet;
     uint32_t m_level;
     uint32_t m_tileX;
@@ -197,6 +202,7 @@ private:
     Rectangle m_rect;
     uint64_t m_skip;
     PointViewPtr m_pointView;
+    uint32_t m_mask;
 };
 
 } // namespace tilercommon

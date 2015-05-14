@@ -188,12 +188,16 @@ void RialtoTest::createDatabase(pdal::PointTable& table,
     tiler.setOptions(tilerOptions);
     tiler.setInput(stats);
 
+    pdal::StageFactory f;
     pdal::Options writerOptions;
+#if 1
     writerOptions.add("filename", filename);
     writerOptions.add("overwrite", true);
     //writerOptions.add("verbose", LogLevel::Debug);
-    pdal::StageFactory f;
     pdal::Stage* writer = f.createStage("writers.rialtodb");
+#else
+    pdal::Stage* writer = f.createStage("writers.null");
+#endif    
     writer->setOptions(writerOptions);
     writer->setInput(tiler);
 

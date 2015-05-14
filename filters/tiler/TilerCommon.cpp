@@ -54,8 +54,8 @@ TileSet::TileSet(
     m_outputSet(NULL),
     m_maxLevel(maxLevel),
     m_log(log),
-    m_roots(NULL)
-
+    m_roots(NULL),
+    m_tileId(0)
 {
     assert(m_maxLevel <= 32);
 
@@ -108,6 +108,19 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
 
     setHeaderMetadata();
     setStatisticsMetadata();
+
+    {
+        m_roots[0]->setMask();
+        m_roots[1]->setMask();
+        
+        uint32_t* data = new uint32_t[m_tileId*5]; // level, col, row, mask, pv id
+        m_roots[0]->setTileMetadata2(data);
+        m_roots[1]->setTileMetadata2(data);
+        unsigned char* p = (unsigned char*)data;
+        std::string b64 = Utils::base64_encode(p, m_tileId*5*4);
+        MetadataNode tilesMetadata3 = m_tileSetMetadata.add("tilesdata", b64);
+        MetadataNode tilesMetadata2 = m_tileSetMetadata.add("tilesdatacount", m_tileId);
+    }
     
     MetadataNode tilesMetadata = m_tileSetMetadata.addList("tiles");
     assert(tilesMetadata.valid());
@@ -205,10 +218,10 @@ Tile::Tile(
     m_children(NULL),
     m_rect(r),
     m_skip(0),
-    m_pointView(NULL)
+    m_pointView(NULL),
+    m_mask(0)
 {
-    static int lastId = 0;
-    m_id = lastId++;
+    m_id = tileSet.newTileId();
 
     assert(m_level <= m_tileSet.getMaxLevel());
 
@@ -257,25 +270,37 @@ Tile::~Tile()
 
 
 // set the metaadata for this node, and then recurse down
+void Tile::setTileMetadata2(uint32_t* data) const
+{
+    data[m_id*5+0] = m_level;
+    data[m_id*5+1] = m_tileX;
+    data[m_id*5+2] = m_tileY;
+    data[m_id*5+3] = m_mask;
+    data[m_id*5+4] = 0xffffffff;
+
+    if (m_pointView)
+    {
+        data[m_id*5+4] = m_pointView->id();
+    }
+
+    if (m_children) {
+        if (m_children[0]) m_children[0]->setTileMetadata2(data);
+        if (m_children[1]) m_children[1]->setTileMetadata2(data);
+        if (m_children[2]) m_children[2]->setTileMetadata2(data);
+        if (m_children[3]) m_children[3]->setTileMetadata2(data);
+    }
+}
+
+
 void Tile::setTileMetadata(MetadataNode& tileSetNode)
 {
-  // child mask
-  uint32_t mask = 0x0;
-  if (m_children)
-  {
-      if (m_children[Rectangle::QuadrantSW]) mask += 1;
-      if (m_children[Rectangle::QuadrantSE]) mask += 2;
-      if (m_children[Rectangle::QuadrantNE]) mask += 4;
-      if (m_children[Rectangle::QuadrantNW]) mask += 8;
-  }
-
   const std::string idString = std::to_string(m_id);
   MetadataNode tileNode = tileSetNode.addList(idString);
 
   tileNode.add("level", m_level);
   tileNode.add("tileX", m_tileX);
   tileNode.add("tileY", m_tileY);
-  tileNode.add("mask", mask);
+  tileNode.add("mask", m_mask);
 
   if (m_pointView)
   {
@@ -287,6 +312,27 @@ void Tile::setTileMetadata(MetadataNode& tileSetNode)
       if (m_children[1]) m_children[1]->setTileMetadata(tileSetNode);
       if (m_children[2]) m_children[2]->setTileMetadata(tileSetNode);
       if (m_children[3]) m_children[3]->setTileMetadata(tileSetNode);
+    }
+}
+
+
+void Tile::setMask()
+{
+  // child mask
+  m_mask = 0x0;
+  if (m_children)
+  {
+      if (m_children[Rectangle::QuadrantSW]) m_mask += 1;
+      if (m_children[Rectangle::QuadrantSE]) m_mask += 2;
+      if (m_children[Rectangle::QuadrantNE]) m_mask += 4;
+      if (m_children[Rectangle::QuadrantNW]) m_mask += 8;
+  }
+
+  if (m_children) {
+      if (m_children[0]) m_children[0]->setMask();
+      if (m_children[1]) m_children[1]->setMask();
+      if (m_children[2]) m_children[2]->setMask();
+      if (m_children[3]) m_children[3]->setMask();
     }
 }
 

@@ -423,22 +423,23 @@ TEST(RialtoDbWriterTest, testOscar)
 
 TEST(RialtoDbWriterTest, writePerf)
 {
-    static const int NUM_POINTS = 50000;
+    static const int NUM_POINTS = 10000;
 
     const std::string filename(Support::temppath("rialto3.sqlite"));
     FileUtils::deleteFile(filename);
 
     RialtoTest::Data* actualData;
 
-    const uint32_t maxLevel = 18;
+    const uint32_t maxLevel = 5;
 
     // make a test database
     {
         PointTable table;
         PointViewPtr inputView(new PointView(table));
         actualData = RialtoTest::randomDataInit(table, inputView, NUM_POINTS);
-
+printf("begin\n");
         RialtoTest::createDatabase(table, inputView, filename, maxLevel);
+printf("end\n");
     }
 
     delete[] actualData;
@@ -447,17 +448,17 @@ TEST(RialtoDbWriterTest, writePerf)
 }
 
 
-TEST(RialtoDbWriterTest, readPerf) // TODO
+TEST(RialtoDbWriterTest, testRandom)
 {
-    static const int NUM_POINTS = 50000;
-    static const int NUM_QUERIES = 10;
+    static const int NUM_POINTS = 1000;
+    static const int NUM_QUERIES = 100;
 
     const std::string filename(Support::temppath("rialto3.sqlite"));
     FileUtils::deleteFile(filename);
 
     RialtoTest::Data* actualData;
 
-    const uint32_t maxLevel = 18;
+    const uint32_t maxLevel = 3;
 
     // make a test database
     {

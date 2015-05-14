@@ -91,7 +91,7 @@ protected:
     virtual uint32_t writeHeader(const std::string& tileSetName,
                              MetadataNode tileSetNode,
                              PointLayoutPtr layout) = 0;
-    virtual void writeTile(uint32_t tileSetId, MetadataNode, PointView*) = 0;
+    virtual void writeTile(uint32_t tileSetId, MetadataNode, PointView*, uint32_t level, uint32_t col, uint32_t row, uint32_t mask) = 0;
     virtual void localFinish() = 0;
 
     std::string m_tileSetName;
@@ -110,6 +110,10 @@ private:
 
     std::map<uint32_t, MetadataNode> m_pointViewMap;
     uint32_t m_tileSetId;
+
+    std::map<uint32_t, uint32_t> m_pointViewMap2; // PV id to array index
+    uint32_t* m_tileMetadata;
+    uint32_t m_numTiles;
 
     RialtoWriter& operator=(const RialtoWriter&); // not implemented
     RialtoWriter(const RialtoWriter&); // not implemented
