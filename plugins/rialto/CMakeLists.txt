@@ -49,10 +49,10 @@ if(BUILD_RIALTO_TESTS)
     )
     PDAL_ADD_TEST(rialtodbwritertest
         FILES test/RialtoDbWriterTest.cpp
-        LINK_WITH ${dbwriter_libname}
+        LINK_WITH ${dbwriter_libname} ${dbreader_libname}
     )
     PDAL_ADD_TEST(rialtodbreadertest
         FILES test/RialtoDbReaderTest.cpp
-        LINK_WITH ${dbreader_libname}
+        LINK_WITH ${dbreader_libname} 
     )
 endif()

@@ -34,11 +34,7 @@
 
 #pragma once
 
-#include <pdal/pdal_export.hpp>
-#include <pdal/Writer.hpp>
-
-#include <cstdint>
-#include <string>
+#include <pdal/pdal.hpp>
 
 // TODO: just used for Patch? (SQLite can be fwd declared)
 #include "../plugins/sqlite/io/SQLiteCommon.hpp" // TODO: fix path
@@ -48,8 +44,6 @@
 namespace pdal {
     class Log;
     class SQLite;
-    class BufferReader;
-    class CropFilter;
 }
 
 namespace pdal
@@ -140,24 +134,9 @@ public:
      bool queryForTileInfos(TileInfo& tileInfo);
      bool queryForTileInfosNext();
 
-    // fills in the dimensions of an otherwise empty point table with
+    // fills in the dimensions of an otherwise empty layout with
     // the dimension information from the tile set
-    void setupPointTable(uint32_t tileSetId, PointTable& table) const;
-
     void setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout) const;
-
-    // query for all the points of a tile set, bounded by bbox region
-    // returns a pipeline made up of a BufferReader and a CropFilter
-    // returns NULL if no points found
-    //
-    // The RialtoDb instance owns the returned Stage*; it will be deleted for you.
-    //
-    // prior to calling query(), you must call setupPointTable()
-    Stage* query(PointTable& table,
-                 uint32_t tileSetId,
-                 double minx, double miny,
-                 double max, double maxy,
-                 uint32_t level);
 
      // just hides the type punning
      static void castPatchAsBuffer(const Patch&, unsigned char*& buf, uint32_t& bufLen);
@@ -190,8 +169,6 @@ private:
     std::unique_ptr<SQLite> m_sqlite;
     LogPtr m_log;
     int m_srid;
-    BufferReader* m_bufferReader;
-    CropFilter* m_cropFilter;
     bool m_needsIndexing;
     bool m_txStarted;
     

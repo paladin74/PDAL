@@ -43,8 +43,6 @@
 #include <pdal/PointView.hpp>
 #include <pdal/util/Bounds.hpp>
 #include <pdal/util/FileUtils.hpp>
-#include <pdal/BufferReader.hpp>
-#include "../filters/crop/CropFilter.hpp" // TODO: fix path
 
 #include <cstdint>
 
@@ -90,8 +88,6 @@ RialtoDb::RialtoDb(const std::string& connection, LogPtr log) :
     m_connection(connection),
     m_log(log),
     m_srid(4326),
-    m_bufferReader(NULL),
-    m_cropFilter(NULL),
     m_needsIndexing(false),
     m_txStarted(false),
     e_tilesRead("tilesRead"),
@@ -114,9 +110,7 @@ RialtoDb::~RialtoDb()
     {
         close();
     }
-    
-    delete m_bufferReader;
-    delete m_cropFilter;
+
     log()->get(LogLevel::Debug) << "~RialtoDB" << std::endl;
 }
 
@@ -701,6 +695,8 @@ void RialtoDb::queryForTileInfosBegin(uint32_t tileSetId,
 
     e_tilesRead.start();
     
+    printf("!!!!!!!!!!!!!!!%f %f %f %f %d\n", minx, miny, maxx, maxy, level);
+    
     log()->get(LogLevel::Debug) << "Querying tile set " << tileSetId
                                 << " for some tile infos" << std::endl;
 
@@ -762,6 +758,7 @@ bool RialtoDb::queryForTileInfos(TileInfo& info)
     
     m_numPointsRead += info.numPoints;
     
+    printf("got %d,%d,%d\n", info.level, info.column, info.row);
     return true;
 }
 
@@ -792,17 +789,6 @@ void RialtoDb::serializeToPointView(const TileInfo& info, PointViewPtr view)
 }
 
 
-void RialtoDb::setupPointTable(uint32_t tileSetId, PointTable& table) const
-{
-    // TODO: this should all be done in 1 query
-
-    TileSetInfo tileSetInfo;
-    readTileSetInfo(tileSetId, tileSetInfo);
-
-    setupLayout(tileSetInfo, table.layout());
-}
-
-
 void RialtoDb::setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout) const
 {
     for (uint32_t i=0; i<tileSetInfo.numDimensions; i++)
@@ -814,72 +800,6 @@ void RialtoDb::setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout
 
         layout->registerDim(nameId, typeId);
     }
-}
-
-
-Stage* RialtoDb::query(PointTable& table,
-                       uint32_t tileSetId,
-                       double minx, double miny,
-                       double maxx, double maxy,
-                       uint32_t level)
-{
-    if (!m_sqlite)
-    {
-        throw pdal_error("RialtoDB: invalid state (session does exist)");
-    }
-
-    log()->get(LogLevel::Debug) << "RialtoDb::querying tile set " << tileSetId
-                                << "  at level " << level
-                                << " with bounds ("
-                                << minx << ","
-                                << miny << ","
-                                << maxx << ","
-                                << maxy << ")"
-                                << std::endl;
-
-    delete m_bufferReader;
-    m_bufferReader = NULL;
-    delete m_cropFilter;
-    m_cropFilter = NULL;
-
-    std::vector<uint32_t> ids;
-    queryForTileIds(tileSetId, minx, miny, maxx, maxy, level, ids);
-
-    PointViewPtr view(new PointView(table));
-
-    uint32_t pointIndex = 0;
-    for (auto id: ids)
-    {
-        TileInfo info;
-        readTileInfo(id, true, info);
-
-        log()->get(LogLevel::Debug) << "  got some points: " << info.numPoints << std::endl;
-
-        serializeToPointView(info, view);
-
-        log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
-    }
-
-    Options readerOptions;
-    m_bufferReader = new BufferReader(); // TODO: needs ptr
-    m_bufferReader->setOptions(readerOptions);
-    m_bufferReader->addView(view);
-    m_bufferReader->setSpatialReference(SpatialReference("EPSG:4326"));
-
-    // TODO: we set Z bounds because BOX3D::compare(), used inside the crop
-    // filter, will get it wrong if we don't
-    const double minz = (std::numeric_limits<double>::lowest)();
-    const double maxz = (std::numeric_limits<double>::max)();
-    BOX3D dstBounds(minx, miny, minz, maxx, maxy, maxz);
-    Options cropOpts;
-    cropOpts.add("bounds", dstBounds);
-    //cropOpts.add("verbose", LogLevel::Debug5);
-
-    m_cropFilter = new CropFilter(); // TODO: needs ptr
-    m_cropFilter->setOptions(cropOpts);
-    m_cropFilter->setInput(*m_bufferReader);
-
-    return m_cropFilter;
 }
 
 

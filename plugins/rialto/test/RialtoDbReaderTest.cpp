@@ -83,12 +83,12 @@ TEST(RialtoDbReaderTest, test)
       PointViewPtr view = *viewSet.begin();
       EXPECT_EQ(view->size(), 8u);
   }
-  
+
   {
-      Options opts;
       BOX3D bounds(0.0, 0.0, 0.0, 10.0, 10.0, 10.0);
-      opts.add("bbox", bounds);
-      reader.setOptions(opts);
+      options.remove("bbox");
+      options.add("bbox", bounds);
+      reader.setOptions(options);
   
       PointTable table;
       reader.prepare(table);
@@ -98,12 +98,12 @@ TEST(RialtoDbReaderTest, test)
       PointViewPtr view = *viewSet.begin();
       EXPECT_EQ(view->size(), 0u);
   }
-
+  
   {
-      Options opts;
       BOX3D bounds(1.0, 1.0, -10000, 89.0, 89.0, 10000.0);
-      opts.add("bbox", bounds);
-      reader.setOptions(opts);
+      options.remove("bbox");
+      options.add("bbox", bounds);
+      reader.setOptions(options);
   
       PointTable table;
       reader.prepare(table);

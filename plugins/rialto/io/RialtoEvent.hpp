@@ -34,10 +34,7 @@
 
 #pragma once
 
-#include <pdal/pdal_export.hpp>
-
-#include <cstdint>
-#include <string>
+#include <pdal/pdal.hpp>
 
 
 namespace pdal

@@ -42,6 +42,7 @@
 
 #include <pdal/BufferReader.hpp>
 #include <tiler/TilerFilter.hpp>
+#include <crop/CropFilter.hpp>
 #include <stats/StatsFilter.hpp>
 
 #include "Support.hpp"
@@ -49,6 +50,7 @@
 #include <boost/filesystem.hpp>
 
 #include "../plugins/rialto/io/RialtoDb.hpp" // TODO: fix path
+#include "../plugins/rialto/io/RialtoDbReader.hpp" // TODO: fix path
 #include "../plugins/sqlite/io/SQLiteCommon.hpp" // TODO: fix path
 #include "RialtoTest.hpp"
 
@@ -305,20 +307,23 @@ TEST(RialtoDbWriterTest, testWriter)
     }
 
     {
+        RialtoDbReader reader;
+        Options options;
+        options.add("filename", filename);
+        //options.add("verbose", LogLevel::Debug);
+        BOX3D bounds(0.1, 0.1, -999999, 179.9, 89.9, 999999);
+        options.add("bbox", bounds);
+        reader.setOptions(options);
+        
         PointTable table;
-        db.setupPointTable(tileSetId, table);
-
-        Stage* stage = db.query(table, tileSetIds[0], 0.1, 0.1, 179.9, 89.9, 2);
-
-        // execution
-        stage->prepare(table);
-        PointViewSet outputViews = stage->execute(table);
-
-        EXPECT_EQ(outputViews.size(), 1u);
-        PointViewPtr outView = *(outputViews.begin());
-        EXPECT_EQ(outView->size(), 2u);
-        RialtoTest::verifyPointToData(outView, 0, actualData[4]);
-        RialtoTest::verifyPointToData(outView, 1, actualData[5]);
+        reader.prepare(table);
+        PointViewSet viewSet = reader.execute(table);
+        
+        EXPECT_EQ(viewSet.size(), 1u);
+        PointViewPtr view = *(viewSet.begin());
+        EXPECT_EQ(view->size(), 2u);
+        RialtoTest::verifyPointToData(view, 0, actualData[4]);
+        RialtoTest::verifyPointToData(view, 1, actualData[5]);
     }
 
     db.close();
@@ -342,8 +347,6 @@ TEST(RialtoDbWriterTest, testOscar)
         PointTable table;
         PointViewPtr inputView(new PointView(table));
         actualData = RialtoTest::sampleDataInit(table, inputView);
-
-        // stages
         RialtoTest::createDatabase(table, inputView, filename, 2);
     }
 
@@ -351,68 +354,70 @@ TEST(RialtoDbWriterTest, testOscar)
     {
         LogPtr log(new Log("rialtodbwritertest", "stdout"));
 
-        // open the db for reading
-        RialtoDb db(filename, log);
-        db.open(false);
-
-        // we only have 1 tile set in the database: get it's id
-        std::vector<uint32_t> tileSetIds;
-        db.readTileSetIds(tileSetIds);
-        const uint32_t tileSetId = tileSetIds[0];
-
-        // how many levels do we have?
-        RialtoDb::TileSetInfo tileSetInfo;
-        db.readTileSetInfo(tileSetId, tileSetInfo);
-        const uint32_t bestLevel = tileSetInfo.maxLevel;
-
-        // NOTE: this table/query/stage/execute mechanism will likely be
-        // replaced by a formal Reader down the road, in proper pdal fashion
-
         // get ready to execute...
-        PointTable table;
-        db.setupPointTable(tileSetId, table);
         PointViewSet views;
         PointViewPtr view;
 
-        // do the big expensive query, which builds your pipeline
-        // NOTE: api will change, this should be a StagePtr or some such
-        // NOTE: api may change, I should use the BBOX class probably
-        Stage* stage1 = db.query(table, tileSetId, 0.1, 0.1, 90.0, 89.9, bestLevel);
+        // make the reader
+        // it will always use the first (and only...) tile set in the db
+        // the default is to use the maximum (best) level of the tile tree
+        RialtoDbReader reader;
+        Options options;
+        options.add("filename", filename);
+        //options.add("verbose", LogLevel::Debug);
+        reader.setOptions(options);
 
-        // NOTE: we'll always return a valid stage, even if we know there are no points
-        EXPECT_TRUE(stage1 != NULL);
+        {
+            BOX3D bounds1(0.1, 0.1, -999999, 89.9, 89.9, 999999);
+            options.add("bbox", bounds1);
+            reader.setOptions(options);
+                
+            // go!
+            PointTable table1;
+            reader.prepare(table1);
+            views = reader.execute(table1);
 
-        // go!
-        stage1->prepare(table);
-        views = stage1->execute(table);
-
-        // check our output: we should have one point view, with 2 points in it
-        EXPECT_EQ(views.size(), 1u);
-        view = *(views.begin());
-        EXPECT_EQ(view->size(), 1u);
-        RialtoTest::verifyPointToData(view, 0, actualData[4]);
-
+            // check our output: we should have one point view, with 1 point in it
+            EXPECT_EQ(views.size(), 1u);
+            view = *(views.begin());
+            EXPECT_EQ(view->size(), 1u);
+            RialtoTest::verifyPointToData(view, 0, actualData[4]);
+        }
+        
         // That was so much fun, let's do it again!
-        Stage* stage2 = db.query(table, tileSetId, -179.9, -89.9, -0.1, -0.1, bestLevel);
-        stage2->prepare(table);
-        views = stage2->execute(table);
+        {
+            BOX3D bounds2(-179.9, -89.9, -999999, -0.1, -0.1, 999999);
+            //Options options2;
+            options.remove("bbox");
+            options.add("bbox", bounds2);
+            reader.setOptions(options);
 
-        // check output again
-        EXPECT_EQ(views.size(), 1u);
-        view = *(views.begin());
-        EXPECT_EQ(view->size(), 2u);
-        RialtoTest::verifyPointToData(view, 0, actualData[2]);
-        RialtoTest::verifyPointToData(view, 1, actualData[3]);
+            PointTable table2;
+            reader.prepare(table2);
+            views = reader.execute(table2);
 
+            // check output again
+            EXPECT_EQ(views.size(), 1u);
+            view = *(views.begin());
+            EXPECT_EQ(view->size(), 2u);
+            RialtoTest::verifyPointToData(view, 0, actualData[2]);
+            RialtoTest::verifyPointToData(view, 1, actualData[3]);
+        }
+        
         // And a third time!
-        Stage* stage3 = db.query(table, tileSetId, 50.0, 50.0, 51.0, 51.0, bestLevel);
-        stage3->prepare(table);
-        views = stage3->execute(table);
-        EXPECT_EQ(views.size(), 1u);
-        view = *(views.begin());
-        EXPECT_EQ(view->size(), 0u);
+        {
+            BOX3D bounds3(50.0, 50.0, -999999, 51.0, 51.0, 999999);
+            options.remove("bbox");
+            options.add("bbox", bounds3);
+            reader.setOptions(options);
 
-        db.close();
+            PointTable table3;
+            reader.prepare(table3);
+            views = reader.execute(table3);
+            EXPECT_EQ(views.size(), 1u);
+            view = *(views.begin());
+            EXPECT_EQ(view->size(), 0u);
+        }
     }
 
     delete[] actualData;
@@ -446,23 +451,14 @@ TEST(RialtoDbWriterTest, testRandom)
     {
         LogPtr log(new Log("rialtodbwritertest", "stdout"));
 
-        // open the db for reading
-        RialtoDb db(filename, log);
-        db.open(false);
-
-        // we only have 1 tile set in the database: get it's id
-        std::vector<uint32_t> tileSetIds;
-        db.readTileSetIds(tileSetIds);
-        const uint32_t tileSetId = tileSetIds[0];
-
-        RialtoDb::TileSetInfo tileSetInfo;
-        db.readTileSetInfo(tileSetId, tileSetInfo);
-        const uint32_t bestLevel = tileSetInfo.maxLevel;
-
-        PointTable table;
-        db.setupPointTable(tileSetId, table);
         PointViewSet views;
         PointViewPtr view;
+
+        RialtoDbReader reader;
+        Options options;
+        options.add("filename", filename);
+        //options.add("verbose", LogLevel::Debug);
+        reader.setOptions(options);
 
         for (int i=0; i<NUM_QUERIES; i++)
         {
@@ -472,16 +468,30 @@ TEST(RialtoDbWriterTest, testRandom)
             double miny = Utils::random(-89.9, 89.9);
             double maxy = Utils::random(-89.9, 89.9);
             if (miny > maxy) std::swap(miny, maxy);
+            
+            const double minz = -999999.0;
+            const double maxz = 999999.0;
+            
+            BOX3D bounds(minx, miny, minz, maxx, maxy, maxz);
+            options.remove("bbox");
+            options.add("bbox", bounds);
+            reader.setOptions(options);
 
-            Stage* stage1 = db.query(table, tileSetId, minx, miny, maxx, maxy, bestLevel);
-
-            stage1->prepare(table);
-            views = stage1->execute(table);
+            
+            CropFilter crop;
+            Options co;
+            co.add("bounds", bounds);
+            crop.setInput(reader);
+            crop.setOptions(co);
+            
+            PointTable table;
+            crop.prepare(table);
+            views = crop.execute(table);
             EXPECT_EQ(views.size(), 1u);
             view = *(views.begin());
             uint32_t c = view->size();
 
-            RialtoTest::verifyPointsInBounds(view, minx, miny, maxx, maxy);
+            //RialtoTest::verifyPointsInBounds(view, minx, miny, maxx, maxy);
             uint32_t expected = RialtoTest::countPointsInBounds(actualData, NUM_POINTS, minx, miny, maxx, maxy);
             EXPECT_EQ(expected, view->size());
         }
@@ -531,7 +541,7 @@ TEST(RialtoDbWriterTest, writePerf)
 
 
 TEST(RialtoDbWriterTest, readPerf)
-{return;
+{
     RialtoEvent e_all("allTests");
     RialtoEvent e_read("readPart");
         
@@ -571,10 +581,14 @@ TEST(RialtoDbWriterTest, readPerf)
         db.readTileSetInfo(tileSetId, tileSetInfo);
         const uint32_t bestLevel = tileSetInfo.maxLevel;
 
-        PointTable table;
-        db.setupPointTable(tileSetId, table);
         PointViewSet views;
         PointViewPtr view;
+
+        RialtoDbReader reader;
+        Options options;
+        options.add("filename", filename);
+        //options.add("verbose", LogLevel::Debug);
+        reader.setOptions(options);
 
         for (int i=0; i<NUM_QUERIES; i++)
         {
@@ -585,12 +599,19 @@ TEST(RialtoDbWriterTest, readPerf)
             double maxy = Utils::random(-89.9, 89.9);
             if (miny > maxy) std::swap(miny, maxy);
 
+            const double minz = -999999.0;
+            const double maxz = 999999.0;
+
             e_read.start();
+            
+            BOX3D bounds(minx, miny, minz, maxx, maxy, maxz);
+            options.remove("bbox");
+            options.add("bbox", bounds);
+            reader.setOptions(options);
 
-            Stage* stage1 = db.query(table, tileSetId, minx, miny, maxx, maxy, bestLevel);
-
-            stage1->prepare(table);
-            views = stage1->execute(table);
+            PointTable table;
+            reader.prepare(table);
+            views = reader.execute(table);
 
             e_read.stop();
         }

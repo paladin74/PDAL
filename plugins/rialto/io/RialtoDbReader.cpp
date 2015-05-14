@@ -71,8 +71,6 @@ void RialtoDbReader::initialize()
         m_tileSetInfo = std::unique_ptr<RialtoDb::TileSetInfo>(new RialtoDb::TileSetInfo());
 
         m_db->readTileSetInfo(m_tileSetId, *m_tileSetInfo);
-    
-        m_level = m_tileSetInfo->maxLevel;
     }
 }
 
@@ -89,6 +87,8 @@ Options RialtoDbReader::getDefaultOptions()
 
 void RialtoDbReader::processOptions(const Options& options)
 {
+    m_filename = options.getValueOrThrow<std::string>("filename");
+    
     log()->get(LogLevel::Debug) << "RialtoDbReader::processOptions()" << std::endl;
     
     static const double minx = -179.9;
@@ -103,6 +103,8 @@ void RialtoDbReader::processOptions(const Options& options)
     
     log()->get(LogLevel::Debug) << "process options: bbox="
         << m_query << std::endl;
+
+    m_level = options.getValueOrDefault<uint32_t>("level", 9999);
 }
 
 
@@ -132,9 +134,15 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
     const double maxx = m_query.maxx;
     const double maxy = m_query.maxy;
 
+    uint32_t maxLevel = m_level;
+    if (maxLevel == 9999)
+    {
+        maxLevel = m_tileSetInfo->maxLevel;
+    }
+    
 #if 0
     std::vector<uint32_t> ids;
-    m_db->queryForTileIds(m_tileSetId, minx, miny, maxx, maxy, m_level, ids);
+    m_db->queryForTileIds(m_tileSetId, minx, miny, maxx, maxy, maxLevel, ids);
 
     for (auto id: ids) 
     {
@@ -148,8 +156,7 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
         log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
     }
 #else
-    std::vector<uint32_t> ids;
-    m_db->queryForTileInfosBegin(m_tileSetId, minx, miny, maxx, maxy, m_level);
+    m_db->queryForTileInfosBegin(m_tileSetId, minx, miny, maxx, maxy, maxLevel);
 
     RialtoDb::TileInfo info;
     do {    
@@ -165,6 +172,11 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
 #endif
   
     return view->size();
+}
+
+void Options::remove(const std::string& name)
+{
+    m_options.erase(name);
 }
 
 } // namespace pdal
