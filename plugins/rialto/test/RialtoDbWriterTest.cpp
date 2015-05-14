@@ -541,7 +541,7 @@ TEST(RialtoDbWriterTest, writePerf)
 
 
 TEST(RialtoDbWriterTest, readPerf)
-{
+{return;
     RialtoEvent e_all("allTests");
     RialtoEvent e_read("readPart");
         

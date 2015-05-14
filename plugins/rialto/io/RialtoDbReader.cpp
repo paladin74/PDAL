@@ -159,13 +159,26 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
     m_db->queryForTileInfosBegin(m_tileSetId, minx, miny, maxx, maxy, maxLevel);
 
     RialtoDb::TileInfo info;
+
     do {    
         bool ok = m_db->queryForTileInfos(info);
         if (!ok) break;
         
         log()->get(LogLevel::Debug) << "  got some points: " << info.numPoints << std::endl;
 
-        m_db->serializeToPointView(info, view);
+        
+        PointViewPtr tempView = view->makeNew();
+
+        m_db->serializeToPointView(info, tempView);
+
+        for (uint32_t i=0; i<tempView->size(); i++) {
+            const double x = tempView->getFieldAs<double>(Dimension::Id::X, i);
+            const double y = tempView->getFieldAs<double>(Dimension::Id::Y, i);
+            if (x >= minx && x <= maxx && y >= miny && y <= maxy)
+            {
+                view->appendPoint(*tempView, i);
+            }
+        }
 
         log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
     } while (m_db->queryForTileInfosNext());

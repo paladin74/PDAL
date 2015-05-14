@@ -694,9 +694,7 @@ void RialtoDb::queryForTileInfosBegin(uint32_t tileSetId,
     }
 
     e_tilesRead.start();
-    
-    printf("!!!!!!!!!!!!!!!%f %f %f %f %d\n", minx, miny, maxx, maxy, level);
-    
+        
     log()->get(LogLevel::Debug) << "Querying tile set " << tileSetId
                                 << " for some tile infos" << std::endl;
 
@@ -758,7 +756,6 @@ bool RialtoDb::queryForTileInfos(TileInfo& info)
     
     m_numPointsRead += info.numPoints;
     
-    printf("got %d,%d,%d\n", info.level, info.column, info.row);
     return true;
 }
 
@@ -804,7 +801,7 @@ void RialtoDb::setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout
 
 
 void RialtoDb::dumpStats() const
-{
+{return;
     e_tilesRead.dump();
     e_tileSetsRead.dump();
     e_tilesWritten.dump();
