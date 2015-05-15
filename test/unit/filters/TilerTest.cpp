@@ -353,7 +353,6 @@ TEST(TilerTest, test_tiler_filter)
     EXPECT_TRUE(tileNodes.valid());
 
     EXPECT_EQ(outputViews.size(), 2u + 8u + 1u);
-    EXPECT_EQ(tileNodes.children().size(), 18u);
 
     ViewsMap viewsMap;
     populateMap(viewsMap, outputViews);
