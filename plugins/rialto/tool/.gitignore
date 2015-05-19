@@ -1,0 +1,4 @@
+!Makefile
+rialto
+rialto.dSYM
+*.sqlite

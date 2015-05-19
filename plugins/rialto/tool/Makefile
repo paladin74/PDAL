@@ -1,7 +1,8 @@
 
 
-PDAL_INC=/Users/mgerlek/work/dev/PDAL/include
-PDAL_LIB=/Users/mgerlek/work/dev/PDAL/lib
+PDAL_HOME=$(HOME)/work/dev/PDAL
+PDAL_INC=$(PDAL_HOME)/include
+PDAL_LIB=$(PDAL_HOME)/lib
 
 all:
 	g++ -o rialto rialto.cpp Tool.cpp \

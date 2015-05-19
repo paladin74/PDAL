@@ -39,6 +39,9 @@
 #include <../io/faux/FauxReader.hpp>
 #include <../io/las/LasReader.hpp>
 #include <../io/las/LasWriter.hpp>
+#include <../filters/tiler/TilerFilter.hpp>
+#include <../filters/stats/StatsFilter.hpp>
+#include <../filters/reprojection/ReprojectionFilter.hpp>
 #include <../plugins/rialto/io/RialtoDbReader.hpp>
 #include <../plugins/rialto/io/RialtoDbWriter.hpp>
 #include <../plugins/rialto/io/RialtoFileWriter.hpp>
@@ -67,18 +70,18 @@ static bool streq(const char* p, const char* q)
 
 
 Tool::Tool() :
-    inputFile(NULL), outputFile(NULL),
-    inputType(TypeInvalid), outputType(TypeInvalid),
-    maxLevel(20)
-{   
-    // TODO: for now, we only query at maxLevel
-    qMinX=-189.9, qMinY=-89.9, qMaxX=189.9, qMaxY=89.9;
-    haveQuery = false;
-
-    // random defaults
-    rMinX=-189.9, rMinY=-89.9, rMaxX=189.9, rMaxY=89.9;
-    rCount = 1000;
-    haveRandom = false;
+    m_inputName(NULL),
+    m_outputName(NULL),
+    m_inputType(TypeInvalid),
+    m_outputType(TypeInvalid),
+    m_maxLevel(15),
+    m_rBounds(BOX3D(-189.9, -89.9, 189.9, 89.9, -999999.0, 999999.0)),
+    m_qBounds(BOX3D(-189.9, -89.9, 189.9, 89.9, -999999.0, 999999.0)),
+    m_haveQuery(false),
+    m_haveRandom(false),
+    m_rCount(1000)
+{
+    Utils::random_seed(17);
 }
 
 
@@ -90,13 +93,13 @@ Tool::FileType Tool::inferType(const char* p)
 {
     if (streq(p, "null")) return TypeNull;
     if (streq(p, "random")) return TypeRandom;
-    
+
     const char* ext = strrchr(p, '.');
     if (streq(ext, ".las")) return TypeLas;
     if (streq(ext, ".laz")) return TypeLaz;
     if (streq(ext, ".json")) return TypeTiles;
     if (streq(ext, ".sqlite")) return TypeSqlite;
-    
+
     return TypeInvalid;
 }
 
@@ -104,55 +107,53 @@ Tool::FileType Tool::inferType(const char* p)
 void Tool::processOptions(int argc, char* argv[])
 {
     int i = 1;
-    
+
     while (i < argc)
     {
         if (streq(argv[i], "-i"))
         {
-            inputFile = argv[++i];
+            m_inputName = argv[++i];
         }
         else if (streq(argv[i], "-o"))
         {
-            outputFile = argv[++i];
+            m_outputName = argv[++i];
         }
         else if (streq(argv[i], "-q"))
         {
-            qMinX = atof(argv[++i]);
-            qMinY = atof(argv[++i]);
-            qMaxX = atof(argv[++i]);
-            qMaxY = atof(argv[++i]);
-            qBounds = BOX3D(qMinX, qMinY, qMaxX, qMaxY, -999999.999, 999999.999);
-            haveQuery = true;
+            m_qBounds.minx = atof(argv[++i]);
+            m_qBounds.miny = atof(argv[++i]);
+            m_qBounds.maxx = atof(argv[++i]);
+            m_qBounds.maxy = atof(argv[++i]);
+            m_haveQuery = true;
         }
         else if (streq(argv[i], "-r"))
         {
-            rMinX = atof(argv[++i]);
-            rMinY = atof(argv[++i]);
-            rMaxX = atof(argv[++i]);
-            rMaxY = atof(argv[++i]);
-            rCount = atoi(argv[i++]);
-            rBounds = BOX3D(rMinX, rMinY, rMaxX, rMaxY, -999999.999, 999999.999);
-            haveRandom = true;
+            m_rBounds.minx = atof(argv[++i]);
+            m_rBounds.miny = atof(argv[++i]);
+            m_rBounds.maxx = atof(argv[++i]);
+            m_rBounds.maxy = atof(argv[++i]);
+            m_rCount = atoi(argv[i++]);
+            m_haveRandom = true;
         }
         else if (streq(argv[i], "-v"))
         {
-            haveVerify = true;
+            m_haveVerify = true;
         }
         else
         {
             error("unrecognized option", argv[i]);
         }
-        
+
         ++i;
     }
-    
-    if (!inputFile) error("input file not specified");
-    if (!outputFile) error("output file not specified");
-    
-    inputType = inferType(inputFile);
-    outputType = inferType(outputFile);
-    
-    switch (inputType)
+
+    if (!m_inputName) error("input file not specified");
+    if (!m_outputName) error("output file not specified");
+
+    m_inputType = inferType(m_inputName);
+    m_outputType = inferType(m_outputName);
+
+    switch (m_inputType)
     {
         case TypeRandom:
         case TypeLas:
@@ -168,7 +169,7 @@ void Tool::processOptions(int argc, char* argv[])
             assert(0);
     }
 
-    switch (outputType)
+    switch (m_outputType)
     {
         case TypeNull:
         case TypeLas:
@@ -183,32 +184,32 @@ void Tool::processOptions(int argc, char* argv[])
         default:
             assert(0);
     }
-    
-    if (haveRandom && inputType != TypeRandom)
+
+    if (m_haveRandom && m_inputType != TypeRandom)
     {
         error("random mode (-r) requires random input (-i random)");
     }
-    
-    if (haveQuery && inputType != TypeSqlite)
+
+    if (m_haveQuery && m_inputType != TypeSqlite)
     {
         error("query mode (-q) requires sqlite input (-i NAME.sqlite)");
     }
 }
 
 
-Reader* Tool::createReader()
+Stage* Tool::createReader()
 {
-    return createReader(inputFile, inputType, rBounds, rCount);
+    return createReader(m_inputName, m_inputType, m_rBounds, m_rCount);
 }
 
 
-Writer* Tool::createWriter()
+Stage* Tool::createWriter()
 {
-    return createWriter(outputFile, outputType);
+    return createWriter(m_outputName, m_outputType);
 }
 
 
-Reader* Tool::createReader(const char* name, FileType type, const BOX3D& rBounds, uint32_t rCount)
+Stage* Tool::createReader(const char* name, FileType type, const BOX3D& rBounds, uint32_t rCount)
 {
     Options opts;
     Reader* reader = NULL;
@@ -237,19 +238,19 @@ Reader* Tool::createReader(const char* name, FileType type, const BOX3D& rBounds
             assert(0);
             break;
     }
-    
+
     reader->setOptions(opts);
     return reader;
 }
 
 
-Writer* Tool::createWriter(const char* name, FileType type)
+Stage* Tool::createWriter(const char* name, FileType type)
 {
     FileUtils::deleteFile(name);
 
     Options opts;
     Writer* writer = NULL;
-    
+
     switch (type)
     {
         case TypeNull:
@@ -277,9 +278,38 @@ Writer* Tool::createWriter(const char* name, FileType type)
             assert(0);
             break;
     }
-    
+
     writer->setOptions(opts);
     return writer;
+}
+
+
+Stage* Tool::createReprojectionFilter()
+{
+    Options reprojOptions;
+    ReprojectionFilter* reproj = new ReprojectionFilter();
+    reprojOptions.add("out_srs", "EPSG:4326");
+    reproj->setOptions(reprojOptions);
+    return reproj;
+}
+
+
+Stage* Tool::createStatsFilter()
+{
+    Options statsOptions;
+    StatsFilter* stats = new StatsFilter();
+    stats->setOptions(statsOptions);
+    return stats;
+}
+
+
+Stage* Tool::createTilerFilter()
+{
+    Options tilerOptions;
+    tilerOptions.add("maxLevel", m_maxLevel);
+    TilerFilter* tiler = new TilerFilter();
+    tiler->setOptions(tilerOptions);
+    return tiler;
 }
 
 
@@ -297,22 +327,28 @@ static void verifyPoints(PointViewPtr viewA, PointViewPtr viewE)
         const double yE = viewE->getFieldAs<double>(Dimension::Id::Y, i);
         const double zE = viewE->getFieldAs<double>(Dimension::Id::Z, i);
 
-        if (xA != xE) error("verify failed", "x");
-        if (yA != yE) error("verify failed", "y");
-        if (zA != zE) error("verify failed", "z");
+        if (xA != xE || yA != yE || zA != zE)
+        {
+          char buf[1024];
+          sprintf(buf, "%i:\n\txA=%f\txE=%f\n\tyA=%f\tyE=%f\n\tzA=%f\tzE=%f\n",
+              i, xA, xE, yA, yE, zA, zE);
+          error("verify failed", buf);
+        }
     }
 }
 
 
 void Tool::verify()
 {
-    if (!haveVerify) return;
-    
+    if (!m_haveVerify) return;
+
     BOX3D unusedBox;
     uint32_t unusedCount;
-    
-    Reader* readerExpected = createReader(inputFile, inputType, rBounds, rCount);
-    Reader* readerActual = createReader(outputFile, outputType, unusedBox, unusedCount);
+
+    Stage* readerExpected1 = createReader(m_inputName, m_inputType, m_rBounds, m_rCount);
+    Stage* readerExpected2 = createReprojectionFilter();
+    readerExpected2->setInput(*readerExpected1);
+    Stage* readerActual = createReader(m_outputName, m_outputType, unusedBox, unusedCount);
 
     PointViewSet viewsActual;
     PointViewPtr viewActual;
@@ -324,14 +360,14 @@ void Tool::verify()
     viewsActual = readerActual->execute(tableActual);
 
     pdal::PointTable tableExpected;
-    readerExpected->prepare(tableExpected);
-    viewsExpected = readerExpected->execute(tableExpected);
+    readerExpected2->prepare(tableExpected);
+    viewsExpected = readerExpected2->execute(tableExpected);
 
     if (viewsActual.size() != viewsExpected.size() || viewsActual.size() != 1)
     {
         error("verify failed", "unequal view set sizes");
     }
-    
+
     viewActual = *(viewsActual.begin());
     viewExpected = *(viewsExpected.begin());
 
@@ -340,6 +376,7 @@ void Tool::verify()
     {
         error("verify failed", "unequal view sizes");
     }
-    
+
     verifyPoints(viewActual, viewExpected);
+    printf("verify passed\n");
 }

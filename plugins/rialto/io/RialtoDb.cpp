@@ -183,7 +183,7 @@ void RialtoDb::close()
         {
             m_sqlite->commit();
         }
-        
+
         std::ostringstream oss2;
         oss2 << "CREATE INDEX index_name ON Tiles(column,row)";
         m_sqlite->execute(oss2.str());
@@ -541,7 +541,7 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
         m_sqlite->begin();
         m_txStarted = true;
     }
-    
+
     unsigned char* buf = NULL;
     uint32_t buflen = 0;
     castPatchAsBuffer(data.patch, buf, buflen);
@@ -549,7 +549,7 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
     assert(buflen);
 
     // note we don't use 'mask' in the database version of tiles
-    const std::string sql = 
+    const std::string sql =
         "INSERT INTO Tiles "
         "(tile_set_id, level, column, row, numPoints, points) "
         "VALUES (?, ?, ?, ?, ?, ?)";
@@ -694,7 +694,7 @@ void RialtoDb::queryForTileInfosBegin(uint32_t tileSetId,
     }
 
     e_tilesRead.start();
-        
+
     log()->get(LogLevel::Debug) << "Querying tile set " << tileSetId
                                 << " for some tile infos" << std::endl;
 
@@ -723,7 +723,7 @@ void RialtoDb::queryForTileInfosBegin(uint32_t tileSetId,
         << " AND row <= " << maxrow;
 
     m_sqlite->query(oss.str());
-    
+
     e_tilesRead.stop();
 }
 
@@ -731,9 +731,9 @@ void RialtoDb::queryForTileInfosBegin(uint32_t tileSetId,
 bool RialtoDb::queryForTileInfos(TileInfo& info)
 {
     e_tilesRead.start();
-    
+
     const row* r = m_sqlite->get();
-    
+
     if (!r) return false;
 
     //assert(tileId == boost::lexical_cast<uint32_t>(r->at(0).data));
@@ -751,11 +751,11 @@ bool RialtoDb::queryForTileInfos(TileInfo& info)
         const unsigned char *pos = (const unsigned char *)&(blobBuf[0]);
         info.patch.putBytes(pos, blobLen);
     }
-    
+
     e_tilesRead.stop();
-    
+
     m_numPointsRead += info.numPoints;
-    
+
     return true;
 }
 
@@ -810,8 +810,23 @@ void RialtoDb::dumpStats() const
     e_creation.dump();
     e_indexCreation.dump();
 
-    printf("pointsRead: %u\n", m_numPointsRead);
-    printf("pointsWritten: %u\n", m_numPointsWritten);
+    if (m_numPointsRead)
+    {
+        printf("pointsRead: %u\n", m_numPointsRead);
+    }
+    else
+    {
+        printf("pointsRead: -\n");
+    }
+
+    if (m_numPointsWritten)
+    {
+        printf("pointsWritten: %u\n", m_numPointsWritten);
+    }
+    else
+    {
+      printf("pointsWritten: -\n");    
+    }
 }
 
 } // namespace pdal

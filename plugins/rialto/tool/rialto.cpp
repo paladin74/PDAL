@@ -33,9 +33,6 @@
 ****************************************************************************/
 
 #include <pdal/pdal.hpp>
-#include <../filters/tiler/TilerFilter.hpp>
-#include <../filters/stats/StatsFilter.hpp>
-#include <../filters/reprojection/ReprojectionFilter.hpp>
 
 #include "Tool.hpp"
 
@@ -47,39 +44,31 @@
 int main(int argc, char* argv[])
 {
     Tool tool;
-    
+
     tool.processOptions(argc, argv);
-    
-    pdal::Reader* reader = tool.createReader();
-    pdal::Writer* writer = tool.createWriter();    
-    
-    Options reprojOptions;
-    ReprojectionFilter reproj;
-    reprojOptions.add("out_srs", "EPSG:4326");
-    reproj.setOptions(reprojOptions);
-    reproj.setInput(*reader);
 
-    Options statsOptions;
-    StatsFilter stats;
-    stats.setOptions(statsOptions);
-    stats.setInput(reproj);
+    pdal::Stage* reader = tool.createReader();
+    pdal::Stage* reproj = tool.createReprojectionFilter();
+    pdal::Stage* stats = tool.createStatsFilter();
+    pdal::Stage* tiler = tool.createTilerFilter();
+    pdal::Stage* writer = tool.createWriter();
 
-    Options tilerOptions;
-    tilerOptions.add("maxLevel", 18);  // TODO
-    TilerFilter tiler;
-    tiler.setOptions(tilerOptions);
-    tiler.setInput(stats);
+    reproj->setInput(*reader);
+    stats->setInput(*reproj);
+    tiler->setInput(*stats);
+    writer->setInput(*tiler);
 
-    writer->setInput(tiler);
-    
     pdal::PointTable table;
     writer->prepare(table);
     writer->execute(table);
 
     tool.verify();
-    
+
     delete writer;
+    delete tiler;
+    delete stats;
+    delete reproj;
     delete reader;
-    
+
     return 0;
 }

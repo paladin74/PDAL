@@ -84,6 +84,8 @@ void RialtoDbWriter::writeTile(uint32_t tileSetId, PointView* view, uint32_t lev
 {
     //log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
 
+    printf("writing tile %d/%d/%d\n", level, col, row);
+
     RialtoDb::TileInfo tileInfo;
     serializeToTileInfo(tileSetId, view, tileInfo, level, col, row, mask);
 
@@ -105,7 +107,7 @@ void RialtoDbWriter::processOptions(const Options& options)
     // we treat the target "filename" as the database name,
     // so we'll use a differently named variable to make it clear
     m_connection = m_filename;
-    
+
     m_tileSetName = options.getValueOrDefault<std::string>("tileSetName", "unnamed");
 }
 

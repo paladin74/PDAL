@@ -34,6 +34,7 @@
 
 #include <pdal/pdal.hpp>
 #include <pdal/Reader.hpp>
+#include <pdal/Filter.hpp>
 #include <pdal/Writer.hpp>
 
 using namespace pdal;
@@ -45,46 +46,47 @@ public:
     enum FileType
     {
         TypeInvalid,
-        TypeLas,
-        TypeLaz,
-        TypeSqlite,
-        TypeTiles,
-        TypeRandom,
-        TypeNull    
+        TypeLas,        // rw
+        TypeLaz,        // rw
+        TypeSqlite,     // rw
+        TypeTiles,      // w
+        TypeRandom,     // r
+        TypeNull        // w
     };
-    
+
     Tool();
     ~Tool();
-    
+
     void processOptions(int argc, char* argv[]);
-        
-    Reader* createReader();
-    Writer* createWriter();
-    
+
+    Stage* createReader();
+    Stage* createWriter();
+    Stage* createReprojectionFilter();
+    Stage* createStatsFilter();
+    Stage* createTilerFilter();
+
     void verify();
-    
+
 private:
     static FileType inferType(const char* p);
-    static Reader* createReader(const char* name, FileType type, const BOX3D& rBounds, uint32_t rCount);
-    static Writer* createWriter(const char* name, FileType type);
+    static Stage* createReader(const char* name, FileType type, const BOX3D& rBounds, uint32_t rCount);
+    static Stage* createWriter(const char* name, FileType type);
 
-    const char* inputFile;
-    const char* outputFile;
-    
-    FileType inputType;
-    FileType outputType;
+    const char* m_inputName;
+    const char* m_outputName;
 
-    bool haveVerify;
-    BOX3D rBounds;
-    BOX3D qBounds;
-    bool haveQuery;
-    bool haveRandom;
+    FileType m_inputType;
+    FileType m_outputType;
 
-    uint32_t maxLevel; // TODO
+    bool m_haveVerify;
+    BOX3D m_rBounds;
+    BOX3D m_qBounds;
+    bool m_haveQuery;
+    bool m_haveRandom;
+
+    uint32_t m_maxLevel; // TODO
 
     // TODO: for now, we only query at maxLevel
-    double qMinX, qMinY, qMaxX, qMaxY;
 
-    double rMinX, rMinY, rMaxX, rMaxY;
-    uint32_t rCount;
+    uint32_t m_rCount;
 };
