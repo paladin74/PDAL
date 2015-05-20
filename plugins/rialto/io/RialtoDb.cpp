@@ -251,7 +251,7 @@ void RialtoDb::createTableGpkgSpatialRefSys()
     row r1, r2, r3;
 return;
     r1.push_back(column("EPSG:4326"));
-    r1.push_back(column("1"));
+    r1.push_back(column(4326));
     r1.push_back(column("EPSG"));
     r1.push_back(column(4326));
     r1.push_back(column("EPSG:4326"));
@@ -259,21 +259,22 @@ return;
     rs.push_back(r1);
 
     r2.push_back(column("undefined_cartesian"));
-    r2.push_back(column("-1"));
+    r2.push_back(column(-1));
     r2.push_back(column("NONE"));
-    r2.push_back(column("-1"));
+    r2.push_back(column(-1));
     r2.push_back(column("undefined"));
     r2.push_back(column("undefined_cartesian"));
     rs.push_back(r2);
 
     r3.push_back(column("undefined_geographic"));
-    r3.push_back(column("0"));
+    r3.push_back(column(0));
     r3.push_back(column("NONE"));
-    r3.push_back(column("0"));
+    r3.push_back(column(0));
     r3.push_back(column("undefined"));
     r3.push_back(column("undefined_geographic"));
     rs.push_back(r3);
 
+printf("CCC\n");
     m_sqlite->insert(data, rs);
 }
 
@@ -312,10 +313,10 @@ void RialtoDb::createTableGpkgContents()
         "identifier TEXT,"
         "description TEXT,"
         "last_change DATETIME NOT NULL,"
-        "min_x DOUBLE NOT NULL,"
-        "min_y DOUBLE NOT NULL,"
-        "max_x DOUBLE NOT NULL,"
-        "max_y DOUBLE NOT NULL,"
+        "data_min_x DOUBLE NOT NULL," // data extents
+        "data_min_y DOUBLE NOT NULL,"
+        "data_max_x DOUBLE NOT NULL,"
+        "data_max_y DOUBLE NOT NULL,"
         "srs_id INTEGER,"
         "FOREIGN KEY(srs_id) REFERENCES gpkg_spatial_ref_sys(srs_id)"
         ")";
@@ -334,19 +335,11 @@ void RialtoDb::createTableGpkgPctileMatrixSet()
     const std::string sql =
         "CREATE TABLE gpkg_pctile_matrix_set("
         "table_name TEXT PRIMARY KEY NOT NULL,"
-        "data_type TEXT NOT NULL,"
-        "identifier TEXT,"
-        "description TEXT,"
-        "last_change DATETIME NOT NULL,"
-        "min_x DOUBLE NOT NULL," // data extents
-        "min_y DOUBLE NOT NULL,"
-        "max_x DOUBLE NOT NULL,"
-        "max_y DOUBLE NOT NULL,"
-        "srs_id INTEGER,"
-        "tileset_min_x DOUBLE NOT NULL," // tileset extents
-        "tileset_min_y DOUBLE NOT NULL,"
-        "tileset_max_x DOUBLE NOT NULL,"
-        "tileset_max_y DOUBLE NOT NULL,"
+        "srs_id INTEGER NOT NULL,"
+        "tmset_min_x DOUBLE NOT NULL," // data extents
+        "tmset_min_y DOUBLE NOT NULL,"
+        "tmset_max_x DOUBLE NOT NULL,"
+        "tmset_max_y DOUBLE NOT NULL,"
         "FOREIGN KEY(table_name) REFERENCES gpkg_contents(table_name)"
         "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_metadata_reference(table_name),"
@@ -423,6 +416,7 @@ void RialtoDb::createTableTilePyramidUserData(const std::string& table_name)
     r.push_back(column("read-write"));
     rs.push_back(r);
 
+printf("DDD\n");
     m_sqlite->insert(data, rs);
 }
 
@@ -436,7 +430,7 @@ void RialtoDb::createTableGpkgMetadata()
 
     const std::string sql =
         "CREATE TABLE gpkg_metadata("
-        "id INTEGER AUTOMINCREMENT PRIMARY KEY NOT NULL,"
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "md_scope TEXT NOT NULL,"
         "md_standard_uri TEXT NOT NULL,"
         "mime_type TEXT NOT NULL,"
@@ -791,29 +785,180 @@ uint32_t RialtoDb::writeTileSet(const RialtoDb::TileSetInfo& data)
 
     e_tileSetsWritten.start();
 
-    std::ostringstream oss;
-    oss << "INSERT INTO TileSets "
-        << "(name, maxLevel, numDims) "
-        << "VALUES (?, ?, ?)";
+    uint32_t tile_set_id;
+    {
+        std::ostringstream oss;
+        oss << "INSERT INTO TileSets "
+            << "(name, maxLevel, numDims) "
+            << "VALUES (?, ?, ?)";
 
-    records rs;
-    row r;
+        records rs;
+        row r;
 
-    r.push_back(column(data.name));
-    r.push_back(column(data.maxLevel));
-    r.push_back(column(data.numDimensions));
-    rs.push_back(r);
+        r.push_back(column(data.name));
+        r.push_back(column(data.maxLevel));
+        r.push_back(column(data.numDimensions));
+        rs.push_back(r);
 
-    m_sqlite->insert(oss.str(), rs);
+        m_sqlite->insert(oss.str(), rs);
 
-    long id = m_sqlite->last_row_id();
-    log()->get(LogLevel::Debug) << "inserted TileSet, id=" << id << std::endl;
+        tile_set_id = m_sqlite->last_row_id();
+        log()->get(LogLevel::Debug) << "inserted TileSet, id=" << tile_set_id << std::endl;
 
-    writeDimensions(id, data.dimensions);
+        writeDimensions(tile_set_id, data.dimensions);
+    }
+    
+    {
+        const std::string sql =
+            "INSERT INTO gpkg_contents"
+            " (table_name, data_type, identifier, description, last_change,"
+            " data_min_x, data_min_y, data_max_x, data_max_y, srs_id)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+        records rs;
+        row r;
+
+        r.push_back(column(data.name)); // table_name
+        r.push_back(column("pctiles")); // data_type
+        r.push_back(column(data.name)); // identifier
+        r.push_back(column(data.name)); // description
+        r.push_back(column("strftime('%Y-%m-%dT%H:%M:%fZ','now')")); // last_change
+        r.push_back(column(4326)); // srs_id
+        r.push_back(column(data.data_min_x));
+        r.push_back(column(data.data_min_y));
+        r.push_back(column(data.data_max_x));
+        r.push_back(column(data.data_max_y));
+
+        rs.push_back(r);
+
+printf("EEE\n");
+        m_sqlite->insert(sql, rs);
+    }
+    
+    {
+        const std::string sql =
+            "INSERT INTO gpkg_pctile_matrix_set"
+            " (table_name, srs_id,"
+            " tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y)"
+            " VALUES (?, ?, ?, ?, ?, ?)";
+
+        records rs;
+        row r;
+
+        r.push_back(column(data.name)); // table_name
+        r.push_back(column(4326)); // srs_id
+        r.push_back(column(data.tmset_min_x));
+        r.push_back(column(data.tmset_min_y));
+        r.push_back(column(data.tmset_max_x));
+        r.push_back(column(data.tmset_max_y));
+
+        rs.push_back(r);
+
+printf("FFF\n");
+        m_sqlite->insert(sql, rs);
+    }
+    
+    std::vector<uint32_t> dimension_ids;
+    {        
+        const std::string sql =
+            "INSERT INTO pctiles_dimension_type"
+            " (name, datatype)"
+            " VALUES (?, ?)";
+
+        for (auto dim: data.dimensions)
+        {
+            records rs;
+            row r;
+
+            r.push_back(column(dim.name.c_str()));
+            r.push_back(column(dim.dataType));
+            rs.push_back(r);
+
+printf("GGG\n");
+            m_sqlite->insert(sql, rs);
+            long id = m_sqlite->last_row_id();
+            dimension_ids.push_back(id);
+        }
+    }
+    
+    {
+        const std::string sql =
+            "INSERT INTO pctiles_dimension_set"
+            " (table_name, ordinal_position, dimension_type_id,"
+            " minimum, mean, maximum)"
+            " VALUES (?, ?, ?, ?, ?, ?)";
+        
+        int i = 0;
+        for (auto dim: data.dimensions)
+        {
+            records rs;
+            row r;
+            
+            r.push_back(column(data.name)); // table_name
+            r.push_back(column(i)); // ordinal_position
+            r.push_back(column(dimension_ids[i]));
+            r.push_back(column(dim.minimum));
+            r.push_back(column(dim.mean));
+            r.push_back(column(dim.maximum));
+
+            rs.push_back(r);
+
+            printf("AAA\n");
+            m_sqlite->insert(sql, rs);
+            
+            ++i;
+        }
+    }
+
+    uint32_t metadata_id;
+    {
+        const std::string sql =
+            "INSERT INTO gpkg_metadata"
+            " (md_scope, md_standard_uri, mime_type, metadata)"
+            " VALUES (?, ?, ?, ?)";
+
+        records rs;
+        row r;
+
+        r.push_back(column("dataset"));
+        r.push_back(column("LAS")); // TODO
+        r.push_back(column("text/xml")); // TODO
+        r.push_back(column("...data..."));
+
+        rs.push_back(r);
+        
+printf("HHH\n");
+        m_sqlite->insert(sql, rs);        
+
+        metadata_id = m_sqlite->last_row_id();
+    }
+
+    {
+        const std::string sql =
+            "INSERT INTO gpkg_metadata_reference"
+            " (reference_scope, table_name, column_name, row_id_value, timestamp, md_file_id, md_parent_id)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)";
+
+        records rs;
+        row r;
+
+        r.push_back(column("table")); // reference_scope
+        r.push_back(column(data.name)); // table_name
+        r.push_back(column("table")); // column_name
+        r.push_back(column("NULL")); // row_id_value
+        r.push_back(column("strftime('%Y-%m-%dT%H:%M:%fZ','now')")); // timestamp
+        r.push_back(column(metadata_id)); // md_file_id
+        r.push_back(column("NULL")); // md_parent_id
+
+        rs.push_back(r);
+        
+printf("BBB\n");
+        m_sqlite->insert(sql, rs);        
+    }
 
     e_tileSetsWritten.stop();
 
-    return id;
+    return tile_set_id;
 }
 
 

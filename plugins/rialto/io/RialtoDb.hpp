@@ -66,7 +66,7 @@ public:
     };
 
     // Rialto has some hard-coded restrictions:
-    //   we always use EPSG:4325
+    //   we always use EPSG:4326
     //   we always start with two tiles at the root
     //   we always cover the whole globe at the root
     //   we always do power-of-two reductions
@@ -76,6 +76,14 @@ public:
         uint32_t maxLevel;
         uint32_t numDimensions;
         std::vector<DimensionInfo> dimensions;
+        double data_min_x; // data extents
+        double data_min_y;
+        double data_max_x;
+        double data_max_y;
+        double tmset_min_x; // tile extents
+        double tmset_min_y;
+        double tmset_max_x;
+        double tmset_max_y;
     };
 
     struct TileInfo {
