@@ -150,8 +150,20 @@ public:
 private:
     // create the req'd tables in the db
     void createTileSetsTable();
+    void createTableGpkgContents();
     void createTilesTable();
     void createDimensionsTable();
+
+    void createGpkgId();
+    void createTableGpkgSpatialRefSys();
+    void createTableGpkgPctileMatrixSet();
+    void createTableGpkgPctileMatrix();
+    void createTableTilePyramidUserData(const std::string& table_name);
+    void createTableGpkgMetadata();
+    void createTableGpkgMetadataReference();
+    void createTableGpkgExtensions();
+    void createTablePctilesDimensionSet();
+    void createTablePctilesDimensionType();
 
     // add all the dimensions of the tile set
     void writeDimensions(uint32_t tileSetId,

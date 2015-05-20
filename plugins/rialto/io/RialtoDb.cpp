@@ -136,6 +136,18 @@ void RialtoDb::create()
     createTileSetsTable();
     createTilesTable();
     createDimensionsTable();
+    
+    createGpkgId();
+    createTableGpkgSpatialRefSys();
+    createTableGpkgContents();
+    createTableGpkgPctileMatrixSet();
+    createTableGpkgPctileMatrix();
+    createTableGpkgMetadata();
+    createTableGpkgMetadataReference();
+    createTableGpkgExtensions();
+    createTablePctilesDimensionSet();
+    createTablePctilesDimensionType();
+
     e_creation.stop();
 
     m_needsIndexing = true;
@@ -201,6 +213,71 @@ void RialtoDb::close()
 }
 
 
+void RialtoDb::createGpkgId()
+{
+    std::ostringstream oss1;
+
+    const std::string sql("PRAGMA application_id=1196437808");
+
+    m_sqlite->execute(sql);
+}
+
+
+void RialtoDb::createTableGpkgSpatialRefSys()
+{
+    if (m_sqlite->doesTableExist("gpkg_spatial_ref_sys"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'gpkg_spatial_ref_sys' already exists)");
+    }
+
+    const std::string sql = 
+        "CREATE TABLE gpkg_spatial_ref_sys("
+        "srs_name TEXT NOT NULL,"
+        "srs_id INTEGER PRIMARY KEY NOT NULL,"
+        "organization TEXT NOT NULL,"
+        "organization_coordsys_id INTEGER NOT NULL,"
+        "definition TEXT NOT NULL,"
+        "description TEXT"
+        ")";
+
+    m_sqlite->execute(sql);
+    
+    const std::string data =
+        "INSERT INTO gpkg_spatial_ref_sys "
+        "(srs_name, srs_id, organization, organization_coordsys_id, definition, description) "
+        "VALUES (?, ?, ?, ?, ?, ?)";
+
+    records rs;
+    row r1, r2, r3;
+return;
+    r1.push_back(column("EPSG:4326"));
+    r1.push_back(column("1"));
+    r1.push_back(column("EPSG"));
+    r1.push_back(column(4326));
+    r1.push_back(column("EPSG:4326"));
+    r1.push_back(column("EPSG:4326"));
+    rs.push_back(r1);
+
+    r2.push_back(column("undefined_cartesian"));
+    r2.push_back(column("-1"));
+    r2.push_back(column("NONE"));
+    r2.push_back(column("-1"));
+    r2.push_back(column("undefined"));
+    r2.push_back(column("undefined_cartesian"));
+    rs.push_back(r2);
+
+    r3.push_back(column("undefined_geographic"));
+    r3.push_back(column("0"));
+    r3.push_back(column("NONE"));
+    r3.push_back(column("0"));
+    r3.push_back(column("undefined"));
+    r3.push_back(column("undefined_geographic"));
+    rs.push_back(r3);
+
+    m_sqlite->insert(data, rs);
+}
+
+
 void RialtoDb::createTileSetsTable()
 {
     if (m_sqlite->doesTableExist("TileSets"))
@@ -208,10 +285,7 @@ void RialtoDb::createTileSetsTable()
         throw pdal_error("RialtoDB: invalid state (table 'TileSets' already exists)");
     }
 
-    if (m_sqlite->doesTableExist("TileSets")) return;
-
     std::ostringstream oss1;
-    std::ostringstream oss2;
 
     oss1 << "CREATE TABLE TileSets("
         << "tile_set_id INTEGER PRIMARY KEY AUTOINCREMENT,"
@@ -221,6 +295,256 @@ void RialtoDb::createTileSetsTable()
         << ")";
 
     m_sqlite->execute(oss1.str());
+}
+
+
+void RialtoDb::createTableGpkgContents()
+{
+    if (m_sqlite->doesTableExist("gpkg_contents"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'gpkg_contents' already exists)");
+    }
+
+    const std::string sql =
+        "CREATE TABLE gpkg_contents("
+        "table_name TEXT PRIMARY KEY NOT NULL,"
+        "data_type TEXT NOT NULL,"
+        "identifier TEXT,"
+        "description TEXT,"
+        "last_change DATETIME NOT NULL,"
+        "min_x DOUBLE NOT NULL,"
+        "min_y DOUBLE NOT NULL,"
+        "max_x DOUBLE NOT NULL,"
+        "max_y DOUBLE NOT NULL,"
+        "srs_id INTEGER,"
+        "FOREIGN KEY(srs_id) REFERENCES gpkg_spatial_ref_sys(srs_id)"
+        ")";
+
+    m_sqlite->execute(sql);
+}
+
+
+void RialtoDb::createTableGpkgPctileMatrixSet()
+{
+    if (m_sqlite->doesTableExist("gpkg_pctile_matrix_set"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'gpkg_pctile_matrix_set' already exists)");
+    }
+
+    const std::string sql =
+        "CREATE TABLE gpkg_pctile_matrix_set("
+        "table_name TEXT PRIMARY KEY NOT NULL,"
+        "data_type TEXT NOT NULL,"
+        "identifier TEXT,"
+        "description TEXT,"
+        "last_change DATETIME NOT NULL,"
+        "min_x DOUBLE NOT NULL," // data extents
+        "min_y DOUBLE NOT NULL,"
+        "max_x DOUBLE NOT NULL,"
+        "max_y DOUBLE NOT NULL,"
+        "srs_id INTEGER,"
+        "tileset_min_x DOUBLE NOT NULL," // tileset extents
+        "tileset_min_y DOUBLE NOT NULL,"
+        "tileset_max_x DOUBLE NOT NULL,"
+        "tileset_max_y DOUBLE NOT NULL,"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_contents(table_name)"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_metadata_reference(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(pctiles_dimension_set)"
+        ")";
+
+    m_sqlite->execute(sql);
+}
+
+
+void RialtoDb::createTableGpkgPctileMatrix()
+{
+    if (m_sqlite->doesTableExist("gpkg_pctile_matrix"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'gpkg_pctile_matrix' already exists)");
+    }
+
+    const std::string sql =
+        "CREATE TABLE gpkg_pctile_matrix("
+        "table_name TEXT NOT NULL,"
+        "zoom_level INTEGER NOT NULL,"
+        "matrix_width INTEGER NOT NULL,"
+        "matrix_height INTEGER NOT NULL,"
+        "last_change DATETIME NOT NULL,"
+        "data_min_x DOUBLE NOT NULL," // data bounds, not tile
+        "data_min_y DOUBLE NOT NULL,"
+        "data_max_x DOUBLE NOT NULL,"
+        "data_max_y DOUBLE NOT NULL,"
+        "num_points INTEGER NOT NULL,"
+        "child_mask INTEGER NOT NULL,"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_contents(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix_set(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_metadata_reference(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(pctiles_dimension_set)"
+        ")";
+
+    m_sqlite->execute(sql);
+}
+
+
+void RialtoDb::createTableTilePyramidUserData(const std::string& table_name)
+{
+    if (m_sqlite->doesTableExist(table_name))
+    {
+        throw pdal_error("RialtoDB: invalid state (table '" + table_name + "' already exists)");
+    }
+
+    const std::string sql =
+        "CREATE TABLE " + table_name + "("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "zoom_level INTEGER NOT NULL,"
+        "tile_column INTEGER NOT NULL,"
+        "tile_row INTEGER NOT NULL,"
+        "tile_data BLOB NOT NULL,"
+        "UNIQUE(zoom_level, tile_column, tile_row)"
+        ")";
+
+    m_sqlite->execute(sql);
+    
+    const std::string data =
+        "INSERT INTO gpkg_extensions "
+        "(table_name, column_name, extension_name, definition, scope) "
+        "VALUES (?, ?, ?, ?, ?";
+
+    records rs;
+    row r;
+
+    r.push_back(column(table_name));
+    r.push_back(column("NULL"));
+    r.push_back(column("radiantblue_pctiles"));
+    r.push_back(column("mailto:mpg@flaxen.com"));
+    r.push_back(column("read-write"));
+    rs.push_back(r);
+
+    m_sqlite->insert(data, rs);
+}
+
+
+void RialtoDb::createTableGpkgMetadata()
+{
+    if (m_sqlite->doesTableExist("gpkg_metadata"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'gpkg_metadata' already exists)");
+    }
+
+    const std::string sql =
+        "CREATE TABLE gpkg_metadata("
+        "id INTEGER AUTOMINCREMENT PRIMARY KEY NOT NULL,"
+        "md_scope TEXT NOT NULL,"
+        "md_standard_uri TEXT NOT NULL,"
+        "mime_type TEXT NOT NULL,"
+        "metadata TEXT NOT NULL"
+        ")";
+
+    m_sqlite->execute(sql);
+}
+
+
+void RialtoDb::createTableGpkgMetadataReference()
+{
+    if (m_sqlite->doesTableExist("gpkg_metadata_reference"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'gpkg_metadata_reference' already exists)");
+    }
+
+    const std::string sql =
+        "CREATE TABLE gpkg_metadata_reference("
+        "reference_scope TEXT NOT NULL,"
+        "table_name TEXT NOT NULL,"
+        "column_name TEXT,"
+        "row_id_value INTEGER,"
+        "timestamp DATETIME NOT NULL,"
+        "md_file_id INTEGER NOT NULL,"
+        "md_parent_id INTEGER,"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_contents(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix_set(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(pctiles_dimension_set),"
+        "FOREIGN KEY(md_file_id) REFERENCES gpkg_metadata(id),"
+        "FOREIGN KEY(md_parent_id) REFERENCES gpkg_metadata(id)"
+        ")";
+
+    m_sqlite->execute(sql);
+}
+
+
+void RialtoDb::createTableGpkgExtensions()
+{
+    if (m_sqlite->doesTableExist("gpkg_extensions"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'gpkg_extensions' already exists)");
+    }
+
+    const std::string sql =
+        "CREATE TABLE gpkg_extensions("
+        "table_name TEXT,"
+        "column_name TEXT,"
+        "extension_name TEXT NOT NULL,"
+        "definition TEXT NOT NULL,"
+        "scope TEXT NOT NULL,"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_contents(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix_set(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_metadata_reference(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(pctiles_dimension_set),"
+        "UNIQUE(table_name, column_name, extension_name)"
+        ")";
+
+    m_sqlite->execute(sql);
+}
+
+
+void RialtoDb::createTablePctilesDimensionSet()
+{
+    if (m_sqlite->doesTableExist("pctiles_dimension_set"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'pctiles_dimension_set' already exists)");
+    }
+
+    const std::string sql =
+        "CREATE TABLE pctiles_dimension_set("
+        "table_name TEXT NOT NULL,"
+        "ordinal_position INTEGER NOT NULL,"
+        "dimension_type_id INTEGER NOT NULL,"
+        "minimum DOUBLE,"
+        "mean DOUBLE,"
+        "maximum DOUBLE,"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_contents(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix_set(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_metadata_reference(table_name),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(table_name),"
+        "UNIQUE(table_name, ordinal_position)"
+        ")";
+
+    m_sqlite->execute(sql);
+}
+
+
+void RialtoDb::createTablePctilesDimensionType()
+{
+    if (m_sqlite->doesTableExist("pctiles_dimension_type"))
+    {
+        throw pdal_error("RialtoDB: invalid state (table 'pctiles_dimension_type' already exists)");
+    }
+
+    const std::string sql =
+        "CREATE TABLE pctiles_dimension_type("
+        "dimension_type_id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "name TEXT NOT NULL,"
+        "datatype TEXT NOT NULL,"
+        "description TEXT"
+        ")";
+
+    m_sqlite->execute(sql);
 }
 
 
