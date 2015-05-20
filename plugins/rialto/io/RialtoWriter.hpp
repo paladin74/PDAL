@@ -92,7 +92,7 @@ protected:
     virtual uint32_t writeHeader(const std::string& tileSetName,
                              MetadataNode tileSetNode,
                              PointLayoutPtr layout) = 0;
-    virtual void writeTile(uint32_t tileSetId, PointView*, uint32_t level, uint32_t col, uint32_t row, uint32_t mask) = 0;
+    virtual void writeTile(uint32_t tileSetId, const std::string& tileSetName, PointView*, uint32_t level, uint32_t col, uint32_t row, uint32_t mask) = 0;
     virtual void localFinish() = 0;
 
     std::string m_tileSetName;

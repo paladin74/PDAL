@@ -72,7 +72,7 @@ public:
     //   we always do power-of-two reductions
     //   we store all levels between 0 and max, inclusive
     struct TileSetInfo {
-        std::string name; // aka filename
+        std::string nam; // aka filename
         uint32_t maxLevel;
         uint32_t numDimensions;
         std::vector<DimensionInfo> dimensions;
@@ -113,7 +113,7 @@ public:
     uint32_t writeTileSet(const RialtoDb::TileSetInfo& data);
 
     // returns id of new tile
-    uint32_t writeTile(const RialtoDb::TileInfo& data);
+    uint32_t writeTile(const std::string& tileSetName, const RialtoDb::TileInfo& data);
 
     // get list all the tile sets in the database, as a list of its
     void readTileSetIds(std::vector<uint32_t>&) const;
@@ -191,6 +191,7 @@ private:
     int m_srid;
     bool m_needsIndexing;
     bool m_txStarted;
+    bool m_haveWrittenMatrixAtLevel[32]; // TODO: 32 is highest possible level
     
     mutable RialtoEvent e_tilesRead;
     mutable RialtoEvent e_tileSetsRead;

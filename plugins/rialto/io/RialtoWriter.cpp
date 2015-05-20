@@ -59,13 +59,23 @@ void RialtoWriter::serializeToTileSetInfo(const std::string& tileSetName,
                                           PointLayoutPtr layout,
                                           RialtoDb::TileSetInfo& tileSetInfo)
 {
-    tileSetInfo.name = tileSetName;
+    tileSetInfo.nam = tileSetName;
 
     MetadataNode headerNode = tileSetNode.findChild("header");
     assert(headerNode.valid());
     tileSetInfo.maxLevel = RialtoWriter::getMetadataU32(headerNode, "maxLevel");    
     tileSetInfo.numDimensions = layout->dims().size();
     
+    tileSetInfo.tmset_min_x = -180.0;
+    tileSetInfo.tmset_min_y = -90.0;
+    tileSetInfo.tmset_max_x = 180.0;
+    tileSetInfo.tmset_max_y = 90.0;
+
+    tileSetInfo.data_min_x = -189.0; // TODO
+    tileSetInfo.data_min_y = -89.0;
+    tileSetInfo.data_max_x = 179.0;
+    tileSetInfo.data_max_y = 89.0;
+
     serializeToDimensionInfo(tileSetNode, layout, tileSetInfo.dimensions);    
 }
 
@@ -237,7 +247,7 @@ void RialtoWriter::write(const PointViewPtr viewPtr)
     uint32_t pvid = m_tileMetadata[idx+4];
     assert(pvid == 0xffffffff || pvid == (uint32_t)viewPtr->id());
 
-    writeTile(m_tileSetId, view, level, col, row, mask);
+    writeTile(m_tileSetId, m_tileSetName, view, level, col, row, mask);
 }
 
 
@@ -300,7 +310,7 @@ void RialtoWriter::writeEmptyTiles()
         
         if (pvid == 0xffffffff)
         {
-            writeTile(m_tileSetId, NULL, level, col, row, mask);
+            writeTile(m_tileSetId, m_tileSetName, NULL, level, col, row, mask);
         }
     }
 }

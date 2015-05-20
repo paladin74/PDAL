@@ -364,13 +364,6 @@ void RialtoDb::createTableGpkgPctileMatrix()
         "zoom_level INTEGER NOT NULL,"
         "matrix_width INTEGER NOT NULL,"
         "matrix_height INTEGER NOT NULL,"
-        "last_change DATETIME NOT NULL,"
-        "data_min_x DOUBLE NOT NULL," // data bounds, not tile
-        "data_min_y DOUBLE NOT NULL,"
-        "data_max_x DOUBLE NOT NULL,"
-        "data_max_y DOUBLE NOT NULL,"
-        "num_points INTEGER NOT NULL,"
-        "child_mask INTEGER NOT NULL,"
         "FOREIGN KEY(table_name) REFERENCES gpkg_contents(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix_set(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_metadata_reference(table_name),"
@@ -379,6 +372,11 @@ void RialtoDb::createTableGpkgPctileMatrix()
         ")";
 
     m_sqlite->execute(sql);
+    
+    for (int i=0; i<32; i++)
+    {
+        m_haveWrittenMatrixAtLevel[i] = false;
+    }
 }
 
 
@@ -396,6 +394,8 @@ void RialtoDb::createTableTilePyramidUserData(const std::string& table_name)
         "tile_column INTEGER NOT NULL,"
         "tile_row INTEGER NOT NULL,"
         "tile_data BLOB NOT NULL,"
+        "num_points INTEGER NOT NULL,"
+        "child_mask INTEGER NOT NULL,"
         "UNIQUE(zoom_level, tile_column, tile_row)"
         ")";
 
@@ -644,7 +644,7 @@ void RialtoDb::readTileSetInfo(uint32_t tileSetId, TileSetInfo& info) const
     assert(r);
 
     assert(tileSetId == boost::lexical_cast<uint32_t>(r->at(0).data));
-    info.name = r->at(1).data;
+    info.nam = r->at(1).data;
     info.maxLevel = boost::lexical_cast<uint32_t>(r->at(2).data);
     info.numDimensions = boost::lexical_cast<uint32_t>(r->at(3).data);
 
@@ -795,7 +795,7 @@ uint32_t RialtoDb::writeTileSet(const RialtoDb::TileSetInfo& data)
         records rs;
         row r;
 
-        r.push_back(column(data.name));
+        r.push_back(column(data.nam));
         r.push_back(column(data.maxLevel));
         r.push_back(column(data.numDimensions));
         rs.push_back(r);
@@ -818,10 +818,10 @@ uint32_t RialtoDb::writeTileSet(const RialtoDb::TileSetInfo& data)
         records rs;
         row r;
 
-        r.push_back(column(data.name)); // table_name
+        r.push_back(column(data.nam)); // table_name
         r.push_back(column("pctiles")); // data_type
-        r.push_back(column(data.name)); // identifier
-        r.push_back(column(data.name)); // description
+        r.push_back(column(data.nam)); // identifier
+        r.push_back(column(data.nam)); // description
         r.push_back(column("strftime('%Y-%m-%dT%H:%M:%fZ','now')")); // last_change
         r.push_back(column(4326)); // srs_id
         r.push_back(column(data.data_min_x));
@@ -845,7 +845,7 @@ printf("EEE\n");
         records rs;
         row r;
 
-        r.push_back(column(data.name)); // table_name
+        r.push_back(column(data.nam)); // table_name
         r.push_back(column(4326)); // srs_id
         r.push_back(column(data.tmset_min_x));
         r.push_back(column(data.tmset_min_y));
@@ -894,7 +894,7 @@ printf("GGG\n");
             records rs;
             row r;
             
-            r.push_back(column(data.name)); // table_name
+            r.push_back(column(data.nam)); // table_name
             r.push_back(column(i)); // ordinal_position
             r.push_back(column(dimension_ids[i]));
             r.push_back(column(dim.minimum));
@@ -943,7 +943,7 @@ printf("HHH\n");
         row r;
 
         r.push_back(column("table")); // reference_scope
-        r.push_back(column(data.name)); // table_name
+        r.push_back(column(data.nam)); // table_name
         r.push_back(column("table")); // column_name
         r.push_back(column("NULL")); // row_id_value
         r.push_back(column("strftime('%Y-%m-%dT%H:%M:%fZ','now')")); // timestamp
@@ -956,6 +956,10 @@ printf("BBB\n");
         m_sqlite->insert(sql, rs);        
     }
 
+    {
+        createTableTilePyramidUserData(data.nam);
+    }
+    
     e_tileSetsWritten.stop();
 
     return tile_set_id;
@@ -996,7 +1000,7 @@ void RialtoDb::writeDimensions(uint32_t tileSetId,
 }
 
 
-uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
+uint32_t RialtoDb::writeTile(const std::string& tileSetName, const RialtoDb::TileInfo& data)
 {
     if (!m_sqlite)
     {
@@ -1017,38 +1021,82 @@ uint32_t RialtoDb::writeTile(const RialtoDb::TileInfo& data)
     assert(buf);
     assert(buflen);
 
-    // note we don't use 'mask' in the database version of tiles
-    const std::string sql =
-        "INSERT INTO Tiles "
-        "(tile_set_id, level, column, row, numPoints, points) "
-        "VALUES (?, ?, ?, ?, ?, ?)";
+    uint32_t tile_id;
+    {
+        // note we don't use 'mask' in the database version of tiles
+        const std::string sql =
+            "INSERT INTO Tiles "
+            "(tile_set_id, level, column, row, numPoints, points) "
+            "VALUES (?, ?, ?, ?, ?, ?)";
 
-    records rs;
-    row r;
+        records rs;
+        row r;
 
-    r.push_back(column(data.tileSetId));
-    r.push_back(column(data.level));
-    r.push_back(column(data.column));
-    r.push_back(column(data.row));
-    r.push_back(column(data.numPoints));
-    r.push_back(blob((char*)buf, (size_t)buflen));
-    rs.push_back(r);
+        r.push_back(column(data.tileSetId));
+        r.push_back(column(data.level));
+        r.push_back(column(data.column));
+        r.push_back(column(data.row));
+        r.push_back(column(data.numPoints));
+        r.push_back(blob((char*)buf, (size_t)buflen));
+        rs.push_back(r);
 
-    m_sqlite->insert(sql, rs);
+        m_sqlite->insert(sql, rs);
 
-    long id = m_sqlite->last_row_id();
-    //log()->get(LogLevel::Debug) << "inserted for tile set " << data.tileSetId
-    //                            << ": tile id " << id
-    //                            << "(" << data.column
-    //                            << ", " << data.row
-    //                            << ", " << data.level
-    //                            << ")" << std::endl;
+        tile_id = m_sqlite->last_row_id();
+        //log()->get(LogLevel::Debug) << "inserted for tile set " << data.tileSetId
+        //                            << ": tile id " << tile_id
+        //                            << "(" << data.column
+        //                            << ", " << data.row
+        //                            << ", " << data.level
+        //                            << ")" << std::endl;
+    }
+
+    if (!m_haveWrittenMatrixAtLevel[data.level])
+    {
+        const std::string sql =
+            "INSERT INTO gpkg_pctile_matrix"
+            " (table_name, zoom_level, matrix_width, matrix_height)"
+            " VALUES (?, ?, ?, ?)";
+
+        records rs;
+        row r;
+
+        r.push_back(column(tileSetName));
+        r.push_back(column(data.level));
+        r.push_back(column(0)); assert(0);// TODO
+        r.push_back(column(0)); // TODO
+        rs.push_back(r);
+
+        m_sqlite->insert(sql, rs);
+        
+        m_haveWrittenMatrixAtLevel[data.level] = true;
+    }
+
+    {
+        const std::string sql =
+            "INSERT INTO " + tileSetName +
+            " (zoom_level, tile_column, tile_row, tile_data, num_points, child_mask)"
+            " VALUES (?, ?, ?, ?, ?, ?)";
+
+        records rs;
+        row r;
+
+        r.push_back(column(data.level));
+        r.push_back(column(data.column));
+        r.push_back(column(data.row));
+        r.push_back(blob((char*)buf, (size_t)buflen));
+        r.push_back(column(data.numPoints));
+        r.push_back(column(data.mask));
+        rs.push_back(r);
+
+        m_sqlite->insert(sql, rs);
+    }
 
     e_tilesWritten.stop();
 
     m_numPointsWritten += data.numPoints;
 
-    return id;
+    return tile_id;
 }
 
 
