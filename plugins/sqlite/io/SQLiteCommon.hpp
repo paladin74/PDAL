@@ -223,7 +223,7 @@ public:
         }
     }
 
-    void execute(std::string const& sql, std::string errmsg="")
+    void execute(std::string const& sql, const std::string& userErrorMsg="")
     {
         if (!m_session)
             throw sqlite_driver_error("Session not opened!");
@@ -232,8 +232,14 @@ public:
         int code = sqlite3_exec(m_session, sql.c_str(), NULL, NULL, NULL);
         if (code != SQLITE_OK)
         {
+            char const* sqlErrorMsg = sqlite3_errmsg(m_session);
             std::ostringstream oss;
-            oss << errmsg <<" '" << sql << "'";
+            oss << sqlErrorMsg << std::endl
+                << " sql: " << sql << std::endl;
+            if (userErrorMsg != "")
+            {
+                oss << " note: " << userErrorMsg << std::endl;
+            }
             throw sqlite_driver_error(oss.str());
         }
     }
