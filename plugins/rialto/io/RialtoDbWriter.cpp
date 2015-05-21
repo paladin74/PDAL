@@ -50,30 +50,40 @@ namespace rialto
 {
 
 
-void RialtoDbWriter::writeHeader(const std::string& tileSetName,
-                                 MetadataNode tileSetNode,
-                                 PointLayoutPtr layout)
+void RialtoDbWriter::ready(PointTableRef table)
 {
-    log()->get(LogLevel::Debug) << "RialtoDbWriter::writeHeader()" << std::endl;
+    log()->get(LogLevel::Debug) << "RialtoDbWriter::localStart()" << std::endl;
 
-    const TileSetInfo tileSetInfo(tileSetName, tileSetNode, layout);
+    // pdal writers always clobber their output file, so we follow
+    // the same convention here -- even though we're dealing with
+    // an output "database" instead of an output "file"
 
-    m_rialtoDb->writeTileSet(tileSetInfo);
+    FileUtils::deleteFile(m_connection);
+
+    m_rialtoDb = new RialtoDb(m_connection, log());
+    m_rialtoDb->create();
+    
+    m_assister.m_rialtoDb = m_rialtoDb;
+
+    m_assister.ready(table);
 }
 
 
-void RialtoDbWriter::writeTile(const std::string& tileSetName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
+void RialtoDbWriter::write(const PointViewPtr viewPtr)
 {
-    //log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
+    m_assister.write(viewPtr);
+}
 
-    //printf("writing tile %d/%d/%d\n", level, col, row);
 
-    const TileInfo tileInfo(view, level, col, row, mask);
+void RialtoDbWriter::done(PointTableRef table)
+{
+    m_assister.writeEmptyTiles();
 
-    if (!tileInfo.patch.isEmpty())
-    {
-        m_rialtoDb->writeTile(tileSetName, tileInfo);
-    }
+    log()->get(LogLevel::Debug) << "RialtoDbWriter::localFinish()" << std::endl;
+
+    m_rialtoDb->close();
+    delete m_rialtoDb;
+    m_rialtoDb = NULL;
 }
 
 
@@ -89,7 +99,7 @@ void RialtoDbWriter::processOptions(const Options& options)
     // so we'll use a differently named variable to make it clear
     m_connection = m_filename;
 
-    m_tileSetName = options.getValueOrDefault<std::string>("tileSetName", "myunnamedlasfile"); // TODO
+    m_assister.m_tileSetName = options.getValueOrDefault<std::string>("tileSetName", "myunnamedlasfile"); // TODO
 }
 
 
@@ -100,29 +110,33 @@ Options RialtoDbWriter::getDefaultOptions()
 }
 
 
-void RialtoDbWriter::localStart()
+//---------------------------------------------------------------------
+
+
+void DbWriterAssister::writeHeader(const std::string& tileSetName,
+                                 MetadataNode tileSetNode,
+                                 PointLayoutPtr layout)
 {
-    log()->get(LogLevel::Debug) << "RialtoDbWriter::localStart()" << std::endl;
+    const TileSetInfo tileSetInfo(tileSetName, tileSetNode, layout);
 
-    // pdal writers always clobber their output file, so we follow
-    // the same convention here -- even though we're dealing with
-    // an output "database" instead of an output "file"
-
-    FileUtils::deleteFile(m_connection);
-
-    m_rialtoDb = new RialtoDb(m_connection, log());
-    m_rialtoDb->create();
+    m_rialtoDb->writeTileSet(tileSetInfo);
 }
 
 
-void RialtoDbWriter::localFinish()
+void DbWriterAssister::writeTile(const std::string& tileSetName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
 {
-    log()->get(LogLevel::Debug) << "RialtoDbWriter::localFinish()" << std::endl;
+    //log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
 
-    m_rialtoDb->close();
-    delete m_rialtoDb;
-    m_rialtoDb = NULL;
+    //printf("writing tile %d/%d/%d\n", level, col, row);
+
+    const TileInfo tileInfo(view, level, col, row, mask);
+
+    if (!tileInfo.patch.isEmpty())
+    {
+        m_rialtoDb->writeTile(tileSetName, tileInfo);
+    }
 }
+
 
 } // namespace rialto
 } // namespace pdal

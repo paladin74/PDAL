@@ -256,6 +256,93 @@ void MyPatch::exportToPV(size_t numPoints, PointViewPtr view) const
 //---------------------------------------------------------------------
 
 
+void WriterAssister::ready(PointTableRef table)
+{
+    tileSetNode = table.metadata().findChild("filters.tiler");
+    if (!tileSetNode.valid()) {
+        throw pdal_error("RialtoWriter: \"filters.tiler\" metadata not found");
+    }
+
+    writeHeader(m_tileSetName, tileSetNode, table.layout());
+
+    makePointViewMap();
+}
+
+
+void WriterAssister::write(const PointViewPtr viewPtr)
+{
+    PointView* view = viewPtr.get();
+
+    uint32_t idx = m_pointViewMap2[viewPtr->id()];
+    uint32_t level = m_tileMetadata[idx];
+    uint32_t col = m_tileMetadata[idx+1];
+    uint32_t row = m_tileMetadata[idx+2];
+    uint32_t mask = m_tileMetadata[idx+3];
+    uint32_t pvid = m_tileMetadata[idx+4];
+    assert(pvid == 0xffffffff || pvid == (uint32_t)viewPtr->id());
+
+    writeTile(m_tileSetName, view, level, col, row, mask);
+}
+
+
+void WriterAssister::makePointViewMap()
+{
+    // The tiler filter creates a metadata node for each point view,
+    // and stores the point view id in that node.
+    // 
+    // PDAL will be handing up point views, and we'll need to find
+    // the corresponding metadata node for it -- so here will make
+    // a reverse lookup, from point view id to metadata node.
+
+    const MetadataNode tilesNode = tileSetNode.findChild("tiles");
+    if (!tilesNode.valid()) {
+        throw pdal_error("RialtoWriter: \"filters.tiler/tiles\" metadata not found");
+    }
+    
+    MetadataNode numTilesNode = tileSetNode.findChild("tilesdatacount");
+    m_numTiles = boost::lexical_cast<uint32_t>(numTilesNode.value());
+
+    const MetadataNode tilesNode2 = tileSetNode.findChild("tilesdata");
+    std::string b64 = tilesNode2.value();
+    std::vector<uint8_t> a = Utils::base64_decode(b64);
+
+    m_tileMetadata = new uint32_t[m_numTiles*5];
+    memcpy((unsigned char*)m_tileMetadata, a.data(), m_numTiles*5*4);
+    for (uint32_t i=0; i<m_numTiles*5; i+=5)
+    {
+        uint32_t pv = m_tileMetadata[i+4];
+        if (pv != 0xffffffff)
+        {
+            m_pointViewMap2[pv] = i;
+        }
+    }
+}
+
+
+void WriterAssister::writeEmptyTiles()
+{
+    const MetadataNode tilesNode = tileSetNode.findChild("tiles");
+    const MetadataNodeList tileNodes = tilesNode.children();
+
+    for (uint32_t i=0; i<m_numTiles*5; i+=5)
+    {
+        uint32_t level = m_tileMetadata[i];
+        uint32_t col = m_tileMetadata[i+1];
+        uint32_t row = m_tileMetadata[i+2];
+        uint32_t mask = m_tileMetadata[i+3];
+        uint32_t pvid = m_tileMetadata[i+4];
+        
+        if (pvid == 0xffffffff)
+        {
+            writeTile(m_tileSetName, NULL, level, col, row, mask);
+        }
+    }
+}
+
+
+//---------------------------------------------------------------------
+
+
 RialtoEvent::RialtoEvent(const std::string& name) :
   m_name(name),
   m_count(0),

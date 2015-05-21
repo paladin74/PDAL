@@ -126,6 +126,32 @@ public:
 };
 
 
+class WriterAssister
+{
+public:
+    void write(const PointViewPtr viewPtr);
+    void ready(PointTableRef table);
+    void writeEmptyTiles();
+
+    std::string m_tileSetName;
+
+protected:
+    virtual void writeHeader(const std::string& tileSetName,
+                             MetadataNode tileSetNode,
+                             PointLayoutPtr layout)=0;
+    virtual void writeTile(const std::string& tileSetName, PointView*,
+                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask)=0;
+    
+private:
+    std::map<uint32_t, uint32_t> m_pointViewMap2; // PV id to array index
+    uint32_t* m_tileMetadata;
+    uint32_t m_numTiles;
+    
+    MetadataNode tileSetNode;
+    void makePointViewMap();
+};
+
+
 class RialtoEvent
 {
 public:

@@ -34,7 +34,8 @@
 
 #pragma once
 
-#include "RialtoWriter.hpp"
+#include <pdal/Writer.hpp>
+#include "RialtoSupport.hpp"
 
 extern "C" int32_t RialtoFileWriter_ExitFunc();
 extern "C" PF_ExitFunc RialtoFileWriter_InitPlugin();
@@ -44,7 +45,22 @@ namespace pdal
 namespace rialto
 {
 
-class PDAL_DLL RialtoFileWriter : public RialtoWriter
+
+class FileWriterAssister: public WriterAssister
+{
+public:
+    std::string m_directory;
+    
+private:
+    virtual void writeHeader(const std::string& tileSetName,
+                             MetadataNode tileSetNode,
+                             PointLayoutPtr layout);
+    virtual void writeTile(const std::string& tileSetName, PointView*,
+                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
+};
+
+
+class PDAL_DLL RialtoFileWriter : public Writer
 {
 public:
     RialtoFileWriter()
@@ -56,17 +72,15 @@ public:
 
     Options getDefaultOptions();
 
-    virtual void localStart();
-    virtual void writeHeader(const std::string& tileSetName,
-                             MetadataNode tileSetNode,
-                             PointLayoutPtr layout);
-    virtual void writeTile(const std::string& tileSetName, PointView*, uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
-    virtual void localFinish();
+    void ready(PointTableRef table);
+    void write(const PointViewPtr viewPtr);
+    void done(PointTableRef table);
 
 private:
     virtual void processOptions(const Options& options);
 
     std::string m_directory;
+    FileWriterAssister m_assister;
 
     RialtoFileWriter& operator=(const RialtoFileWriter&); // not implemented
     RialtoFileWriter(const RialtoFileWriter&); // not implemented

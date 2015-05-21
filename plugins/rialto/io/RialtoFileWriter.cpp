@@ -50,12 +50,72 @@ namespace rialto
 {
 
 
-void RialtoFileWriter::writeHeader(const std::string& tileSetName,
+void RialtoFileWriter::ready(PointTableRef table)
+{
+    log()->get(LogLevel::Debug) << "RialtoFileWriter::localStart()" << std::endl;
+
+    // pdal writers always clobber their output file, so we follow
+    // the same convention here -- even though we're dealing with
+    // an output "directory" instead of and output "file"
+    if (FileUtils::directoryExists(m_filename))
+    {
+      FileUtils::deleteDirectory(m_filename);
+    }
+
+    if (!FileUtils::createDirectory(m_filename)) {
+        throw pdal_error("RialtoFileWriter: Error creating directory");
+    }
+    
+    m_assister.m_directory = m_filename;
+
+    m_assister.ready(table);
+}
+
+
+void RialtoFileWriter::write(const PointViewPtr viewPtr)
+{
+    m_assister.write(viewPtr);
+}
+
+
+void RialtoFileWriter::done(PointTableRef table)
+{
+    m_assister.writeEmptyTiles();
+
+    log()->get(LogLevel::Debug) << "RialtoFileWriter::localFinish()" << std::endl;
+}
+
+
+std::string RialtoFileWriter::getName() const
+{
+    return s_info.name;
+}
+
+
+void RialtoFileWriter::processOptions(const Options& options)
+{
+    // we treat the target "filename" as the output directory,
+    // so we'll use a differently named variable to make it clear
+    m_directory = m_filename;
+
+    m_assister.m_tileSetName = options.getValueOrDefault<std::string>("tileSetName", "unnamed");
+}
+
+
+Options RialtoFileWriter::getDefaultOptions()
+{
+    Options options;
+    return options;
+}
+
+
+//---------------------------------------------------------------------
+
+
+void FileWriterAssister::writeHeader(const std::string& tileSetName,
                                    MetadataNode tileSetNode,
                                    PointLayoutPtr layout)
 {
-    log()->get(LogLevel::Debug) << "RialtoFileWriter::writeHeader()" << std::endl;
-
     const TileSetInfo tileSetInfo(tileSetName, tileSetNode, layout);
     
     const std::string filename(m_directory + "/header.json");
@@ -88,10 +148,9 @@ void RialtoFileWriter::writeHeader(const std::string& tileSetName,
     fclose(fp);
 }
 
-void RialtoFileWriter::writeTile(const std::string& tileSetName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
-{
-    log()->get(LogLevel::Debug) << "RialtoFileWriter::writeTile()" << std::endl;
 
+void FileWriterAssister::writeTile(const std::string& tileSetName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
+{
     const TileInfo tileInfo(view, level, col, row, mask);
 
     std::ostringstream os;
@@ -123,52 +182,6 @@ void RialtoFileWriter::writeTile(const std::string& tileSetName, PointView* view
     fclose(fp);
 }
 
-
-std::string RialtoFileWriter::getName() const
-{
-    return s_info.name;
-}
-
-
-void RialtoFileWriter::processOptions(const Options& options)
-{
-    // we treat the target "filename" as the output directory,
-    // so we'll use a differently named variable to make it clear
-    m_directory = m_filename;
-
-    m_tileSetName = options.getValueOrDefault<std::string>("tileSetName", "unnamed");
-}
-
-
-Options RialtoFileWriter::getDefaultOptions()
-{
-    Options options;
-    return options;
-}
-
-
-void RialtoFileWriter::localStart()
-{
-    log()->get(LogLevel::Debug) << "RialtoFileWriter::localStart()" << std::endl;
-
-    // pdal writers always clobber their output file, so we follow
-    // the same convention here -- even though we're dealing with
-    // an output "directory" instead of and output "file"
-    if (FileUtils::directoryExists(m_filename))
-    {
-      FileUtils::deleteDirectory(m_filename);
-    }
-
-    if (!FileUtils::createDirectory(m_filename)) {
-        throw pdal_error("RialtoFileWriter: Error creating directory");
-    }
-}
-
-
-void RialtoFileWriter::localFinish()
-{
-    log()->get(LogLevel::Debug) << "RialtoFileWriter::localFinish()" << std::endl;
-}
 
 } // namespace rialto
 } // namespace pdal

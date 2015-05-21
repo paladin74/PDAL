@@ -34,7 +34,8 @@
 
 #pragma once
 
-#include "RialtoWriter.hpp"
+#include <pdal/Writer.hpp>
+#include "RialtoSupport.hpp"
 
 extern "C" int32_t RialtoDbWriter_ExitFunc();
 extern "C" PF_ExitFunc RialtoDbWriter_InitPlugin();
@@ -46,7 +47,22 @@ namespace rialto
 {
     class RialtoDb;
     
-class PDAL_DLL RialtoDbWriter : public RialtoWriter
+
+class DbWriterAssister: public WriterAssister
+{
+public:
+    RialtoDb* m_rialtoDb;
+    
+private:
+    virtual void writeHeader(const std::string& tileSetName,
+                             MetadataNode tileSetNode,
+                             PointLayoutPtr layout);
+    virtual void writeTile(const std::string& tileSetName, PointView*,
+                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
+};
+
+
+class PDAL_DLL RialtoDbWriter : public Writer
 {
 public:
     RialtoDbWriter()
@@ -58,16 +74,14 @@ public:
 
     Options getDefaultOptions();
 
-    virtual void localStart();
-    virtual void writeHeader(const std::string& tileSetName,
-                             MetadataNode tileSetNode,
-                             PointLayoutPtr layout);
-    virtual void writeTile(const std::string& tileSetName, PointView*, uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
-    virtual void localFinish();
+    void ready(PointTableRef table);
+    void write(const PointViewPtr viewPtr);
+    void done(PointTableRef table);
 
 private:
-    virtual void processOptions(const Options& options);
-    void createPatch(const PointViewPtr view);
+    void processOptions(const Options& options);
+
+    DbWriterAssister m_assister;
 
     std::string m_connection;
     RialtoDb* m_rialtoDb;
