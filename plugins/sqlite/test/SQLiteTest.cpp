@@ -82,58 +82,60 @@ void testReadWrite(bool compression, bool scaling)
     std::string tempFilename =
         getSQLITEOptions().getValueOrThrow<std::string>("connection");
 
-    Options sqliteOptions = getSQLITEOptions();
-    if (scaling)
     {
-        sqliteOptions.add("scale_x", 0.01);
-        sqliteOptions.add("scale_y", 0.01);
+        Options sqliteOptions = getSQLITEOptions();
+        if (scaling)
+        {
+            sqliteOptions.add("scale_x", 0.01);
+            sqliteOptions.add("scale_y", 0.01);
+        }
+        sqliteOptions.add("compression", compression, "");
+
+        // remove file from earlier run, if needed
+        std::string temp_filename =
+            sqliteOptions.getValueOrThrow<std::string>("connection");
+
+        Options lasReadOpts;
+        lasReadOpts.add("filename", Support::datapath("las/1.2-with-color.las"));
+        lasReadOpts.add("count", 11);
+
+        LasReader reader;
+        reader.setOptions(lasReadOpts);
+
+        StageFactory f;
+        std::unique_ptr<Stage> sqliteWriter(f.createStage("writers.sqlite"));
+        sqliteWriter->setOptions(sqliteOptions);
+        sqliteWriter->setInput(reader);
+
+        PointTable table;
+        sqliteWriter->prepare(table);
+        sqliteWriter->execute(table);
+
+        // Done - now read back.
+        std::unique_ptr<Stage> sqliteReader(f.createStage("readers.sqlite"));
+        sqliteReader->setOptions(sqliteOptions);
+
+        PointTable table2;
+        sqliteReader->prepare(table2);
+        PointViewSet viewSet = sqliteReader->execute(table2);
+        EXPECT_EQ(viewSet.size(), 1U);
+        PointViewPtr view = *viewSet.begin();
+
+        using namespace Dimension;
+
+        uint16_t reds[] = {68, 54, 112, 178, 134, 99, 90, 106, 106, 100, 64};
+        for (PointId idx = 0; idx < 11; idx++)
+        {
+            uint16_t r = view->getFieldAs<uint16_t>(Id::Red, idx);
+            EXPECT_EQ(r, reds[idx]);
+        }
+        int32_t x = view->getFieldAs<int32_t>(Id::X, 10);
+        EXPECT_EQ(x, 636038);
+        double xd = view->getFieldAs<double>(Id::X, 10);
+        EXPECT_FLOAT_EQ(xd, 636037.53);
     }
-    sqliteOptions.add("compression", compression, "");
-
-    // remove file from earlier run, if needed
-    std::string temp_filename =
-        sqliteOptions.getValueOrThrow<std::string>("connection");
-
-    Options lasReadOpts;
-    lasReadOpts.add("filename", Support::datapath("las/1.2-with-color.las"));
-    lasReadOpts.add("count", 11);
-
-    LasReader reader;
-    reader.setOptions(lasReadOpts);
-
-    StageFactory f;
-    std::unique_ptr<Stage> sqliteWriter(f.createStage("writers.sqlite"));
-    sqliteWriter->setOptions(sqliteOptions);
-    sqliteWriter->setInput(reader);
-
-    PointTable table;
-    sqliteWriter->prepare(table);
-    sqliteWriter->execute(table);
-
-    // Done - now read back.
-    std::unique_ptr<Stage> sqliteReader(f.createStage("readers.sqlite"));
-    sqliteReader->setOptions(sqliteOptions);
-
-    PointTable table2;
-    sqliteReader->prepare(table2);
-    PointViewSet viewSet = sqliteReader->execute(table2);
-    EXPECT_EQ(viewSet.size(), 1U);
-    PointViewPtr view = *viewSet.begin();
-
-    using namespace Dimension;
-
-    uint16_t reds[] = {68, 54, 112, 178, 134, 99, 90, 106, 106, 100, 64};
-    for (PointId idx = 0; idx < 11; idx++)
-    {
-        uint16_t r = view->getFieldAs<uint16_t>(Id::Red, idx);
-        EXPECT_EQ(r, reds[idx]);
-    }
-    int32_t x = view->getFieldAs<int32_t>(Id::X, 10);
-    EXPECT_EQ(x, 636038);
-    double xd = view->getFieldAs<double>(Id::X, 10);
-    EXPECT_FLOAT_EQ(xd, 636037.53);
-
-   FileUtils::deleteFile(tempFilename);
+   
+    FileUtils::deleteFile(tempFilename);
 }
 
 
@@ -241,16 +243,18 @@ TEST(SQLiteTest, testSpatialite)
 
     FileUtils::deleteFile(filename);
 
-    SQLite db(filename, LogPtr(log));
-    db.connect(true);
+    {
+        SQLite db(filename, LogPtr(log));
+        db.connect(true);
 
-    EXPECT_FALSE(db.haveSpatialite());
+        EXPECT_FALSE(db.haveSpatialite());
 
-    db.loadSpatialite();
-    db.initSpatialiteMetadata();
+        db.loadSpatialite();
+        db.initSpatialiteMetadata();
 
-    EXPECT_TRUE(db.haveSpatialite());
-
+        EXPECT_TRUE(db.haveSpatialite());
+    }
+    
     FileUtils::deleteFile(filename);
 }
 
@@ -264,15 +268,17 @@ TEST(SQLiteTest, testVersionInfo)
 
     FileUtils::deleteFile(filename);
 
-    SQLite db(filename, LogPtr(log));
-    db.connect(true);
-    db.loadSpatialite();
+    {
+        SQLite db(filename, LogPtr(log));
+        db.connect(true);
+        db.loadSpatialite();
 
-    const std::string p = db.getSQLiteVersion();
-    EXPECT_EQ(p[0], '3'); // 3.8.9 as of this commit
+        const std::string p = db.getSQLiteVersion();
+        EXPECT_EQ(p[0], '3'); // 3.8.9 as of this commit
 
-    const std::string q = db.getSpatialiteVersion();
-    EXPECT_EQ(q[0], '4'); // 4.2.0 as of this commit
-
+        const std::string q = db.getSpatialiteVersion();
+        EXPECT_EQ(q[0], '4'); // 4.2.0 as of this commit
+    }
+    
     FileUtils::deleteFile(filename);
 }
