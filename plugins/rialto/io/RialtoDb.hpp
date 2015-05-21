@@ -137,7 +137,7 @@ public:
                          std::vector<uint32_t>& ids) const;
 
      // combines query-for-tile-ids with query-for-tile-info
-     void queryForTileInfosBegin(uint32_t tileSetId,
+     void queryForTileInfosBegin(uint32_t tileSetId, std::string const& name,
                                  double minx, double miny,
                                  double maxx, double maxy,
                                  uint32_t level);

@@ -58,7 +58,7 @@ public:
     
     ~RialtoEvent()
     {
-        assert(m_start == 0);
+        //assert(m_start == 0);
     }
     
     void start()

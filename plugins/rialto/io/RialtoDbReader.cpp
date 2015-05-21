@@ -158,7 +158,7 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
         log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
     }
 #else
-    m_db->queryForTileInfosBegin(m_tileSetId, minx, miny, maxx, maxy, maxLevel);
+    m_db->queryForTileInfosBegin(m_tileSetId, "myunnamedlasfile", minx, miny, maxx, maxy, maxLevel);
 
     RialtoDb::TileInfo info;
 

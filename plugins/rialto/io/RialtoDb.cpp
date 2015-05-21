@@ -1276,7 +1276,7 @@ void RialtoDb::queryForTileIds(uint32_t tileSetId,
 }
 
 
-void RialtoDb::queryForTileInfosBegin(uint32_t tileSetId,
+void RialtoDb::queryForTileInfosBegin(uint32_t tileSetId, std::string const& name,
                                       double minx, double miny,
                                       double maxx, double maxy,
                                       uint32_t level)
@@ -1306,6 +1306,7 @@ void RialtoDb::queryForTileInfosBegin(uint32_t tileSetId,
     assert(minrow <= maxrow);
 
     std::ostringstream oss;
+#if 0
     oss << "SELECT tile_id,tile_set_id,level,column,row,numPoints,points"
         << " FROM Tiles "
         << " WHERE tile_set_id=" << tileSetId
@@ -1314,6 +1315,15 @@ void RialtoDb::queryForTileInfosBegin(uint32_t tileSetId,
         << " AND column <= " << maxcol
         << " AND row >= " << minrow
         << " AND row <= " << maxrow;
+#else
+    oss << "SELECT zoom_level,tile_column,tile_row,num_points,tile_data"
+        << " FROM '" << name << "'"
+        << " WHERE zoom_level=" << level
+        << " AND tile_column >= " << mincol
+        << " AND tile_column <= " << maxcol
+        << " AND tile_row >= " << minrow
+        << " AND tile_row <= " << maxrow;
+#endif
 
     m_sqlite->query(oss.str());
 
@@ -1333,6 +1343,7 @@ bool RialtoDb::queryForTileInfos(TileInfo& info)
         return false;
     }
 
+#if 0
     //assert(tileId == boost::lexical_cast<uint32_t>(r->at(0).data));
     info.tileSetId = boost::lexical_cast<uint32_t>(r->at(1).data);
     info.level = boost::lexical_cast<double>(r->at(2).data);
@@ -1348,6 +1359,21 @@ bool RialtoDb::queryForTileInfos(TileInfo& info)
         const unsigned char *pos = (const unsigned char *)&(blobBuf[0]);
         info.patch.putBytes(pos, blobLen);
     }
+#else
+    info.level = boost::lexical_cast<double>(r->at(0).data);
+    info.column = boost::lexical_cast<double>(r->at(1).data);
+    info.row = boost::lexical_cast<double>(r->at(2).data);
+    info.numPoints = boost::lexical_cast<double>(r->at(3).data);
+
+    // this query always reads the points
+    info.patch.buf.clear();
+    {
+        const uint32_t blobLen = r->at(4).blobLen;
+        const std::vector<uint8_t>& blobBuf = r->at(4).blobBuf;
+        const unsigned char *pos = (const unsigned char *)&(blobBuf[0]);
+        info.patch.putBytes(pos, blobLen);
+    }
+#endif
 
     e_tilesRead.stop();
 
