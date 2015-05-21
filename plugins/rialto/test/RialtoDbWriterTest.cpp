@@ -75,11 +75,12 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     db.open(false);
 
     std::vector<uint32_t> tileSetIds;
-    db.readTileSetIds(tileSetIds);
+    std::vector<std::string> names;
+    db.readTileSetIds(tileSetIds, names);
     EXPECT_EQ(tileSetIds.size(), 1u);
 
     RialtoDb::TileSetInfo tileSetInfo;
-    db.readTileSetInfo(tileSetIds[0], tileSetInfo);
+    db.readTileSetInfo(tileSetIds[0], names[0], tileSetInfo);
     EXPECT_EQ(tileSetInfo.maxLevel, 2u);
     EXPECT_EQ(tileSetInfo.numDimensions, 3u);
 
@@ -287,7 +288,8 @@ TEST(RialtoDbWriterTest, testWriter)
     RialtoDb db(filename, log);
     db.open(false);
     std::vector<uint32_t> tileSetIds;
-    db.readTileSetIds(tileSetIds);
+    std::vector<std::string> names;
+    db.readTileSetIds(tileSetIds, names);
     uint32_t tileSetId = tileSetIds[0];
 
     {

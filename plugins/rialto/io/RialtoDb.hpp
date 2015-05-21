@@ -60,6 +60,7 @@ public:
         std::string name;
         uint32_t position;
         std::string dataType;
+        std::string description;
         double minimum;
         double mean;
         double maximum;
@@ -72,7 +73,8 @@ public:
     //   we always do power-of-two reductions
     //   we store all levels between 0 and max, inclusive
     struct TileSetInfo {
-        std::string nam; // aka filename
+        std::string datetime;
+        std::string name; // aka filename
         uint32_t maxLevel;
         uint32_t numDimensions;
         std::vector<DimensionInfo> dimensions;
@@ -116,10 +118,10 @@ public:
     uint32_t writeTile(const std::string& tileSetName, const RialtoDb::TileInfo& data);
 
     // get list all the tile sets in the database, as a list of its
-    void readTileSetIds(std::vector<uint32_t>&) const;
+    void readTileSetIds(std::vector<uint32_t>&, std::vector<std::string>& names) const;
 
     // get info about a specific tile set (including its dimensions)
-    void readTileSetInfo(uint32_t tileSetId, TileSetInfo& info) const;
+    void readTileSetInfo(uint32_t tileSetId, std::string const& name, TileSetInfo& info) const;
 
     // get info about a tile
     void readTileInfo(uint32_t tileId, bool withPoints, TileInfo& tileInfo) const;
@@ -171,15 +173,15 @@ private:
     void createTableGpkgMetadataReference();
     void createTableGpkgExtensions();
     void createTablePctilesDimensionSet();
-    void createTablePctilesDimensionType();
 
     // add all the dimensions of the tile set
     void writeDimensions(uint32_t tileSetId,
                         const std::vector<DimensionInfo>& dimensions);
 
     // get info about one of the dimensions of a tile set
-    void readDimensionsInfo(uint32_t tileSetId, std::vector<DimensionInfo>&) const;
+    void readDimensionsInfo(uint32_t tileSetId, std::string const& name, std::vector<DimensionInfo>&) const;
 
+    void matrixSizeAtLevel(uint32_t level, uint32_t& numCols, uint32_t& numRows) const;
 
     void query() const;
 

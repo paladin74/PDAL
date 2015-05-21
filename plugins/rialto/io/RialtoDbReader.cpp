@@ -64,13 +64,15 @@ void RialtoDbReader::initialize()
         m_db->open(false);
     
         std::vector<uint32_t> ids;
-        m_db->readTileSetIds(ids);
+        std::vector<std::string> names;
+        m_db->readTileSetIds(ids, names);
         assert(ids.size()==1); // TODO: always take the first one for now
         m_tileSetId = ids[0];
+        assert(names.size()==1); // TODO: always take the first one for now
     
         m_tileSetInfo = std::unique_ptr<RialtoDb::TileSetInfo>(new RialtoDb::TileSetInfo());
 
-        m_db->readTileSetInfo(m_tileSetId, *m_tileSetInfo);
+        m_db->readTileSetInfo(m_tileSetId, names[0], *m_tileSetInfo);
     }
 }
 

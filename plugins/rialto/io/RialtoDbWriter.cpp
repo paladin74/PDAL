@@ -84,7 +84,7 @@ void RialtoDbWriter::writeTile(uint32_t tileSetId, const std::string& tileSetNam
 {
     //log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
 
-    printf("writing tile %d/%d/%d\n", level, col, row);
+    //printf("writing tile %d/%d/%d\n", level, col, row);
 
     RialtoDb::TileInfo tileInfo;
     serializeToTileInfo(tileSetId, view, tileInfo, level, col, row, mask);
@@ -108,7 +108,7 @@ void RialtoDbWriter::processOptions(const Options& options)
     // so we'll use a differently named variable to make it clear
     m_connection = m_filename;
 
-    m_tileSetName = options.getValueOrDefault<std::string>("tileSetName", "unnamed");
+    m_tileSetName = options.getValueOrDefault<std::string>("tileSetName", "myunnamedlasfile"); // TODO
 }
 
 

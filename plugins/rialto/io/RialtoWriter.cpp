@@ -59,8 +59,15 @@ void RialtoWriter::serializeToTileSetInfo(const std::string& tileSetName,
                                           PointLayoutPtr layout,
                                           RialtoDb::TileSetInfo& tileSetInfo)
 {
-    tileSetInfo.nam = tileSetName;
+    tileSetInfo.name = tileSetName;
 
+    time_t now;
+    time(&now);
+    char buf[sizeof("yyyy-mm-ddThh:mm:ss.sssZ")+1];
+    // TODO: this produces "ss", not "ss.sss" as the gpkg spec implies is required
+    strftime(buf, sizeof(buf), "%FT%TZ", gmtime(&now));
+    tileSetInfo.datetime = buf;
+    
     MetadataNode headerNode = tileSetNode.findChild("header");
     assert(headerNode.valid());
     tileSetInfo.maxLevel = RialtoWriter::getMetadataU32(headerNode, "maxLevel");    
