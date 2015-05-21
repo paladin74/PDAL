@@ -61,10 +61,10 @@ public:
     Options getDefaultOptions();
 
     virtual void localStart();
-    virtual uint32_t writeHeader(const std::string& tileSetName,
+    virtual void writeHeader(const std::string& tileSetName,
                              MetadataNode tileSetNode,
                              PointLayoutPtr layout);
-    virtual void writeTile(uint32_t tileSetId, const std::string& tileSetName, PointView*, uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
+    virtual void writeTile(const std::string& tileSetName, PointView*, uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
     virtual void localFinish();
 
 private:

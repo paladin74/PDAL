@@ -112,32 +112,33 @@ public:
     // adds a tile set to the database, including its dimensions
     //
     // returns id of new data set
-    uint32_t writeTileSet(const RialtoDb::TileSetInfo& data);
+    void writeTileSet(const RialtoDb::TileSetInfo& data);
 
     // returns id of new tile
-    uint32_t writeTile(const std::string& tileSetName, const RialtoDb::TileInfo& data);
+    void writeTile(const std::string& tileSetName, const RialtoDb::TileInfo& data);
 
     // get list all the tile sets in the database, as a list of its
-    void readTileSetIds(std::vector<uint32_t>&, std::vector<std::string>& names) const;
+    void readTileSetIds(std::vector<std::string>& names) const;
 
     // get info about a specific tile set (including its dimensions)
-    void readTileSetInfo(uint32_t tileSetId, std::string const& name, TileSetInfo& info) const;
+    void readTileSetInfo(std::string const& name, TileSetInfo& info) const;
 
     // get info about a tile
-    void readTileInfo(uint32_t tileId, bool withPoints, TileInfo& tileInfo) const;
+    void readTileInfo(std::string const& name, uint32_t tileId, bool withPoints, TileInfo& tileInfo) const;
 
     // use with caution for levels greater than 16 or so
-    void readTileIdsAtLevel(uint32_t tileSetId, uint32_t level, std::vector<uint32_t>& tileIds) const;
+    // DANGER: this assumes only one tile set per database, use only for testing
+    void readTileIdsAtLevel(std::string const& name, uint32_t level, std::vector<uint32_t>& tileIds) const;
 
     // query for all the tiles of a tile set, bounded by bbox region
-    void queryForTileIds(uint32_t tileSetId,
+    void queryForTileIds(std::string const& name,
                          double minx, double miny,
                          double maxx, double maxy,
                          uint32_t level,
                          std::vector<uint32_t>& ids) const;
 
      // combines query-for-tile-ids with query-for-tile-info
-     void queryForTileInfosBegin(uint32_t tileSetId, std::string const& name,
+     void queryForTileInfosBegin(std::string const& name,
                                  double minx, double miny,
                                  double maxx, double maxy,
                                  uint32_t level);
@@ -158,14 +159,11 @@ public:
      void dumpStats() const;
 
 private:
-    // create the req'd tables in the db
-    void createTileSetsTable();
-    void createTableGpkgContents();
-    void createTilesTable();
-    void createDimensionsTable();
-
+    void verifyTableExists(std::string const& name) const;
+    
     void createGpkgId();
     void createTableGpkgSpatialRefSys();
+    void createTableGpkgContents();
     void createTableGpkgPctileMatrixSet();
     void createTableGpkgPctileMatrix();
     void createTableTilePyramidUserData(const std::string& table_name);
@@ -179,7 +177,7 @@ private:
                         const std::vector<DimensionInfo>& dimensions);
 
     // get info about one of the dimensions of a tile set
-    void readDimensionsInfo(uint32_t tileSetId, std::string const& name, std::vector<DimensionInfo>&) const;
+    void readDimensionsInfo(std::string const& name, std::vector<DimensionInfo>&) const;
 
     void matrixSizeAtLevel(uint32_t level, uint32_t& numCols, uint32_t& numRows) const;
 

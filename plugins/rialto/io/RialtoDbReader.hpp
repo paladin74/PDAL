@@ -64,7 +64,7 @@ protected:
 
 private:
   std::unique_ptr<RialtoDb> m_db;
-  uint32_t m_tileSetId;
+  std::string m_tileSetName;
   uint32_t m_level;
   std::unique_ptr<RialtoDb::TileSetInfo> m_tileSetInfo;
   BOX3D m_query;

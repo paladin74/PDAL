@@ -74,13 +74,12 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     RialtoDb db(filename, log);
     db.open(false);
 
-    std::vector<uint32_t> tileSetIds;
     std::vector<std::string> names;
-    db.readTileSetIds(tileSetIds, names);
-    EXPECT_EQ(tileSetIds.size(), 1u);
+    db.readTileSetIds(names);
+    EXPECT_EQ(names.size(), 1u);
 
     RialtoDb::TileSetInfo tileSetInfo;
-    db.readTileSetInfo(tileSetIds[0], names[0], tileSetInfo);
+    db.readTileSetInfo(names[0], tileSetInfo);
     EXPECT_EQ(tileSetInfo.maxLevel, 2u);
     EXPECT_EQ(tileSetInfo.numDimensions, 3u);
 
@@ -102,22 +101,22 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     EXPECT_DOUBLE_EQ(dimensionsInfo[2].maximum, 77.0);
 
     std::vector<uint32_t> tilesAt0;
-    db.readTileIdsAtLevel(tileSetIds[0], 0, tilesAt0);
+    db.readTileIdsAtLevel(names[0], 0, tilesAt0);
     EXPECT_EQ(tilesAt0.size(), 1u);
     std::vector<uint32_t> tilesAt1;
-    db.readTileIdsAtLevel(tileSetIds[0], 1, tilesAt1);
+    db.readTileIdsAtLevel(names[0], 1, tilesAt1);
     EXPECT_EQ(tilesAt1.size(), 2u);
     std::vector<uint32_t> tilesAt2;
-    db.readTileIdsAtLevel(tileSetIds[0], 2, tilesAt2);
+    db.readTileIdsAtLevel(names[0], 2, tilesAt2);
     EXPECT_EQ(tilesAt2.size(), 8u);
     std::vector<uint32_t> tilesAt3;
-    db.readTileIdsAtLevel(tileSetIds[0], 3, tilesAt3);
+    db.readTileIdsAtLevel(names[0], 3, tilesAt3);
     EXPECT_EQ(tilesAt3.size(), 0u);
 
     RialtoDb::TileInfo info;
 
     {
-        db.readTileInfo(tilesAt0[0], true, info);
+        db.readTileInfo(names[0], tilesAt0[0], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[0]);
@@ -125,12 +124,12 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
 
     {
         // TODO: these two are order-dependent
-        db.readTileInfo(tilesAt1[0], true, info);
+        db.readTileInfo(names[0], tilesAt1[0], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[0]);
 
-        db.readTileInfo(tilesAt1[1], true, info);
+        db.readTileInfo(names[0], tilesAt1[1], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[4]);
@@ -138,42 +137,42 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
 
     {
         // TODO: these eight are order-dependent
-        db.readTileInfo(tilesAt2[0], true, info);
+        db.readTileInfo(names[0], tilesAt2[0], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[0]);
 
-        db.readTileInfo(tilesAt2[1], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[1]);
-
-        db.readTileInfo(tilesAt2[2], true, info);
+        db.readTileInfo(names[0], tilesAt2[1], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[2]);
 
-        db.readTileInfo(tilesAt2[3], true, info);
+        db.readTileInfo(names[0], tilesAt2[2], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[1]);
+
+        db.readTileInfo(names[0], tilesAt2[3], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[3]);
 
-        db.readTileInfo(tilesAt2[4], true, info);
+        db.readTileInfo(names[0], tilesAt2[4], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[4]);
 
-        db.readTileInfo(tilesAt2[5], true, info);
-        EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[5]);
-
-        db.readTileInfo(tilesAt2[6], true, info);
+        db.readTileInfo(names[0], tilesAt2[5], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[6]);
 
-        db.readTileInfo(tilesAt2[7], true, info);
+        db.readTileInfo(names[0], tilesAt2[6], true, info);
+        EXPECT_EQ(info.numPoints, 1u);
+        EXPECT_EQ(info.patch.buf.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[5]);
+
+        db.readTileInfo(names[0], tilesAt2[7], true, info);
         EXPECT_EQ(info.numPoints, 1u);
         EXPECT_EQ(info.patch.buf.size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[7]);
@@ -287,22 +286,21 @@ TEST(RialtoDbWriterTest, testWriter)
 
     RialtoDb db(filename, log);
     db.open(false);
-    std::vector<uint32_t> tileSetIds;
     std::vector<std::string> names;
-    db.readTileSetIds(tileSetIds, names);
-    uint32_t tileSetId = tileSetIds[0];
+    db.readTileSetIds(names);
+    std::string tileSetName = names[0];
 
     {
         std::vector<uint32_t> ids;
 
-        db.queryForTileIds(tileSetId, 0.1, 0.1, 179.9, 89.9, 0, ids);
+        db.queryForTileIds(tileSetName, 0.1, 0.1, 179.9, 89.9, 0, ids);
         EXPECT_EQ(ids.size(), 0u);
 
-        db.queryForTileIds(tileSetId, 0.1, 0.1, 179.9, 89.9, 1, ids);
+        db.queryForTileIds(tileSetName, 0.1, 0.1, 179.9, 89.9, 1, ids);
         EXPECT_EQ(ids.size(), 1u);
         EXPECT_EQ(ids[0], 7u);
 
-        db.queryForTileIds(tileSetId, 0.1, 0.1, 179.9, 89.9, 2, ids);
+        db.queryForTileIds(tileSetName, 0.1, 0.1, 179.9, 89.9, 2, ids);
         EXPECT_EQ(ids.size(), 2u);
         EXPECT_EQ(ids[0], 8u);
         EXPECT_EQ(ids[1], 9u);

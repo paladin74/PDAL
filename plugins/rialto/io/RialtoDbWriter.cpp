@@ -65,7 +65,7 @@ namespace
 
 
 
-uint32_t RialtoDbWriter::writeHeader(const std::string& tileSetName,
+void RialtoDbWriter::writeHeader(const std::string& tileSetName,
                                  MetadataNode tileSetNode,
                                  PointLayoutPtr layout)
 {
@@ -74,24 +74,22 @@ uint32_t RialtoDbWriter::writeHeader(const std::string& tileSetName,
     RialtoDb::TileSetInfo tileSetInfo;
     serializeToTileSetInfo(tileSetName, tileSetNode, layout, tileSetInfo);
 
-    const uint32_t tileSetId = m_rialtoDb->writeTileSet(tileSetInfo);
-
-    return tileSetId;
+    m_rialtoDb->writeTileSet(tileSetInfo);
 }
 
 
-void RialtoDbWriter::writeTile(uint32_t tileSetId, const std::string& tileSetName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
+void RialtoDbWriter::writeTile(const std::string& tileSetName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
 {
     //log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
 
     //printf("writing tile %d/%d/%d\n", level, col, row);
 
     RialtoDb::TileInfo tileInfo;
-    serializeToTileInfo(tileSetId, view, tileInfo, level, col, row, mask);
+    serializeToTileInfo(view, tileInfo, level, col, row, mask);
 
     if (tileInfo.patch.buf.size())
     {
-        uint32_t id = m_rialtoDb->writeTile(tileSetName, tileInfo);
+        m_rialtoDb->writeTile(tileSetName, tileInfo);
     }
 }
 

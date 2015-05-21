@@ -63,16 +63,14 @@ void RialtoDbReader::initialize()
         m_db = std::unique_ptr<RialtoDb>(new RialtoDb(m_filename, log()));
         m_db->open(false);
     
-        std::vector<uint32_t> ids;
         std::vector<std::string> names;
-        m_db->readTileSetIds(ids, names);
-        assert(ids.size()==1); // TODO: always take the first one for now
-        m_tileSetId = ids[0];
+        m_db->readTileSetIds(names);
+        m_tileSetName = names[0];
         assert(names.size()==1); // TODO: always take the first one for now
     
         m_tileSetInfo = std::unique_ptr<RialtoDb::TileSetInfo>(new RialtoDb::TileSetInfo());
 
-        m_db->readTileSetInfo(m_tileSetId, names[0], *m_tileSetInfo);
+        m_db->readTileSetInfo(m_tileSetName, *m_tileSetInfo);
     }
 }
 
@@ -142,23 +140,7 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
         maxLevel = m_tileSetInfo->maxLevel;
     }
     
-#if 0
-    std::vector<uint32_t> ids;
-    m_db->queryForTileIds(m_tileSetId, minx, miny, maxx, maxy, maxLevel, ids);
-
-    for (auto id: ids) 
-    {
-        RialtoDb::TileInfo info;
-        m_db->readTileInfo(id, true, info);
-        
-        log()->get(LogLevel::Debug) << "  got some points: " << info.numPoints << std::endl;
-
-        m_db->serializeToPointView(info, view);
-
-        log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
-    }
-#else
-    m_db->queryForTileInfosBegin(m_tileSetId, "myunnamedlasfile", minx, miny, maxx, maxy, maxLevel);
+    m_db->queryForTileInfosBegin(m_tileSetName, minx, miny, maxx, maxy, maxLevel);
 
     RialtoDb::TileInfo info;
 
@@ -184,7 +166,6 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
 
         log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
     } while (m_db->queryForTileInfosNext());
-#endif
   
     return view->size();
 }

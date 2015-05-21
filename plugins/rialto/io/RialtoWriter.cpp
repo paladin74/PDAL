@@ -148,11 +148,9 @@ void RialtoWriter::serializeToPatch(const PointView& view, Patch& patch)
 }
 
 
-void RialtoWriter::serializeToTileInfo(uint32_t tileSetId, PointView* view, RialtoDb::TileInfo& tileInfo,
+void RialtoWriter::serializeToTileInfo(PointView* view, RialtoDb::TileInfo& tileInfo,
     uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
-{
-    tileInfo.tileSetId = tileSetId;
-    
+{    
     tileInfo.level = level;
     tileInfo.column = col;
     tileInfo.row = row;
@@ -233,7 +231,7 @@ void RialtoWriter::ready(PointTableRef table)
         throw pdal_error("RialtoWriter: \"filters.tiler\" metadata not found");
     }
 
-    m_tileSetId = writeHeader(m_tileSetName, tileSetNode, m_table->layout());
+    writeHeader(m_tileSetName, tileSetNode, m_table->layout());
 
     makePointViewMap(tileSetNode);
 }
@@ -254,7 +252,7 @@ void RialtoWriter::write(const PointViewPtr viewPtr)
     uint32_t pvid = m_tileMetadata[idx+4];
     assert(pvid == 0xffffffff || pvid == (uint32_t)viewPtr->id());
 
-    writeTile(m_tileSetId, m_tileSetName, view, level, col, row, mask);
+    writeTile(m_tileSetName, view, level, col, row, mask);
 }
 
 
@@ -317,7 +315,7 @@ void RialtoWriter::writeEmptyTiles()
         
         if (pvid == 0xffffffff)
         {
-            writeTile(m_tileSetId, m_tileSetName, NULL, level, col, row, mask);
+            writeTile(m_tileSetName, NULL, level, col, row, mask);
         }
     }
 }
