@@ -52,7 +52,7 @@
 #include "../plugins/rialto/io/RialtoDbReader.hpp" // TODO: fix path
 
 using namespace pdal;
-
+using namespace rialto;
 
 TEST(RialtoDbReaderTest, test)
 {

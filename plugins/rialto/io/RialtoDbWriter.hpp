@@ -34,11 +34,7 @@
 
 #pragma once
 
-#include <pdal/pdal_export.hpp>
 #include "RialtoWriter.hpp"
-
-#include <cstdint>
-#include <string>
 
 extern "C" int32_t RialtoDbWriter_ExitFunc();
 extern "C" PF_ExitFunc RialtoDbWriter_InitPlugin();
@@ -46,9 +42,10 @@ extern "C" PF_ExitFunc RialtoDbWriter_InitPlugin();
 
 namespace pdal
 {
-
-class Options;
-
+namespace rialto
+{
+    class RialtoDb;
+    
 class PDAL_DLL RialtoDbWriter : public RialtoWriter
 {
 public:
@@ -79,4 +76,5 @@ private:
     RialtoDbWriter(const RialtoDbWriter&); // not implemented
 };
 
+} // namespace rialto
 } // namespace pdal

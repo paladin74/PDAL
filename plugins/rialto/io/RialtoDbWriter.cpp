@@ -33,20 +33,7 @@
 ****************************************************************************/
 
 #include "RialtoDbWriter.hpp"
-
-#include <pdal/BufferReader.hpp>
-#include <pdal/Dimension.hpp>
-#include <pdal/Options.hpp>
-#include <pdal/pdal_error.hpp>
-#include <pdal/pdal_types.hpp>
-#include <pdal/PointTable.hpp>
-#include <pdal/PointView.hpp>
-#include <pdal/util/Bounds.hpp>
-#include <pdal/util/FileUtils.hpp>
-
 #include "RialtoDb.hpp"
-
-#include <cstdint>
 
 
 namespace pdal
@@ -57,12 +44,10 @@ static PluginInfo const s_info = PluginInfo(
     "Rialto DB Writer",
     "http://pdal.io/stages/writers.rialtodb.html" );
 
-CREATE_SHARED_PLUGIN(1, 0, RialtoDbWriter, Writer, s_info)
+CREATE_SHARED_PLUGIN(1, 0, rialto::RialtoDbWriter, Writer, s_info)
 
-namespace
+namespace rialto
 {
-} // anonymous namespace
-
 
 
 void RialtoDbWriter::writeHeader(const std::string& tileSetName,
@@ -71,7 +56,7 @@ void RialtoDbWriter::writeHeader(const std::string& tileSetName,
 {
     log()->get(LogLevel::Debug) << "RialtoDbWriter::writeHeader()" << std::endl;
 
-    RialtoDb::TileSetInfo tileSetInfo;
+    TileSetInfo tileSetInfo;
     serializeToTileSetInfo(tileSetName, tileSetNode, layout, tileSetInfo);
 
     m_rialtoDb->writeTileSet(tileSetInfo);
@@ -84,7 +69,7 @@ void RialtoDbWriter::writeTile(const std::string& tileSetName, PointView* view, 
 
     //printf("writing tile %d/%d/%d\n", level, col, row);
 
-    RialtoDb::TileInfo tileInfo;
+    TileInfo tileInfo;
     serializeToTileInfo(view, tileInfo, level, col, row, mask);
 
     if (!tileInfo.patch.isEmpty())
@@ -141,5 +126,5 @@ void RialtoDbWriter::localFinish()
     m_rialtoDb = NULL;
 }
 
-
+} // namespace rialto
 } // namespace pdal

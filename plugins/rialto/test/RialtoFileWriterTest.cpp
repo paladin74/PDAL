@@ -50,6 +50,7 @@
 #include "RialtoTest.hpp"
 
 using namespace pdal;
+using namespace rialto;
 
 TEST(RialtoFileWriterTest, createWriter)
 {

@@ -34,29 +34,14 @@
 
 #include "RialtoDb.hpp"
 
-#include <pdal/BufferReader.hpp>
-#include <pdal/Dimension.hpp>
-#include <pdal/Options.hpp>
-#include <pdal/pdal_error.hpp>
-#include <pdal/pdal_types.hpp>
-#include <pdal/PointTable.hpp>
-#include <pdal/PointView.hpp>
-#include <pdal/util/Bounds.hpp>
-#include <pdal/util/FileUtils.hpp>
-
-#include <cstdint>
-
-#include <../plugins/sqlite/io/SQLiteCommon.hpp> // TODO: fix path
+#include <pdal/../../plugins/sqlite/io/SQLiteCommon.hpp> // TODO: fix path
 
 
 namespace pdal
 {
 
-namespace
+namespace rialto
 {
-
-} // anonymous namespace
-
 
 
 RialtoDb::RialtoDb(const std::string& connection, LogPtr log) :
@@ -583,7 +568,7 @@ void RialtoDb::readTileSetInfo(std::string const& name, TileSetInfo& info) const
 }
 
 
-void RialtoDb::readTileInfo(std::string const& name, uint32_t tileId, bool withPoints, RialtoDb::TileInfo& info) const
+void RialtoDb::readTileInfo(std::string const& name, uint32_t tileId, bool withPoints, TileInfo& info) const
 {
     if (!m_sqlite)
     {
@@ -693,7 +678,7 @@ void RialtoDb::readDimensionsInfo(std::string const& name, std::vector<Dimension
 }
 
 
-void RialtoDb::writeTileSet(const RialtoDb::TileSetInfo& data)
+void RialtoDb::writeTileSet(const TileSetInfo& data)
 {
     if (!m_sqlite)
     {
@@ -868,7 +853,7 @@ void RialtoDb::writeDimensions(uint32_t tileSetId,
 }
 
 
-void RialtoDb::writeTile(const std::string& tileSetName, const RialtoDb::TileInfo& data)
+void RialtoDb::writeTile(const std::string& tileSetName, const TileInfo& data)
 {
     if (!m_sqlite)
     {
@@ -1144,4 +1129,5 @@ void RialtoDb::dumpStats() const
     }
 }
 
+} // namespace rialto
 } // namespace pdal

@@ -45,6 +45,8 @@
 
 namespace pdal
 {
+namespace rialto
+{
     
 class PDAL_DLL RialtoTest
 {
@@ -286,4 +288,6 @@ uint32_t RialtoTest::countPointsInBounds(Data* xyz, uint32_t numPoints,
     return cnt;
 }
 
+
+} // namespace rialto
 } // namespace pdal

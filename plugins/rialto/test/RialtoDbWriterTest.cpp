@@ -55,7 +55,7 @@
 #include "RialtoTest.hpp"
 
 using namespace pdal;
-
+using namespace rialto;
 
 static bool testP2T(double x, double y, uint32_t level, uint32_t expected_col, uint32_t expected_row)
 {
@@ -78,12 +78,12 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     db.readTileSetIds(names);
     EXPECT_EQ(names.size(), 1u);
 
-    RialtoDb::TileSetInfo tileSetInfo;
+    TileSetInfo tileSetInfo;
     db.readTileSetInfo(names[0], tileSetInfo);
     EXPECT_EQ(tileSetInfo.maxLevel, 2u);
     EXPECT_EQ(tileSetInfo.numDimensions, 3u);
 
-    const std::vector<RialtoDb::DimensionInfo>& dimensionsInfo = tileSetInfo.dimensions;
+    const std::vector<DimensionInfo>& dimensionsInfo = tileSetInfo.dimensions;
     EXPECT_EQ(dimensionsInfo[0].name, "X");
     EXPECT_EQ(dimensionsInfo[0].dataType, "double");
     EXPECT_DOUBLE_EQ(dimensionsInfo[0].minimum, -179.0);
@@ -113,7 +113,7 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     db.readTileIdsAtLevel(names[0], 3, tilesAt3);
     EXPECT_EQ(tilesAt3.size(), 0u);
 
-    RialtoDb::TileInfo info;
+    TileInfo info;
 
     {
         db.readTileInfo(names[0], tilesAt0[0], true, info);

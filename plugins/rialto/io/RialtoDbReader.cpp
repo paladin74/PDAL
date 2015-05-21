@@ -34,7 +34,6 @@
 
 #include "RialtoDbReader.hpp"
 #include "RialtoDb.hpp"
-#include <pdal/PointView.hpp>
 
 namespace pdal
 {
@@ -44,23 +43,38 @@ static PluginInfo const s_info = PluginInfo(
     "Read data from a Rialto DB",
     "" );
 
-CREATE_SHARED_PLUGIN(1, 0, RialtoDbReader, Reader, s_info)
+CREATE_SHARED_PLUGIN(1, 0, rialto::RialtoDbReader, Reader, s_info)
+
+namespace rialto
+{
+
 
 std::string RialtoDbReader::getName() const { return s_info.name; }
 
 
 RialtoDbReader::RialtoDbReader() :
-    Reader()
+    Reader(),
+    m_db(NULL)
 {}
+
+
+RialtoDbReader::~RialtoDbReader()
+{
+    if (m_db)
+    {
+        m_db->close();
+        delete m_db;
+    }
+}
 
 
 void RialtoDbReader::initialize()
 {
     log()->get(LogLevel::Debug) << "RialtoDbReader::initialize()" << std::endl;
     
-    if (!m_db.get())
+    if (!m_db)
     {
-        m_db = std::unique_ptr<RialtoDb>(new RialtoDb(m_filename, log()));
+        m_db = new RialtoDb(m_filename, log());
         m_db->open(false);
     
         std::vector<std::string> names;
@@ -68,7 +82,7 @@ void RialtoDbReader::initialize()
         m_tileSetName = names[0];
         assert(names.size()==1); // TODO: always take the first one for now
     
-        m_tileSetInfo = std::unique_ptr<RialtoDb::TileSetInfo>(new RialtoDb::TileSetInfo());
+        m_tileSetInfo = std::unique_ptr<TileSetInfo>(new TileSetInfo());
 
         m_db->readTileSetInfo(m_tileSetName, *m_tileSetInfo);
     }
@@ -142,7 +156,7 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
     
     m_db->queryForTileInfosBegin(m_tileSetName, minx, miny, maxx, maxy, maxLevel);
 
-    RialtoDb::TileInfo info;
+    TileInfo info;
 
     do {    
         bool ok = m_db->queryForTileInfos(info);
@@ -170,9 +184,10 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
     return view->size();
 }
 
+} // namespace rialto
+
 void Options::remove(const std::string& name)
 {
     m_options.erase(name);
 }
-
 } // namespace pdal

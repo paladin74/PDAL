@@ -36,19 +36,18 @@
 
 #include <pdal/pdal.hpp>
 
-
 #include "RialtoEvent.hpp"
 
-namespace pdal {
-    class Log;
-    class SQLite;
-}
 
 namespace pdal
 {
+    class Log;
+    class SQLite;
 
-using namespace pdal;
+namespace rialto
+{
 
+    
 class PDAL_DLL MyPatch
 {
 public:
@@ -116,51 +115,51 @@ private:
 };
 
 
+struct DimensionInfo {
+    std::string name;
+    uint32_t position;
+    std::string dataType;
+    std::string description;
+    double minimum;
+    double mean;
+    double maximum;
+};
+
+// Rialto has some hard-coded restrictions:
+//   we always use EPSG:4326
+//   we always start with two tiles at the root
+//   we always cover the whole globe at the root
+//   we always do power-of-two reductions
+//   we store all levels between 0 and max, inclusive
+struct TileSetInfo {
+    std::string datetime;
+    std::string name; // aka filename
+    uint32_t maxLevel;
+    uint32_t numDimensions;
+    std::vector<DimensionInfo> dimensions;
+    double data_min_x; // data extents
+    double data_min_y;
+    double data_max_x;
+    double data_max_y;
+    double tmset_min_x; // tile extents
+    double tmset_min_y;
+    double tmset_max_x;
+    double tmset_max_y;
+};
+
+struct TileInfo {
+    uint32_t tileSetId;
+    uint32_t level;
+    uint32_t column;
+    uint32_t row;
+    uint32_t numPoints; // used in database, but not on disk version
+    uint32_t mask; // used in disk version, but not in database
+    MyPatch patch;
+};
+
 class PDAL_DLL RialtoDb
 {
 public:
-    struct DimensionInfo {
-        std::string name;
-        uint32_t position;
-        std::string dataType;
-        std::string description;
-        double minimum;
-        double mean;
-        double maximum;
-    };
-
-    // Rialto has some hard-coded restrictions:
-    //   we always use EPSG:4326
-    //   we always start with two tiles at the root
-    //   we always cover the whole globe at the root
-    //   we always do power-of-two reductions
-    //   we store all levels between 0 and max, inclusive
-    struct TileSetInfo {
-        std::string datetime;
-        std::string name; // aka filename
-        uint32_t maxLevel;
-        uint32_t numDimensions;
-        std::vector<DimensionInfo> dimensions;
-        double data_min_x; // data extents
-        double data_min_y;
-        double data_max_x;
-        double data_max_y;
-        double tmset_min_x; // tile extents
-        double tmset_min_y;
-        double tmset_max_x;
-        double tmset_max_y;
-    };
-
-    struct TileInfo {
-        uint32_t tileSetId;
-        uint32_t level;
-        uint32_t column;
-        uint32_t row;
-        uint32_t numPoints; // used in database, but not on disk version
-        uint32_t mask; // used in disk version, but not in database
-        MyPatch patch;
-    };
-
     // pass it the filename of the sqlite db
     RialtoDb(const std::string& connection, LogPtr log);
 
@@ -175,10 +174,10 @@ public:
     // adds a tile set to the database, including its dimensions
     //
     // returns id of new data set
-    void writeTileSet(const RialtoDb::TileSetInfo& data);
+    void writeTileSet(const TileSetInfo& data);
 
     // returns id of new tile
-    void writeTile(const std::string& tileSetName, const RialtoDb::TileInfo& data);
+    void writeTile(const std::string& tileSetName, const TileInfo& data);
 
     // get list all the tile sets in the database, as a list of its
     void readTileSetIds(std::vector<std::string>& names) const;
@@ -267,5 +266,7 @@ private:
     RialtoDb& operator=(const RialtoDb&); // not implemented
     RialtoDb(const RialtoDb&); // not implemented
 };
+
+} // namespace rialto
 
 } // namespace pdal

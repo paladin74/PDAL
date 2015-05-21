@@ -34,30 +34,18 @@
 
 #include "RialtoWriter.hpp"
 
-#include <pdal/BufferReader.hpp>
-#include <pdal/Dimension.hpp>
-#include <pdal/Options.hpp>
-#include <pdal/pdal_error.hpp>
-#include <pdal/pdal_types.hpp>
-#include <pdal/PointTable.hpp>
-#include <pdal/PointView.hpp>
-#include <pdal/util/Bounds.hpp>
-#include <pdal/util/FileUtils.hpp>
-
-#include <cstdint>
+#include "RialtoDb.hpp"
 
 namespace pdal
 {
 
-namespace
+namespace rialto
 {
- // anonymous namespace
-}
 
 void RialtoWriter::serializeToTileSetInfo(const std::string& tileSetName,
                                           MetadataNode tileSetNode,
                                           PointLayoutPtr layout,
-                                          RialtoDb::TileSetInfo& tileSetInfo)
+                                          TileSetInfo& tileSetInfo)
 {
     tileSetInfo.name = tileSetName;
 
@@ -89,7 +77,7 @@ void RialtoWriter::serializeToTileSetInfo(const std::string& tileSetName,
 
 void RialtoWriter::serializeToDimensionInfo(MetadataNode tileSetNode,
                                             PointLayoutPtr layout,
-                                            std::vector<RialtoDb::DimensionInfo>& infoList)
+                                            std::vector<DimensionInfo>& infoList)
 {    
     const uint32_t numDims = layout->dims().size();
     
@@ -107,7 +95,7 @@ void RialtoWriter::serializeToDimensionInfo(MetadataNode tileSetNode,
         double minimum, mean, maximum;
         RialtoWriter::extractStatistics(tileSetNode, name, minimum, mean, maximum);
 
-        RialtoDb::DimensionInfo& info = infoList[i];
+        DimensionInfo& info = infoList[i];
         info.name = name;
         info.dataType = dataTypeName;
         info.position = i;
@@ -126,7 +114,7 @@ void RialtoWriter::serializeToPatch(const PointView& view, MyPatch& patch)
 }
 
 
-void RialtoWriter::serializeToTileInfo(PointView* view, RialtoDb::TileInfo& tileInfo,
+void RialtoWriter::serializeToTileInfo(PointView* view, TileInfo& tileInfo,
     uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
 {    
     tileInfo.level = level;
@@ -299,4 +287,5 @@ void RialtoWriter::writeEmptyTiles()
 }
 
 
+} // namespace rialto
 } // namespace pdal

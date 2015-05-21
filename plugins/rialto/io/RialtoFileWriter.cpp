@@ -34,17 +34,7 @@
 
 #include "RialtoFileWriter.hpp"
 
-#include <pdal/BufferReader.hpp>
-#include <pdal/Dimension.hpp>
-#include <pdal/Options.hpp>
-#include <pdal/pdal_error.hpp>
-#include <pdal/pdal_types.hpp>
-#include <pdal/PointTable.hpp>
-#include <pdal/PointView.hpp>
-#include <pdal/util/Bounds.hpp>
-#include <pdal/util/FileUtils.hpp>
-
-#include <cstdint>
+#include "RialtoDb.hpp"
 
 namespace pdal
 {
@@ -54,11 +44,10 @@ static PluginInfo const s_info = PluginInfo(
     "Rialto File Writer",
     "http://pdal.io/stages/writers.rialtofile.html" );
 
-CREATE_SHARED_PLUGIN(1, 0, RialtoFileWriter, Writer, s_info)
+CREATE_SHARED_PLUGIN(1, 0, rialto::RialtoFileWriter, Writer, s_info)
 
-namespace
+namespace rialto
 {
-} // anonymous namespace
 
 
 void RialtoFileWriter::writeHeader(const std::string& tileSetName,
@@ -67,7 +56,7 @@ void RialtoFileWriter::writeHeader(const std::string& tileSetName,
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::writeHeader()" << std::endl;
 
-    RialtoDb::TileSetInfo tileSetInfo;
+    TileSetInfo tileSetInfo;
     serializeToTileSetInfo(tileSetName, tileSetNode, layout, tileSetInfo);
     
     const std::string filename(m_directory + "/header.json");
@@ -79,7 +68,7 @@ void RialtoFileWriter::writeHeader(const std::string& tileSetName,
     fprintf(fp, "    \"dimensions\": [\n");
 
     
-    std::vector<RialtoDb::DimensionInfo> dimsInfo;
+    std::vector<DimensionInfo> dimsInfo;
     serializeToDimensionInfo(tileSetNode, layout, dimsInfo);
 
     const size_t numDims = dimsInfo.size();
@@ -104,7 +93,7 @@ void RialtoFileWriter::writeTile(const std::string& tileSetName, PointView* view
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::writeTile()" << std::endl;
 
-    RialtoDb::TileInfo tileInfo;
+    TileInfo tileInfo;
     serializeToTileInfo(view, tileInfo, level, col, row, mask);
 
     std::ostringstream os;
@@ -183,5 +172,5 @@ void RialtoFileWriter::localFinish()
     log()->get(LogLevel::Debug) << "RialtoFileWriter::localFinish()" << std::endl;
 }
 
-
+} // namespace rialto
 } // namespace pdal

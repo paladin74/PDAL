@@ -34,20 +34,24 @@
 
 #pragma once
 
-#include <pdal/pdal_export.hpp>
 #include <pdal/Reader.hpp>
 
-#include "RialtoDb.hpp" // TODO: do not expose
 
 namespace pdal
 {
-    //class RialtoDb;
-    //struct RialtoDb::TileSetInfo;
+namespace rialto
+{
 
+
+struct TileSetInfo;
+class RialtoDb;
+
+    
 class PDAL_DLL RialtoDbReader : public Reader
 {
 public:
     RialtoDbReader();
+    ~RialtoDbReader();
 
     static void * create();
     static int32_t destroy(void *);
@@ -63,14 +67,15 @@ protected:
   point_count_t read(PointViewPtr view, point_count_t count);
 
 private:
-  std::unique_ptr<RialtoDb> m_db;
+  RialtoDb* m_db;
   std::string m_tileSetName;
   uint32_t m_level;
-  std::unique_ptr<RialtoDb::TileSetInfo> m_tileSetInfo;
+  std::unique_ptr<TileSetInfo> m_tileSetInfo;
   BOX3D m_query;
   
   RialtoDbReader& operator=(const RialtoDbReader&); // not implemented
   RialtoDbReader(const RialtoDbReader&); // not implemented
 };
 
+} // rialto namespace
 } // pdal namespace

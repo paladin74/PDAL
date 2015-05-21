@@ -34,18 +34,18 @@
 
 #pragma once
 
-#include <pdal/pdal_export.hpp>
 #include <pdal/Writer.hpp>
-
-#include "RialtoDb.hpp"
-
-#include <cstdint>
-#include <string>
 
 namespace pdal
 {
 
-class Options;
+namespace rialto
+{
+struct TileSetInfo;
+struct TileInfo;
+struct DimensionInfo;
+class MyPatch;
+
 
 class PDAL_DLL RialtoWriter : public Writer
 {
@@ -66,12 +66,12 @@ public:
     static void serializeToTileSetInfo(const std::string& tileSetName,
                                        MetadataNode tileSetNode,
                                        PointLayoutPtr layout,
-                                       RialtoDb::TileSetInfo& tileSetInfo);
+                                       TileSetInfo& tileSetInfo);
     static void serializeToDimensionInfo(MetadataNode tileSetNode,
                                          PointLayoutPtr layout,
-                                         std::vector<RialtoDb::DimensionInfo>& infoList);
+                                         std::vector<DimensionInfo>& infoList);
     static void serializeToPatch(const PointView& view, MyPatch& patch);
-    static void serializeToTileInfo(PointView* view, RialtoDb::TileInfo& tileInfo,
+    static void serializeToTileInfo(PointView* view, TileInfo& tileInfo,
         uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
     
     static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name);
@@ -114,4 +114,5 @@ private:
     RialtoWriter(const RialtoWriter&); // not implemented
 };
 
+} // namespace rialto
 } // namespace pdal
