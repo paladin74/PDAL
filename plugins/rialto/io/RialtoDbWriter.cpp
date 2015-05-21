@@ -87,7 +87,7 @@ void RialtoDbWriter::writeTile(const std::string& tileSetName, PointView* view, 
     RialtoDb::TileInfo tileInfo;
     serializeToTileInfo(view, tileInfo, level, col, row, mask);
 
-    if (tileInfo.patch.buf.size())
+    if (!tileInfo.patch.isEmpty())
     {
         m_rialtoDb->writeTile(tileSetName, tileInfo);
     }

@@ -68,7 +68,7 @@ public:
                                uint32_t maxLevel);
 
     static void verifyPointToData(pdal::PointViewPtr view, pdal::PointId idx, const Data& data);
-    static void verifyPointFromBuffer(std::vector<unsigned char>& buf,
+    static void verifyPointFromBuffer(std::vector<unsigned char> const& buf,
                                       const Data& expectedData);
     static void verifyPointsInBounds(pdal::PointViewPtr view,
                                      double minx, double miny, double maxx, double maxy);
@@ -225,10 +225,10 @@ void RialtoTest::verifyPointToData(pdal::PointViewPtr view, pdal::PointId idx, c
 }
 
 
-void RialtoTest::verifyPointFromBuffer(std::vector<unsigned char>& buf,
+void RialtoTest::verifyPointFromBuffer(std::vector<unsigned char> const& vec,
                                        const RialtoTest::Data& expectedData)
 {
-    const unsigned char* p = &buf[0];
+    const unsigned char* p = &vec[0];
 
     union U {
       uint8_t buf[24];
@@ -240,7 +240,7 @@ void RialtoTest::verifyPointFromBuffer(std::vector<unsigned char>& buf,
     } u;
 
     for (int i=0; i<24; i++)
-      u.buf[i] = buf[i];
+      u.buf[i] = vec[i];
 
     EXPECT_EQ(u.s.x, expectedData.x);
     EXPECT_EQ(u.s.y, expectedData.y);

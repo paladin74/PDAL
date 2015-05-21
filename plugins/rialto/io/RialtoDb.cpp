@@ -58,6 +58,7 @@ namespace
 } // anonymous namespace
 
 
+
 RialtoDb::RialtoDb(const std::string& connection, LogPtr log) :
     m_connection(connection),
     m_log(log),
@@ -610,15 +611,13 @@ void RialtoDb::readTileInfo(std::string const& name, uint32_t tileId, bool withP
     info.row = boost::lexical_cast<double>(r->at(2).data);
     info.numPoints = boost::lexical_cast<double>(r->at(3).data);
 
-    info.patch.buf.clear();
+    info.patch.clear();
     if (withPoints)
     {
-      const uint32_t blobLen = r->at(4).blobLen;
-      const std::vector<uint8_t>& blobBuf = r->at(4).blobBuf;
-      const unsigned char *pos = (const unsigned char *)&(blobBuf[0]);
-      info.patch.putBytes(pos, blobLen);
+        const std::vector<uint8_t>& v = r->at(4).blobBuf;
+        info.patch.importFromVector(v);
 
-      ++m_numPointsRead;
+        ++m_numPointsRead;
     }
 
     e_tilesRead.stop();
@@ -884,9 +883,8 @@ void RialtoDb::writeTile(const std::string& tileSetName, const RialtoDb::TileInf
         m_txStarted = true;
     }
 
-    unsigned char* buf = NULL;
-    uint32_t buflen = 0;
-    castPatchAsBuffer(data.patch, buf, buflen);
+    const uint32_t buflen = data.patch.size();
+    const unsigned char* buf = data.patch.getPointer();
     assert(buf);
     assert(buflen);
 
@@ -938,16 +936,6 @@ void RialtoDb::writeTile(const std::string& tileSetName, const RialtoDb::TileInf
     e_tilesWritten.stop();
 
     m_numPointsWritten += data.numPoints;
-}
-
-
-void RialtoDb::castPatchAsBuffer(const Patch& patch, unsigned char*& buf, uint32_t& bufLen)
-{
-    buf = NULL;
-    bufLen = patch.buf.size();
-    if (bufLen) {
-        buf = (unsigned char*)&patch.buf[0];
-    }
 }
 
 
@@ -1096,13 +1084,8 @@ bool RialtoDb::queryForTileInfos(TileInfo& info)
     info.numPoints = boost::lexical_cast<double>(r->at(3).data);
 
     // this query always reads the points
-    info.patch.buf.clear();
-    {
-        const uint32_t blobLen = r->at(4).blobLen;
-        const std::vector<uint8_t>& blobBuf = r->at(4).blobBuf;
-        const unsigned char *pos = (const unsigned char *)&(blobBuf[0]);
-        info.patch.putBytes(pos, blobLen);
-    }
+    const std::vector<uint8_t>& v = r->at(4).blobBuf;
+    info.patch.importFromVector(v);
 
     e_tilesRead.stop();
 
@@ -1115,26 +1098,6 @@ bool RialtoDb::queryForTileInfos(TileInfo& info)
 bool RialtoDb::queryForTileInfosNext()
 {
     return m_sqlite->next();
-}
-
-
-// appends points to end of view (does not start with point index 0)
-void RialtoDb::serializeToPointView(const TileInfo& info, PointViewPtr view)
-{
-    const size_t numPoints = info.numPoints;
-    PointId idx = view->size();
-    const uint32_t pointSize = view->pointSize();
-
-    const Patch& patch = info.patch;
-
-    const char* buf = (const char*)(&patch.buf[0]);
-    const DimTypeList& dtl = view->dimTypes();
-    for (size_t i=0; i<numPoints; ++i)
-    {
-        view->setPackedPoint(dtl, idx, buf);
-        buf += pointSize;
-        ++idx;
-    }
 }
 
 

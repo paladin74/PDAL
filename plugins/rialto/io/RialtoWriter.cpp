@@ -120,31 +120,9 @@ void RialtoWriter::serializeToDimensionInfo(MetadataNode tileSetNode,
 }
 
 
-void RialtoWriter::serializeToPatch(const PointView& view, Patch& patch)
+void RialtoWriter::serializeToPatch(const PointView& view, MyPatch& patch)
 {        
-    const uint32_t pointSize = view.pointSize();
-    const uint32_t numPoints = view.size();
-    const uint32_t buflen = pointSize * numPoints;
-
-    patch.buf.resize(buflen);
-    
-    char* buf = (char*)(&patch.buf[0]);
-    char* p = buf;
-    const DimTypeList& dtl = view.dimTypes();
-
-    uint32_t numBytes = 0;
-    for (auto d: dtl)
-    {
-        numBytes += Dimension::size(d.m_type);
-    }
-
-    for (size_t i=0; i<numPoints; ++i)
-    {
-        view.getPackedPoint(dtl, i, p);
-        p += numBytes;
-    }
-
-    assert(patch.buf.size() == buflen);
+    patch.importFromPV(view);
 }
 
 
@@ -162,10 +140,10 @@ void RialtoWriter::serializeToTileInfo(PointView* view, RialtoDb::TileInfo& tile
         tileInfo.numPoints = view->size();
     }
 
-    Patch& patch = tileInfo.patch;
+    MyPatch& patch = tileInfo.patch;
     if (!view)
     {
-        patch.buf.clear();
+        patch.clear();
     } else {
         serializeToPatch(*view, patch);
     }
@@ -320,15 +298,5 @@ void RialtoWriter::writeEmptyTiles()
     }
 }
 
-
-// TODO: this is a dup of RialtoDb::castPatchAsBuffer
-void RialtoWriter::castPatchAsBuffer(const Patch& patch, unsigned char*& buf, uint32_t& bufLen)
-{
-    buf = NULL;
-    bufLen = patch.buf.size();    
-    if (bufLen) {
-        buf = (unsigned char*)&patch.buf[0];
-    }
-}
 
 } // namespace pdal

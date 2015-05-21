@@ -123,11 +123,10 @@ void RialtoFileWriter::writeTile(const std::string& tileSetName, PointView* view
 
     // TODO: we don't write the number of points, but maybe we should
     
-    if (tileInfo.patch.buf.size())
+    if (!tileInfo.patch.isEmpty())
     {
-        unsigned char* buf = NULL;
-        uint32_t bufLen = 0;
-        RialtoWriter::castPatchAsBuffer(tileInfo.patch, buf, bufLen);
+        uint32_t bufLen = tileInfo.patch.size();
+        const unsigned char* buf = tileInfo.patch.getPointer();
         fwrite(buf, bufLen, 1, fp);
     }
 

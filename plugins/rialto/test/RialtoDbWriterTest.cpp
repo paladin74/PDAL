@@ -118,64 +118,64 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     {
         db.readTileInfo(names[0], tilesAt0[0], true, info);
         EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[0]);
+        EXPECT_EQ(info.patch.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.getVector(), actualData[0]);
     }
 
     {
         // TODO: these two are order-dependent
         db.readTileInfo(names[0], tilesAt1[0], true, info);
         EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[0]);
+        EXPECT_EQ(info.patch.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.getVector(), actualData[0]);
 
         db.readTileInfo(names[0], tilesAt1[1], true, info);
         EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[4]);
+        EXPECT_EQ(info.patch.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.getVector(), actualData[4]);
     }
 
     {
         // TODO: these eight are order-dependent
         db.readTileInfo(names[0], tilesAt2[0], true, info);
         EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[0]);
+        EXPECT_EQ(info.patch.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.getVector(), actualData[0]);
 
         db.readTileInfo(names[0], tilesAt2[1], true, info);
         EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[2]);
+        EXPECT_EQ(info.patch.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.getVector(), actualData[2]);
 
         db.readTileInfo(names[0], tilesAt2[2], true, info);
         EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[1]);
+        EXPECT_EQ(info.patch.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.getVector(), actualData[1]);
 
         db.readTileInfo(names[0], tilesAt2[3], true, info);
         EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[3]);
+        EXPECT_EQ(info.patch.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.getVector(), actualData[3]);
 
         db.readTileInfo(names[0], tilesAt2[4], true, info);
         EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[4]);
+        EXPECT_EQ(info.patch.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.getVector(), actualData[4]);
 
         db.readTileInfo(names[0], tilesAt2[5], true, info);
         EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[6]);
+        EXPECT_EQ(info.patch.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.getVector(), actualData[6]);
 
         db.readTileInfo(names[0], tilesAt2[6], true, info);
         EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[5]);
+        EXPECT_EQ(info.patch.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.getVector(), actualData[5]);
 
         db.readTileInfo(names[0], tilesAt2[7], true, info);
         EXPECT_EQ(info.numPoints, 1u);
-        EXPECT_EQ(info.patch.buf.size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.patch.buf, actualData[7]);
+        EXPECT_EQ(info.patch.size(), 24u);
+        RialtoTest::verifyPointFromBuffer(info.patch.getVector(), actualData[7]);
     }
 }
 

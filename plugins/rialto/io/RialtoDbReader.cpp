@@ -153,7 +153,7 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
         
         PointViewPtr tempView = view->makeNew();
 
-        m_db->serializeToPointView(info, tempView);
+        info.patch.exportToPV(info.numPoints, tempView);
 
         for (uint32_t i=0; i<tempView->size(); i++) {
             const double x = tempView->getFieldAs<double>(Dimension::Id::X, i);

@@ -70,7 +70,7 @@ public:
     static void serializeToDimensionInfo(MetadataNode tileSetNode,
                                          PointLayoutPtr layout,
                                          std::vector<RialtoDb::DimensionInfo>& infoList);
-    static void serializeToPatch(const PointView& view, Patch& patch);
+    static void serializeToPatch(const PointView& view, MyPatch& patch);
     static void serializeToTileInfo(PointView* view, RialtoDb::TileInfo& tileInfo,
         uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
     
@@ -78,9 +78,6 @@ public:
     static double getMetadataF64(const MetadataNode& parent, const std::string& name);
     static void extractStatistics(MetadataNode& tileSetNode, const std::string& dimName,
                                   double& minimum, double& mean, double& maximum);
-
-    // just hides the type punning
-    static void castPatchAsBuffer(const Patch&, unsigned char*& buf, uint32_t& bufLen);
 
 protected:
     
