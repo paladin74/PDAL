@@ -43,7 +43,7 @@ namespace rialto
 {
 
 
-struct TileSetInfo;
+class TileSetInfo;
 class RialtoDb;
 
     

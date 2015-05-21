@@ -36,7 +36,7 @@
 
 #include <pdal/pdal.hpp>
 
-#include "RialtoEvent.hpp"
+#include "RialtoSupport.hpp"
 
 
 namespace pdal
@@ -46,116 +46,7 @@ namespace pdal
 
 namespace rialto
 {
-
     
-class PDAL_DLL MyPatch
-{
-public:
-    uint32_t size() const { return m_vector.size(); }
-    void clear() { m_vector.clear(); }
-    bool isEmpty() const { return m_vector.size()==0; }
-    
-    const std::vector<unsigned char>& getVector() const { return m_vector; }    
-    
-    const unsigned char* getPointer() const
-    {
-        if (isEmpty()) return NULL;
-        return (const unsigned char*)&m_vector[0];
-    }
-
-    void importFromVector(const std::vector<uint8_t>& vec)
-    {
-        m_vector = vec;
-    }
-
-    void importFromPV(const PointView& view)
-    {
-        const uint32_t pointSize = view.pointSize();
-        const uint32_t numPoints = view.size();
-        const uint32_t buflen = pointSize * numPoints;
-
-        m_vector.resize(buflen);
-        
-        char* p = (char*)(&m_vector[0]);
-        const DimTypeList& dtl = view.dimTypes();
-
-        uint32_t numBytes = 0;
-        for (auto d: dtl)
-        {
-            numBytes += Dimension::size(d.m_type);
-        }
-
-        for (size_t i=0; i<numPoints; ++i)
-        {
-            view.getPackedPoint(dtl, i, p);
-            p += numBytes;
-        }
-
-        assert(m_vector.size() == buflen);
-    }
-    
-    // does an append to the PV (does not start at index 0)
-    void exportToPV(size_t numPoints, PointViewPtr view) const
-    {
-        PointId idx = view->size();
-        const uint32_t pointSize = view->pointSize();
-
-        const char* p = (const char*)(&m_vector[0]);
-        const DimTypeList& dtl = view->dimTypes();
-        for (size_t i=0; i<numPoints; ++i)
-        {
-            view->setPackedPoint(dtl, idx, p);
-            p += pointSize;
-            ++idx;
-        }
-    }
-
-private:
-    std::vector<uint8_t> m_vector;
-};
-
-
-struct DimensionInfo {
-    std::string name;
-    uint32_t position;
-    std::string dataType;
-    std::string description;
-    double minimum;
-    double mean;
-    double maximum;
-};
-
-// Rialto has some hard-coded restrictions:
-//   we always use EPSG:4326
-//   we always start with two tiles at the root
-//   we always cover the whole globe at the root
-//   we always do power-of-two reductions
-//   we store all levels between 0 and max, inclusive
-struct TileSetInfo {
-    std::string datetime;
-    std::string name; // aka filename
-    uint32_t maxLevel;
-    uint32_t numDimensions;
-    std::vector<DimensionInfo> dimensions;
-    double data_min_x; // data extents
-    double data_min_y;
-    double data_max_x;
-    double data_max_y;
-    double tmset_min_x; // tile extents
-    double tmset_min_y;
-    double tmset_max_x;
-    double tmset_max_y;
-};
-
-struct TileInfo {
-    uint32_t tileSetId;
-    uint32_t level;
-    uint32_t column;
-    uint32_t row;
-    uint32_t numPoints; // used in database, but not on disk version
-    uint32_t mask; // used in disk version, but not in database
-    MyPatch patch;
-};
 
 class PDAL_DLL RialtoDb
 {
@@ -210,9 +101,6 @@ public:
     // fills in the dimensions of an otherwise empty layout with
     // the dimension information from the tile set
     void setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout) const;
-
-     // just hides the type punning
-     static void castPatchAsBuffer(const MyPatch&, unsigned char*& buf, uint32_t& bufLen);
 
      static void xyPointToTileColRow(double x, double y, uint32_t level, uint32_t& col, uint32_t& row);
 

@@ -56,8 +56,7 @@ void RialtoDbWriter::writeHeader(const std::string& tileSetName,
 {
     log()->get(LogLevel::Debug) << "RialtoDbWriter::writeHeader()" << std::endl;
 
-    TileSetInfo tileSetInfo;
-    serializeToTileSetInfo(tileSetName, tileSetNode, layout, tileSetInfo);
+    const TileSetInfo tileSetInfo(tileSetName, tileSetNode, layout);
 
     m_rialtoDb->writeTileSet(tileSetInfo);
 }
@@ -69,8 +68,7 @@ void RialtoDbWriter::writeTile(const std::string& tileSetName, PointView* view, 
 
     //printf("writing tile %d/%d/%d\n", level, col, row);
 
-    TileInfo tileInfo;
-    serializeToTileInfo(view, tileInfo, level, col, row, mask);
+    const TileInfo tileInfo(view, level, col, row, mask);
 
     if (!tileInfo.patch.isEmpty())
     {

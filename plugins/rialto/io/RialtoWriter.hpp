@@ -41,10 +41,9 @@ namespace pdal
 
 namespace rialto
 {
-struct TileSetInfo;
-struct TileInfo;
-struct DimensionInfo;
-class MyPatch;
+class TileSetInfo;
+class TileInfo;
+class DimensionInfo;
 
 
 class PDAL_DLL RialtoWriter : public Writer
@@ -60,24 +59,6 @@ public:
     // implemented in derived classes
     virtual std::string getName() const=0;
     virtual Options getDefaultOptions()=0;
-
-    // helper functions
-    
-    static void serializeToTileSetInfo(const std::string& tileSetName,
-                                       MetadataNode tileSetNode,
-                                       PointLayoutPtr layout,
-                                       TileSetInfo& tileSetInfo);
-    static void serializeToDimensionInfo(MetadataNode tileSetNode,
-                                         PointLayoutPtr layout,
-                                         std::vector<DimensionInfo>& infoList);
-    static void serializeToPatch(const PointView& view, MyPatch& patch);
-    static void serializeToTileInfo(PointView* view, TileInfo& tileInfo,
-        uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
-    
-    static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name);
-    static double getMetadataF64(const MetadataNode& parent, const std::string& name);
-    static void extractStatistics(MetadataNode& tileSetNode, const std::string& dimName,
-                                  double& minimum, double& mean, double& maximum);
 
 protected:
     
@@ -99,7 +80,6 @@ private:
     virtual void write(const PointViewPtr view);
     virtual void done(PointTableRef table);
 
-    char* makeBuffer(PointView*);
     void makePointViewMap(MetadataNode tileSetNode);
     void writeEmptyTiles();
     

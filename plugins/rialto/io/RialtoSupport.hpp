@@ -41,6 +41,91 @@ namespace pdal
 namespace rialto
 {
 
+
+class MyPatch
+{
+public:
+    uint32_t size() const;
+    void clear();
+    bool isEmpty() const;
+    const std::vector<unsigned char>& getVector() const;
+    const unsigned char* getPointer() const;
+    void importFromVector(const std::vector<uint8_t>& vec);
+    void importFromPV(const PointView& view);
+    
+    // does an append to the PV (does not start at index 0)
+    void exportToPV(size_t numPoints, PointViewPtr view) const;
+
+private:
+    std::vector<uint8_t> m_vector;
+};
+
+    
+class DimensionInfo
+{
+public:
+    static void import(MetadataNode tileSetNode,
+                PointLayoutPtr layout,
+                std::vector<DimensionInfo>& infoList);
+
+    std::string name;
+    uint32_t position;
+    std::string dataType;
+    std::string description;
+    double minimum;
+    double mean;
+    double maximum;
+};
+
+
+// Rialto has some hard-coded restrictions:
+//   we always use EPSG:4326
+//   we always start with two tiles at the root
+//   we always cover the whole globe at the root
+//   we always do power-of-two reductions
+//   we store all levels between 0 and max, inclusive
+class TileSetInfo
+{
+public:
+    TileSetInfo() {}
+    
+    TileSetInfo(const std::string& tileSetName,
+                MetadataNode tileSetNode,
+                PointLayoutPtr layout);
+
+    std::string datetime;
+    std::string name; // aka filename
+    uint32_t maxLevel;
+    uint32_t numDimensions;
+    std::vector<DimensionInfo> dimensions;
+    double data_min_x; // data extents
+    double data_min_y;
+    double data_max_x;
+    double data_max_y;
+    double tmset_min_x; // tile extents
+    double tmset_min_y;
+    double tmset_max_x;
+    double tmset_max_y;
+};
+
+
+class TileInfo
+{
+public:
+    TileInfo() {}
+    
+    TileInfo(PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
+    
+    uint32_t tileSetId;
+    uint32_t level;
+    uint32_t column;
+    uint32_t row;
+    uint32_t numPoints; // used in database, but not on disk version
+    uint32_t mask; // used in disk version, but not in database
+    MyPatch patch;
+};
+
+
 class RialtoEvent
 {
 public:
@@ -49,62 +134,19 @@ public:
     // ...work...
     // e.stop();
     // e.dump();
-    RialtoEvent(const std::string& name) :
-      m_name(name),
-      m_count(0),
-      m_millis(0.0),
-      m_start(0)
-    {}
+    RialtoEvent(const std::string& name);
+    ~RialtoEvent();
+
+    void start();
+    void stop();
     
-    ~RialtoEvent()
-    {
-        //assert(m_start == 0);
-    }
-    
-    void start()
-    {
-        assert(m_start == 0);
-        m_start = timerStart();
-    }
-    
-    void stop()
-    {
-        assert(m_start != 0);
-        ++m_count;
-        m_millis += timerStop(m_start);
-        m_start = 0;
-    }
-    
-    void dump() const
-    {
-        if (m_count)
-        {
-            printf("%s:  total=%.1fms  average=%.1fms  (%u events)\n",
-                   m_name.c_str(),
-                   m_millis,
-                   m_millis/(double)m_count,
-                   m_count);
-        }
-        else
-        {
-            printf("%s: -\n", m_name.c_str());
-        }
-    }
+    void dump() const;
 
     // clock_t start = timerStart();
     // <spin cycles>
     // uint32_t millis = timerStop(start);
-    static clock_t timerStart()
-    {
-         return std::clock();
-    }
-    
-    static double timerStop(clock_t start)
-    {
-        clock_t stop = std::clock();
-        const double secs = (double)(stop - start) / (double)CLOCKS_PER_SEC;
-        return secs * 1000.0;
-    }
+    static clock_t timerStart();    
+    static double timerStop(clock_t start);
     
 private:
      const std::string m_name;

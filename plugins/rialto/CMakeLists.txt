@@ -5,6 +5,8 @@
 include (${PDAL_CMAKE_DIR}/sqlite.cmake)
 
 set(file_writer_srcs
+    io/RialtoSupport.hpp
+    io/RialtoSupport.cpp
     io/RialtoWriter.hpp
     io/RialtoWriter.cpp
     io/RialtoFileWriter.hpp
@@ -12,6 +14,8 @@ set(file_writer_srcs
     )
 
 set(db_writer_srcs
+    io/RialtoSupport.hpp
+    io/RialtoSupport.cpp
     io/RialtoDb.hpp
     io/RialtoDb.cpp
     io/RialtoWriter.hpp
@@ -21,6 +25,8 @@ set(db_writer_srcs
 )
 
 set(db_reader_srcs
+    io/RialtoSupport.hpp
+    io/RialtoSupport.cpp
     io/RialtoDb.hpp
     io/RialtoDb.cpp
     io/RialtoDbReader.hpp

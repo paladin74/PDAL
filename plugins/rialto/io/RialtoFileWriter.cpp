@@ -56,8 +56,7 @@ void RialtoFileWriter::writeHeader(const std::string& tileSetName,
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::writeHeader()" << std::endl;
 
-    TileSetInfo tileSetInfo;
-    serializeToTileSetInfo(tileSetName, tileSetNode, layout, tileSetInfo);
+    const TileSetInfo tileSetInfo(tileSetName, tileSetNode, layout);
     
     const std::string filename(m_directory + "/header.json");
     FILE* fp = fopen(filename.c_str(), "wt");
@@ -69,7 +68,7 @@ void RialtoFileWriter::writeHeader(const std::string& tileSetName,
 
     
     std::vector<DimensionInfo> dimsInfo;
-    serializeToDimensionInfo(tileSetNode, layout, dimsInfo);
+    DimensionInfo::import(tileSetNode, layout, dimsInfo);
 
     const size_t numDims = dimsInfo.size();
     size_t i = 0;
@@ -93,8 +92,7 @@ void RialtoFileWriter::writeTile(const std::string& tileSetName, PointView* view
 {
     log()->get(LogLevel::Debug) << "RialtoFileWriter::writeTile()" << std::endl;
 
-    TileInfo tileInfo;
-    serializeToTileInfo(view, tileInfo, level, col, row, mask);
+    const TileInfo tileInfo(view, level, col, row, mask);
 
     std::ostringstream os;
 
