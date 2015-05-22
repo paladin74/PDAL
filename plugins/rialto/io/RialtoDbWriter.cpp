@@ -62,7 +62,7 @@ void RialtoDbWriter::ready(PointTableRef table)
 
     m_rialtoDb = new RialtoDb(m_connection, log());
     m_rialtoDb->create();
-    
+
     m_assister.m_rialtoDb = m_rialtoDb;
 
     m_assister.ready(table);
@@ -115,9 +115,9 @@ Options RialtoDbWriter::getDefaultOptions()
 
 void DbWriterAssister::writeHeader(const std::string& tileSetName,
                                  MetadataNode tileSetNode,
-                                 PointLayoutPtr layout)
+                                 PointLayoutPtr layout, const std::string& datetime)
 {
-    const TileSetInfo tileSetInfo(tileSetName, tileSetNode, layout);
+    const TileSetInfo tileSetInfo(tileSetName, tileSetNode, layout, datetime);
 
     m_rialtoDb->writeTileSet(tileSetInfo);
 }
@@ -131,7 +131,7 @@ void DbWriterAssister::writeTile(const std::string& tileSetName, PointView* view
 
     const TileInfo tileInfo(view, level, col, row, mask);
 
-    if (!tileInfo.patch.isEmpty())
+    if (!tileInfo.getPatch().isEmpty())
     {
         m_rialtoDb->writeTile(tileSetName, tileInfo);
     }

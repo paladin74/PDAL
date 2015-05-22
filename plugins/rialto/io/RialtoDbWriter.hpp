@@ -56,7 +56,8 @@ public:
 private:
     virtual void writeHeader(const std::string& tileSetName,
                              MetadataNode tileSetNode,
-                             PointLayoutPtr layout);
+                             PointLayoutPtr layout,
+                             const std::string& datetime);
     virtual void writeTile(const std::string& tileSetName, PointView*,
                            uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
 };

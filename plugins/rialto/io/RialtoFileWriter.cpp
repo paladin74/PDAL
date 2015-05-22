@@ -65,7 +65,7 @@ void RialtoFileWriter::ready(PointTableRef table)
     if (!FileUtils::createDirectory(m_filename)) {
         throw pdal_error("RialtoFileWriter: Error creating directory");
     }
-    
+
     m_assister.m_directory = m_filename;
 
     m_assister.ready(table);
@@ -114,19 +114,20 @@ Options RialtoFileWriter::getDefaultOptions()
 
 void FileWriterAssister::writeHeader(const std::string& tileSetName,
                                    MetadataNode tileSetNode,
-                                   PointLayoutPtr layout)
+                                   PointLayoutPtr layout,
+                                   const std::string& datetime)
 {
-    const TileSetInfo tileSetInfo(tileSetName, tileSetNode, layout);
-    
+    const TileSetInfo tileSetInfo(tileSetName, tileSetNode, layout, datetime);
+
     const std::string filename(m_directory + "/header.json");
     FILE* fp = fopen(filename.c_str(), "wt");
 
     fprintf(fp, "{\n");
     fprintf(fp, "    \"version\": 4,\n");
-    fprintf(fp, "    \"maxLevel\": %d,\n", tileSetInfo.maxLevel);
+    fprintf(fp, "    \"maxLevel\": %d,\n", tileSetInfo.getMaxLevel());
     fprintf(fp, "    \"dimensions\": [\n");
 
-    
+
     std::vector<DimensionInfo> dimsInfo;
     DimensionInfo::import(tileSetNode, layout, dimsInfo);
 
@@ -135,11 +136,11 @@ void FileWriterAssister::writeHeader(const std::string& tileSetName,
     for (auto& dimInfo : dimsInfo)
     {
         fprintf(fp, "        {\n");
-        fprintf(fp, "            \"datatype\": \"%s\",\n", dimInfo.dataType.c_str());
-        fprintf(fp, "            \"name\": \"%s\",\n", dimInfo.name.c_str());
-        fprintf(fp, "            \"minimum\": %f,\n", dimInfo.minimum);
-        fprintf(fp, "            \"mean\": %f,\n", dimInfo.mean);
-        fprintf(fp, "            \"maximum\": %f\n", dimInfo.maximum);
+        fprintf(fp, "            \"datatype\": \"%s\",\n", dimInfo.getDataType().c_str());
+        fprintf(fp, "            \"name\": \"%s\",\n", dimInfo.getName().c_str());
+        fprintf(fp, "            \"minimum\": %f,\n", dimInfo.getMinimum());
+        fprintf(fp, "            \"mean\": %f,\n", dimInfo.getMean());
+        fprintf(fp, "            \"maximum\": %f\n", dimInfo.getMaximum());
         fprintf(fp, "        }%s\n", i++==numDims-1 ? "" : ",");
     }
     fprintf(fp, "    ]\n");
@@ -158,25 +159,26 @@ void FileWriterAssister::writeTile(const std::string& tileSetName, PointView* vi
     os << m_directory;
     FileUtils::createDirectory(os.str());
 
-    os << "/" << tileInfo.level;
+    os << "/" << tileInfo.getLevel();
     FileUtils::createDirectory(os.str());
 
-    os << "/" << tileInfo.column;
+    os << "/" << tileInfo.getColumn();
     FileUtils::createDirectory(os.str());
 
-    os << "/" << tileInfo.row << ".ria";
+    os << "/" << tileInfo.getRow() << ".ria";
     FILE* fp = fopen(os.str().c_str(), "wb");
 
     // TODO: we don't write the number of points, but maybe we should
-    
-    if (!tileInfo.patch.isEmpty())
+
+    const MyPatch& patch = tileInfo.getPatch();
+    if (!patch.isEmpty())
     {
-        uint32_t bufLen = tileInfo.patch.size();
-        const unsigned char* buf = tileInfo.patch.getPointer();
+        uint32_t bufLen = patch.size();
+        const unsigned char* buf = patch.getPointer();
         fwrite(buf, bufLen, 1, fp);
     }
 
-    uint8_t mask8 = tileInfo.mask;
+    uint8_t mask8 = tileInfo.getMask();
     fwrite(&mask8, 1, 1, fp);
 
     fclose(fp);

@@ -39,7 +39,7 @@ namespace pdal
 namespace rialto
 {
 
-    
+
 //---------------------------------------------------------------------
 
 static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name)
@@ -72,7 +72,7 @@ static void extractStatistics(MetadataNode& tileSetNode, const std::string& dimN
 {
     MetadataNode statisticNodes = tileSetNode.findChild("statistics");
     assert(statisticNodes.valid());
-    
+
     MetadataNode dimNode = statisticNodes.findChild(dimName);
     if (!dimNode.valid())
     {
@@ -80,7 +80,7 @@ static void extractStatistics(MetadataNode& tileSetNode, const std::string& dimN
         oss << "RialtoWriter: statistics not found for dimension: " << dimName;
         throw pdal_error(oss.str());
     }
-    
+
     minimum = getMetadataF64(dimNode, "minimum");
     mean = getMetadataF64(dimNode, "mean");
     maximum = getMetadataF64(dimNode, "maximum");
@@ -92,42 +92,84 @@ static void extractStatistics(MetadataNode& tileSetNode, const std::string& dimN
 
 TileSetInfo::TileSetInfo(const std::string& tileSetName,
                          MetadataNode tileSetNode,
-                         PointLayoutPtr layout)
+                         PointLayoutPtr layout,
+                         const std::string& datetime)
 {
-    name = tileSetName;
+    m_name = tileSetName;
 
-    time_t now;
-    time(&now);
-    char buf[sizeof("yyyy-mm-ddThh:mm:ss.sssZ")+1];
-    // TODO: this produces "ss", not "ss.sss" as the gpkg spec implies is required
-    strftime(buf, sizeof(buf), "%FT%TZ", gmtime(&now));
-    datetime = buf;
-    
+    m_datetime = datetime;
+
     MetadataNode headerNode = tileSetNode.findChild("header");
     assert(headerNode.valid());
-    maxLevel = getMetadataU32(headerNode, "maxLevel");    
-    numDimensions = layout->dims().size();
-    
-    tmset_min_x = -180.0;
-    tmset_min_y = -90.0;
-    tmset_max_x = 180.0;
-    tmset_max_y = 90.0;
+    m_maxLevel = getMetadataU32(headerNode, "maxLevel");
+    m_numDimensions = layout->dims().size();
 
-    data_min_x = -189.0; // TODO
-    data_min_y = -89.0;
-    data_max_x = 179.0;
-    data_max_y = 89.0;
+    m_tmset_min_x = -180.0;
+    m_tmset_min_y = -90.0;
+    m_tmset_max_x = 180.0;
+    m_tmset_max_y = 90.0;
 
-    DimensionInfo::import(tileSetNode, layout, dimensions);
+    m_data_min_x = -189.0; // TODO
+    m_data_min_y = -89.0;
+    m_data_max_x = 179.0;
+    m_data_max_y = 89.0;
+
+    DimensionInfo::import(tileSetNode, layout, m_dimensions);
 }
 
 
+void TileSetInfo::set(const std::string& datetime,
+                      const std::string& name,
+                      uint32_t maxLevel,
+                      uint32_t numDimensions,
+                      double data_min_x,
+                      double data_min_y,
+                      double data_max_x,
+                      double data_max_y,
+                      double tmset_min_x,
+                      double tmset_min_y,
+                      double tmset_max_x,
+                      double tmset_max_y)
+{
+    m_datetime = datetime;
+    m_name = name;
+    m_maxLevel = maxLevel;
+    m_numDimensions = numDimensions;
+    m_data_min_x = data_min_x;
+    m_data_min_y = data_min_y;
+    m_data_max_x = data_max_x;
+    m_data_max_y = data_max_y;
+    m_tmset_min_x = tmset_min_x;
+    m_tmset_min_y = tmset_min_y;
+    m_tmset_max_x = tmset_max_x;
+    m_tmset_max_y = tmset_max_y;
+}
+
+
+void DimensionInfo::set(const std::string& name,
+                        uint32_t position,
+                        const std::string& dataType,
+                        const std::string& description,
+                        double minimum,
+                        double mean,
+                        double maximum)
+{
+    m_name = name;
+    m_position = position;
+    m_dataType = dataType;
+    m_description = description;
+    m_minimum = minimum;
+    m_mean = mean;
+    m_maximum = maximum;
+}       
+
+
 void DimensionInfo::import(MetadataNode tileSetNode,
-                                            PointLayoutPtr layout,
-                                            std::vector<DimensionInfo>& infoList)
-{    
+                           PointLayoutPtr layout,
+                           std::vector<DimensionInfo>& infoList)
+{
     const uint32_t numDims = layout->dims().size();
-    
+
     infoList.clear();
     infoList.resize(numDims);
 
@@ -143,12 +185,7 @@ void DimensionInfo::import(MetadataNode tileSetNode,
         extractStatistics(tileSetNode, name, minimum, mean, maximum);
 
         DimensionInfo& info = infoList[i];
-        info.name = name;
-        info.dataType = dataTypeName;
-        info.position = i;
-        info.minimum = minimum;
-        info.mean = mean;
-        info.maximum = maximum;
+        info.set(name, i, dataTypeName, "...description...", minimum, mean, maximum);
 
         ++i;
     }
@@ -156,20 +193,34 @@ void DimensionInfo::import(MetadataNode tileSetNode,
 
 
 TileInfo::TileInfo(PointView* view,
-                   uint32_t l, uint32_t c, uint32_t r, uint32_t m) :
-    level(l),
-    column(c),
-    row(r),
-    numPoints(0),
-    mask(m)
+                   uint32_t level, uint32_t column, uint32_t row, uint32_t mask) :
+    m_level(level),
+    m_column(column),
+    m_row(row),
+    m_numPoints(0),
+    m_mask(mask)
 {
-    patch.clear();
+    m_patch.clear();
 
     if (view)
     {
-        numPoints = view->size();
-        patch.importFromPV(*view);
+        m_numPoints = view->size();
+        m_patch.importFromPV(*view);
     }
+}
+
+
+void TileInfo::set(uint32_t level,
+                   uint32_t column,
+                   uint32_t row,
+                   uint32_t numPoints,
+                   uint32_t mask)
+{
+    m_level = level;
+    m_column = column;
+    m_row = row;
+    m_numPoints = numPoints;
+    m_mask = mask;
 }
 
 
@@ -178,7 +229,7 @@ TileInfo::TileInfo(PointView* view,
 
 uint32_t MyPatch::size() const
 {
-     return m_vector.size(); 
+     return m_vector.size();
 }
 
 
@@ -197,7 +248,7 @@ const std::vector<unsigned char>& MyPatch::getVector() const
 {
     return m_vector;
 }
-    
+
 
 const unsigned char* MyPatch::getPointer() const
 {
@@ -217,7 +268,7 @@ void MyPatch::importFromPV(const PointView& view)
     const uint32_t buflen = pointSize * numPoints;
 
     m_vector.resize(buflen);
-    
+
     char* p = (char*)(&m_vector[0]);
     const DimTypeList& dtl = view.dimTypes();
 
@@ -263,7 +314,13 @@ void WriterAssister::ready(PointTableRef table)
         throw pdal_error("RialtoWriter: \"filters.tiler\" metadata not found");
     }
 
-    writeHeader(m_tileSetName, tileSetNode, table.layout());
+    time_t now;
+    time(&now);
+    char buf[sizeof("yyyy-mm-ddThh:mm:ss.sssZ")+1];
+    // TODO: this produces "ss", not "ss.sss" as the gpkg spec implies is required
+    strftime(buf, sizeof(buf), "%FT%TZ", gmtime(&now));
+    std::string datetime(buf);
+    writeHeader(m_tileSetName, tileSetNode, table.layout(), datetime);
 
     makePointViewMap();
 }
@@ -289,7 +346,7 @@ void WriterAssister::makePointViewMap()
 {
     // The tiler filter creates a metadata node for each point view,
     // and stores the point view id in that node.
-    // 
+    //
     // PDAL will be handing up point views, and we'll need to find
     // the corresponding metadata node for it -- so here will make
     // a reverse lookup, from point view id to metadata node.
@@ -298,7 +355,7 @@ void WriterAssister::makePointViewMap()
     if (!tilesNode.valid()) {
         throw pdal_error("RialtoWriter: \"filters.tiler/tiles\" metadata not found");
     }
-    
+
     MetadataNode numTilesNode = tileSetNode.findChild("tilesdatacount");
     m_numTiles = boost::lexical_cast<uint32_t>(numTilesNode.value());
 
@@ -331,7 +388,7 @@ void WriterAssister::writeEmptyTiles()
         uint32_t row = m_tileMetadata[i+2];
         uint32_t mask = m_tileMetadata[i+3];
         uint32_t pvid = m_tileMetadata[i+4];
-        
+
         if (pvid == 0xffffffff)
         {
             writeTile(m_tileSetName, NULL, level, col, row, mask);

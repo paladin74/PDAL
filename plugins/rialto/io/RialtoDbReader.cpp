@@ -71,17 +71,17 @@ RialtoDbReader::~RialtoDbReader()
 void RialtoDbReader::initialize()
 {
     log()->get(LogLevel::Debug) << "RialtoDbReader::initialize()" << std::endl;
-    
+
     if (!m_db)
     {
         m_db = new RialtoDb(m_filename, log());
         m_db->open(false);
-    
+
         std::vector<std::string> names;
         m_db->readTileSetIds(names);
         m_tileSetName = names[0];
         assert(names.size()==1); // TODO: always take the first one for now
-    
+
         m_tileSetInfo = std::unique_ptr<TileSetInfo>(new TileSetInfo());
 
         m_db->readTileSetInfo(m_tileSetName, *m_tileSetInfo);
@@ -102,9 +102,9 @@ Options RialtoDbReader::getDefaultOptions()
 void RialtoDbReader::processOptions(const Options& options)
 {
     m_filename = options.getValueOrThrow<std::string>("filename");
-    
+
     log()->get(LogLevel::Debug) << "RialtoDbReader::processOptions()" << std::endl;
-    
+
     static const double minx = -179.9;
     static const double miny = -89.9;
     static const double maxx = 179.9;
@@ -112,9 +112,9 @@ void RialtoDbReader::processOptions(const Options& options)
     static const double minz = (std::numeric_limits<double>::lowest)();
     static const double maxz = (std::numeric_limits<double>::max)();
     static const BOX3D all(minx, miny, minz, maxx, maxy, maxz);
-    
+
     m_query = options.getValueOrDefault<BOX3D>("bbox", all);
-    
+
     log()->get(LogLevel::Debug) << "process options: bbox="
         << m_query << std::endl;
 
@@ -142,7 +142,7 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
     log()->get(LogLevel::Debug) << "RialtoDbReader::read()" << std::endl;
 
     // TODO: `count` is ignored
-    
+
     const double minx = m_query.minx;
     const double miny = m_query.miny;
     const double maxx = m_query.maxx;
@@ -151,23 +151,23 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
     uint32_t maxLevel = m_level;
     if (maxLevel == 9999)
     {
-        maxLevel = m_tileSetInfo->maxLevel;
+        maxLevel = m_tileSetInfo->getMaxLevel();
     }
-    
+
     m_db->queryForTileInfosBegin(m_tileSetName, minx, miny, maxx, maxy, maxLevel);
 
     TileInfo info;
 
-    do {    
+    do {
         bool ok = m_db->queryForTileInfos(info);
         if (!ok) break;
-        
-        log()->get(LogLevel::Debug) << "  got some points: " << info.numPoints << std::endl;
 
-        
+        log()->get(LogLevel::Debug) << "  got some points: " << info.getNumPoints() << std::endl;
+
+
         PointViewPtr tempView = view->makeNew();
 
-        info.patch.exportToPV(info.numPoints, tempView);
+        info.getPatch().exportToPV(info.getNumPoints(), tempView);
 
         for (uint32_t i=0; i<tempView->size(); i++) {
             const double x = tempView->getFieldAs<double>(Dimension::Id::X, i);
