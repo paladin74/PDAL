@@ -64,17 +64,17 @@ private:
 class DimensionInfo
 {
 public:
-    void set(const std::string& name,
-             uint32_t position,
-             const std::string& dataType,
-             const std::string& description,
-             double minimum,
-             double mean,
-             double maximum);
+    DimensionInfo(const std::string& name,
+                  uint32_t position,
+                  const std::string& dataType,
+                  const std::string& description,
+                  double minimum,
+                  double mean,
+                  double maximum);
 
-    static void import(MetadataNode tileSetNode,
-                PointLayoutPtr layout,
-                std::vector<DimensionInfo>& infoList);
+    static void importVector(MetadataNode tileSetNode,
+                             PointLayoutPtr layout,
+                             std::vector<DimensionInfo>& infoList);
 
     const std::string& getName() const { return m_name; }
     uint32_t getPosition() const { return m_position; }
@@ -192,11 +192,11 @@ private:
 class WriterAssister
 {
 public:
+    void setTileSetName(const std::string&);
+    
     void write(const PointViewPtr viewPtr);
     void ready(PointTableRef table);
-    void writeEmptyTiles();
-
-    std::string m_tileSetName;
+    void done();
 
 protected:
     virtual void writeHeader(const std::string& tileSetName,
@@ -206,13 +206,16 @@ protected:
     virtual void writeTile(const std::string& tileSetName, PointView*,
                            uint32_t level, uint32_t col, uint32_t row, uint32_t mask)=0;
 
-private:
-    std::map<uint32_t, uint32_t> m_pointViewMap2; // PV id to array index
+private:    
+    void makePointViewMap();
+
+    std::string m_tileSetName;
+
+    std::map<uint32_t, uint32_t> m_pointViewMap; // PV id to array index
     uint32_t* m_tileMetadata;
     uint32_t m_numTiles;
 
-    MetadataNode tileSetNode;
-    void makePointViewMap();
+    MetadataNode m_tileSetNode;
 };
 
 

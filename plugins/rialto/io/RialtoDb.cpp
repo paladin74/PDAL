@@ -698,8 +698,7 @@ void RialtoDb::readDimensionsInfo(std::string const& name, std::vector<Dimension
         const double mean = boost::lexical_cast<double>(r->at(5).data);
         const double maximum = boost::lexical_cast<double>(r->at(6).data);
 
-        DimensionInfo info;
-        info.set(name, position, dataType, description, minimum, mean, maximum);
+        DimensionInfo info(name, position, dataType, description, minimum, mean, maximum);
 
         log()->get(LogLevel::Debug1) << "read dim: " << info.getName() << std::endl;
 

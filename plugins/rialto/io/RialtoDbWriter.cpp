@@ -77,7 +77,7 @@ void RialtoDbWriter::write(const PointViewPtr viewPtr)
 
 void RialtoDbWriter::done(PointTableRef table)
 {
-    m_assister.writeEmptyTiles();
+    m_assister.done();
 
     log()->get(LogLevel::Debug) << "RialtoDbWriter::localFinish()" << std::endl;
 
@@ -99,7 +99,7 @@ void RialtoDbWriter::processOptions(const Options& options)
     // so we'll use a differently named variable to make it clear
     m_connection = m_filename;
 
-    m_assister.m_tileSetName = options.getValueOrDefault<std::string>("tileSetName", "myunnamedlasfile"); // TODO
+    m_assister.setTileSetName(options.getValueOrDefault<std::string>("tileSetName", "myunnamedlasfile")); // TODO
 }
 
 

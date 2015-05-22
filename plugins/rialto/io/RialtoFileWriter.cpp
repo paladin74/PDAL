@@ -80,7 +80,7 @@ void RialtoFileWriter::write(const PointViewPtr viewPtr)
 
 void RialtoFileWriter::done(PointTableRef table)
 {
-    m_assister.writeEmptyTiles();
+    m_assister.done();
 
     log()->get(LogLevel::Debug) << "RialtoFileWriter::localFinish()" << std::endl;
 }
@@ -98,7 +98,7 @@ void RialtoFileWriter::processOptions(const Options& options)
     // so we'll use a differently named variable to make it clear
     m_directory = m_filename;
 
-    m_assister.m_tileSetName = options.getValueOrDefault<std::string>("tileSetName", "unnamed");
+    m_assister.setTileSetName(options.getValueOrDefault<std::string>("tileSetName", "unnamed"));
 }
 
 
@@ -129,9 +129,10 @@ void FileWriterAssister::writeHeader(const std::string& tileSetName,
 
 
     std::vector<DimensionInfo> dimsInfo;
-    DimensionInfo::import(tileSetNode, layout, dimsInfo);
+    DimensionInfo::importVector(tileSetNode, layout, dimsInfo);
 
     const size_t numDims = dimsInfo.size();
+
     size_t i = 0;
     for (auto& dimInfo : dimsInfo)
     {
