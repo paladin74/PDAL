@@ -75,15 +75,15 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     db.open(false);
 
     std::vector<std::string> names;
-    db.readTileSetIds(names);
+    db.readTileTableNames(names);
     EXPECT_EQ(names.size(), 1u);
 
-    TileSetInfo tileSetInfo;
-    db.readTileSetInfo(names[0], tileSetInfo);
-    EXPECT_EQ(tileSetInfo.getMaxLevel(), 2u);
-    EXPECT_EQ(tileSetInfo.getNumDimensions(), 3u);
+    TileTableInfo tileTableInfo;
+    db.readTileTable(names[0], tileTableInfo);
+    EXPECT_EQ(tileTableInfo.getMaxLevel(), 2u);
+    EXPECT_EQ(tileTableInfo.getNumDimensions(), 3u);
 
-    const std::vector<DimensionInfo>& dimensionsInfo = tileSetInfo.getDimensions();
+    const std::vector<DimensionInfo>& dimensionsInfo = tileTableInfo.getDimensions();
     EXPECT_EQ(dimensionsInfo[0].getName(), "X");
     EXPECT_EQ(dimensionsInfo[0].getDataType(), "double");
     EXPECT_DOUBLE_EQ(dimensionsInfo[0].getMinimum(), -179.0);
@@ -116,7 +116,7 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     TileInfo info;
 
     {
-        db.readTileInfo(names[0], tilesAt0[0], true, info);
+        db.readTile(names[0], tilesAt0[0], true, info);
         EXPECT_EQ(info.getNumPoints(), 1u);
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[0]);
@@ -124,12 +124,12 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
 
     {
         // TODO: these two are order-dependent
-        db.readTileInfo(names[0], tilesAt1[0], true, info);
+        db.readTile(names[0], tilesAt1[0], true, info);
         EXPECT_EQ(info.getNumPoints(), 1u);
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[0]);
 
-        db.readTileInfo(names[0], tilesAt1[1], true, info);
+        db.readTile(names[0], tilesAt1[1], true, info);
         EXPECT_EQ(info.getNumPoints(), 1u);
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[4]);
@@ -137,42 +137,42 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
 
     {
         // TODO: these eight are order-dependent
-        db.readTileInfo(names[0], tilesAt2[0], true, info);
+        db.readTile(names[0], tilesAt2[0], true, info);
         EXPECT_EQ(info.getNumPoints(), 1u);
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[0]);
 
-        db.readTileInfo(names[0], tilesAt2[1], true, info);
+        db.readTile(names[0], tilesAt2[1], true, info);
         EXPECT_EQ(info.getNumPoints(), 1u);
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[2]);
 
-        db.readTileInfo(names[0], tilesAt2[2], true, info);
+        db.readTile(names[0], tilesAt2[2], true, info);
         EXPECT_EQ(info.getNumPoints(), 1u);
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[1]);
 
-        db.readTileInfo(names[0], tilesAt2[3], true, info);
+        db.readTile(names[0], tilesAt2[3], true, info);
         EXPECT_EQ(info.getNumPoints(), 1u);
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[3]);
 
-        db.readTileInfo(names[0], tilesAt2[4], true, info);
+        db.readTile(names[0], tilesAt2[4], true, info);
         EXPECT_EQ(info.getNumPoints(), 1u);
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[4]);
 
-        db.readTileInfo(names[0], tilesAt2[5], true, info);
+        db.readTile(names[0], tilesAt2[5], true, info);
         EXPECT_EQ(info.getNumPoints(), 1u);
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[6]);
 
-        db.readTileInfo(names[0], tilesAt2[6], true, info);
+        db.readTile(names[0], tilesAt2[6], true, info);
         EXPECT_EQ(info.getNumPoints(), 1u);
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[5]);
 
-        db.readTileInfo(names[0], tilesAt2[7], true, info);
+        db.readTile(names[0], tilesAt2[7], true, info);
         EXPECT_EQ(info.getNumPoints(), 1u);
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[7]);
@@ -287,20 +287,20 @@ TEST(RialtoDbWriterTest, testWriter)
     RialtoDb db(filename, log);
     db.open(false);
     std::vector<std::string> names;
-    db.readTileSetIds(names);
-    std::string tileSetName = names[0];
+    db.readTileTableNames(names);
+    std::string tileTableName = names[0];
 
     {
         std::vector<uint32_t> ids;
 
-        db.queryForTileIds(tileSetName, 0.1, 0.1, 179.9, 89.9, 0, ids);
+        db.queryForTileIds(tileTableName, 0.1, 0.1, 179.9, 89.9, 0, ids);
         EXPECT_EQ(ids.size(), 0u);
 
-        db.queryForTileIds(tileSetName, 0.1, 0.1, 179.9, 89.9, 1, ids);
+        db.queryForTileIds(tileTableName, 0.1, 0.1, 179.9, 89.9, 1, ids);
         EXPECT_EQ(ids.size(), 1u);
         EXPECT_EQ(ids[0], 7u);
 
-        db.queryForTileIds(tileSetName, 0.1, 0.1, 179.9, 89.9, 2, ids);
+        db.queryForTileIds(tileTableName, 0.1, 0.1, 179.9, 89.9, 2, ids);
         EXPECT_EQ(ids.size(), 2u);
         EXPECT_EQ(ids[0], 8u);
         EXPECT_EQ(ids[1], 9u);

@@ -54,11 +54,11 @@ public:
     RialtoDb* m_rialtoDb;
     
 private:
-    virtual void writeHeader(const std::string& tileSetName,
-                             MetadataNode tileSetNode,
+    virtual void writeHeader(const std::string& tileTableName,
+                             MetadataNode tileTableNode,
                              PointLayoutPtr layout,
                              const std::string& datetime);
-    virtual void writeTile(const std::string& tileSetName, PointView*,
+    virtual void writeTile(const std::string& tileTableName, PointView*,
                            uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
 };
 

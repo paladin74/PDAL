@@ -78,13 +78,13 @@ void RialtoDbReader::initialize()
         m_db->open(false);
 
         std::vector<std::string> names;
-        m_db->readTileSetIds(names);
-        m_tileSetName = names[0];
+        m_db->readTileTableNames(names);
+        m_tileTableName = names[0];
         assert(names.size()==1); // TODO: always take the first one for now
 
-        m_tileSetInfo = std::unique_ptr<TileSetInfo>(new TileSetInfo());
+        m_tileTableInfo = std::unique_ptr<TileTableInfo>(new TileTableInfo());
 
-        m_db->readTileSetInfo(m_tileSetName, *m_tileSetInfo);
+        m_db->readTileTable(m_tileTableName, *m_tileTableInfo);
     }
 }
 
@@ -126,7 +126,7 @@ void RialtoDbReader::addDimensions(PointLayoutPtr layout)
 {
     log()->get(LogLevel::Debug) << "RialtoDbReader::addDimensions()" << std::endl;
 
-    m_db->setupLayout(*m_tileSetInfo, layout);
+    m_db->setupLayout(*m_tileTableInfo, layout);
 }
 
 
@@ -149,17 +149,17 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
     const double maxy = m_query.maxy;
 
     uint32_t maxLevel = m_level;
-    if (maxLevel == 9999)
+    if (maxLevel == 9999) // TODO
     {
-        maxLevel = m_tileSetInfo->getMaxLevel();
+        maxLevel = m_tileTableInfo->getMaxLevel();
     }
 
-    m_db->queryForTileInfosBegin(m_tileSetName, minx, miny, maxx, maxy, maxLevel);
+    m_db->queryForTiles_begin(m_tileTableName, minx, miny, maxx, maxy, maxLevel);
 
     TileInfo info;
 
     do {
-        bool ok = m_db->queryForTileInfos(info);
+        bool ok = m_db->queryForTiles_step(info);
         if (!ok) break;
 
         log()->get(LogLevel::Debug) << "  got some points: " << info.getNumPoints() << std::endl;
@@ -179,7 +179,7 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
         }
 
         log()->get(LogLevel::Debug) << "  view now has this many: " << view->size() << std::endl;
-    } while (m_db->queryForTileInfosNext());
+    } while (m_db->queryForTiles_next());
   
     return view->size();
 }

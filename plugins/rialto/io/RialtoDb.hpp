@@ -65,25 +65,27 @@ public:
     // adds a tile set to the database, including its dimensions
     //
     // returns id of new data set
-    void writeTileSet(const TileSetInfo& data);
+    void writeTileTable(const TileTableInfo& data);
 
     // returns id of new tile
-    void writeTile(const std::string& tileSetName, const TileInfo& data);
+    void writeTile(const std::string& tileTableName, const TileInfo& data);
 
     // get list all the tile sets in the database, as a list of its
-    void readTileSetIds(std::vector<std::string>& names) const;
+    void readTileTableNames(std::vector<std::string>& names) const;
 
     // get info about a specific tile set (including its dimensions)
-    void readTileSetInfo(std::string const& name, TileSetInfo& info) const;
+    void readTileTable(std::string const& name, TileTableInfo& info) const;
 
     // get info about a tile
-    void readTileInfo(std::string const& name, uint32_t tileId, bool withPoints, TileInfo& tileInfo) const;
+    void readTile(std::string const& name, uint32_t tileId, bool withPoints, TileInfo& tileInfo) const;
 
     // use with caution for levels greater than 16 or so
     // DANGER: this assumes only one tile set per database, use only for testing
+    // yes this returns the tile ids (table's PK)
     void readTileIdsAtLevel(std::string const& name, uint32_t level, std::vector<uint32_t>& tileIds) const;
 
     // query for all the tiles of a tile set, bounded by bbox region
+    // returns the tile ids (PKs from table)
     void queryForTileIds(std::string const& name,
                          double minx, double miny,
                          double maxx, double maxy,
@@ -91,16 +93,16 @@ public:
                          std::vector<uint32_t>& ids) const;
 
      // combines query-for-tile-ids with query-for-tile-info
-     void queryForTileInfosBegin(std::string const& name,
-                                 double minx, double miny,
-                                 double maxx, double maxy,
-                                 uint32_t level);
-     bool queryForTileInfos(TileInfo& tileInfo);
-     bool queryForTileInfosNext();
+     void queryForTiles_begin(std::string const& name,
+                             double minx, double miny,
+                             double maxx, double maxy,
+                             uint32_t level);
+     bool queryForTiles_step(TileInfo& tileInfo);
+     bool queryForTiles_next();
 
     // fills in the dimensions of an otherwise empty layout with
     // the dimension information from the tile set
-    void setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout) const;
+    void setupLayout(const TileTableInfo& tileTableInfo, PointLayoutPtr layout) const;
 
      static void xyPointToTileColRow(double x, double y, uint32_t level, uint32_t& col, uint32_t& row);
 
@@ -114,22 +116,19 @@ private:
     void createTableGpkgContents();
     void createTableGpkgPctileMatrixSet();
     void createTableGpkgPctileMatrix();
-    void createTableTilePyramidUserData(const std::string& table_name);
+    void createTableGpkgPctile(const std::string& table_name);
     void createTableGpkgMetadata();
     void createTableGpkgMetadataReference();
     void createTableGpkgExtensions();
     void createTablePctilesDimensionSet();
 
-    // add all the dimensions of the tile set
-    void writeDimensions(uint32_t tileSetId,
-                        const std::vector<DimensionInfo>& dimensions);
+    void writeDimensions(const TileTableInfo&);
+    void writeMetadata(const TileTableInfo&);
 
     // get info about one of the dimensions of a tile set
-    void readDimensionsInfo(std::string const& name, std::vector<DimensionInfo>&) const;
+    void readDimensions(std::string const& name, std::vector<DimensionInfo>&) const;
 
     void matrixSizeAtLevel(uint32_t level, uint32_t& numCols, uint32_t& numRows) const;
-
-    void query() const;
 
     LogPtr log() const { return m_log; }
 
@@ -142,9 +141,9 @@ private:
     bool m_haveWrittenMatrixAtLevel[32]; // TODO: 32 is highest possible level
     
     mutable RialtoEvent e_tilesRead;
-    mutable RialtoEvent e_tileSetsRead;
+    mutable RialtoEvent e_tileTablesRead;
     mutable RialtoEvent e_tilesWritten;
-    mutable RialtoEvent e_tileSetsWritten;
+    mutable RialtoEvent e_tileTablesWritten;
     mutable RialtoEvent e_queries;
     mutable RialtoEvent e_creation;
     mutable RialtoEvent e_indexCreation;

@@ -98,7 +98,7 @@ void RialtoFileWriter::processOptions(const Options& options)
     // so we'll use a differently named variable to make it clear
     m_directory = m_filename;
 
-    m_assister.setTileSetName(options.getValueOrDefault<std::string>("tileSetName", "unnamed"));
+    m_assister.setTileTableName(options.getValueOrDefault<std::string>("tileTableName", "unnamed")); // TODO
 }
 
 
@@ -112,24 +112,24 @@ Options RialtoFileWriter::getDefaultOptions()
 //---------------------------------------------------------------------
 
 
-void FileWriterAssister::writeHeader(const std::string& tileSetName,
-                                   MetadataNode tileSetNode,
+void FileWriterAssister::writeHeader(const std::string& tileTableName,
+                                   MetadataNode tileTableNode,
                                    PointLayoutPtr layout,
                                    const std::string& datetime)
 {
-    const TileSetInfo tileSetInfo(tileSetName, tileSetNode, layout, datetime);
+    const TileTableInfo tileTableInfo(tileTableName, tileTableNode, layout, datetime);
 
     const std::string filename(m_directory + "/header.json");
     FILE* fp = fopen(filename.c_str(), "wt");
 
     fprintf(fp, "{\n");
     fprintf(fp, "    \"version\": 4,\n");
-    fprintf(fp, "    \"maxLevel\": %d,\n", tileSetInfo.getMaxLevel());
+    fprintf(fp, "    \"maxLevel\": %d,\n", tileTableInfo.getMaxLevel());
     fprintf(fp, "    \"dimensions\": [\n");
 
 
     std::vector<DimensionInfo> dimsInfo;
-    DimensionInfo::importVector(tileSetNode, layout, dimsInfo);
+    DimensionInfo::importVector(tileTableNode, layout, dimsInfo);
 
     const size_t numDims = dimsInfo.size();
 
@@ -151,7 +151,7 @@ void FileWriterAssister::writeHeader(const std::string& tileSetName,
 }
 
 
-void FileWriterAssister::writeTile(const std::string& tileSetName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
+void FileWriterAssister::writeTile(const std::string& tileTableName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
 {
     const TileInfo tileInfo(view, level, col, row, mask);
 

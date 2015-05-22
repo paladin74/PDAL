@@ -51,9 +51,9 @@ RialtoDb::RialtoDb(const std::string& connection, LogPtr log) :
     m_needsIndexing(false),
     m_txStarted(false),
     e_tilesRead("tilesRead"),
-    e_tileSetsRead("tileSetsRead"),
+    e_tileTablesRead("tileTablesRead"),
     e_tilesWritten("tilesWritten"),
-    e_tileSetsWritten("tileSetsWritten"),
+    e_tileTablesWritten("tileTablesWritten"),
     e_queries("queries"),
     e_creation("creation"),
     e_indexCreation("indexCreation"),
@@ -332,7 +332,7 @@ void RialtoDb::createTableGpkgPctileMatrix()
 }
 
 
-void RialtoDb::createTableTilePyramidUserData(const std::string& table_name)
+void RialtoDb::createTableGpkgPctile(const std::string& table_name)
 {
     if (m_sqlite->doesTableExist(table_name))
     {
@@ -476,7 +476,7 @@ void RialtoDb::createTablePctilesDimensionSet()
 }
 
 
-void RialtoDb::readTileSetIds(std::vector<std::string>& names) const
+void RialtoDb::readTileTableNames(std::vector<std::string>& names) const
 {
     if (!m_sqlite)
     {
@@ -505,14 +505,14 @@ void RialtoDb::readTileSetIds(std::vector<std::string>& names) const
 }
 
 
-void RialtoDb::readTileSetInfo(std::string const& name, TileSetInfo& info) const
+void RialtoDb::readTileTable(std::string const& name, TileTableInfo& info) const
 {
     if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
-    e_tileSetsRead.start();
+    e_tileTablesRead.start();
 
     std::string datetime;
     double data_min_x, data_min_y, data_max_x, data_max_y;
@@ -591,14 +591,14 @@ void RialtoDb::readTileSetInfo(std::string const& name, TileSetInfo& info) const
              data_min_x, data_min_y, data_max_x, data_max_y,
              tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y);
 
-    readDimensionsInfo(info.getName(), info.getDimensionsRef());
+    readDimensions(info.getName(), info.getDimensionsRef());
     assert(info.getDimensions().size() == info.getNumDimensions());
 
-    e_tileSetsRead.stop();
+    e_tileTablesRead.stop();
 }
 
 
-void RialtoDb::readTileInfo(std::string const& name, uint32_t tileId, bool withPoints, TileInfo& info) const
+void RialtoDb::readTile(std::string const& name, uint32_t tileId, bool withPoints, TileInfo& info) const
 {
     if (!m_sqlite)
     {
@@ -670,7 +670,7 @@ void RialtoDb::readTileIdsAtLevel(std::string const& name, uint32_t level, std::
 }
 
 
-void RialtoDb::readDimensionsInfo(std::string const& name, std::vector<DimensionInfo>& dimensionsInfo) const
+void RialtoDb::readDimensions(std::string const& name, std::vector<DimensionInfo>& dimensionsInfo) const
 {
     if (!m_sqlite)
     {
@@ -709,19 +709,19 @@ void RialtoDb::readDimensionsInfo(std::string const& name, std::vector<Dimension
 }
 
 
-void RialtoDb::writeTileSet(const TileSetInfo& data)
+void RialtoDb::writeTileTable(const TileTableInfo& data)
 {
     if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
-    log()->get(LogLevel::Debug) << "RialtoDb::addTileSet()" << std::endl;
+    log()->get(LogLevel::Debug) << "RialtoDb::addTileTable()" << std::endl;
 
-    e_tileSetsWritten.start();
+    e_tileTablesWritten.start();
 
     {
-        createTableTilePyramidUserData(data.getName());
+        createTableGpkgPctile(data.getName());
     }
 
     {
@@ -772,37 +772,18 @@ void RialtoDb::writeTileSet(const TileSetInfo& data)
         m_sqlite->insert(sql, rs);
     }
 
-    {
-        const std::string sql =
-            "INSERT INTO pctiles_dimension_set"
-            " (table_name, dimension_name, data_type, ordinal_position, description,"
-            " minimum, mean, maximum)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+    writeDimensions(data);
+    
+    writeMetadata(data);
+    
+    e_tileTablesWritten.stop();
+}
 
-        int i = 0;
-        for (auto dim: data.getDimensions())
-        {
-            records rs;
-            row r;
 
-            r.push_back(column(data.getName())); // table_name
-            r.push_back(column(dim.getName()));
-            r.push_back(column(dim.getDataType()));
-            r.push_back(column(i)); // ordinal_position
-            r.push_back(column("...description..."));
-            r.push_back(column(dim.getMinimum()));
-            r.push_back(column(dim.getMean()));
-            r.push_back(column(dim.getMaximum()));
-
-            rs.push_back(r);
-
-            m_sqlite->insert(sql, rs);
-
-            ++i;
-        }
-    }
-
+void RialtoDb::writeMetadata(const TileTableInfo& data)
+{
     uint32_t metadata_id;
+
     {
         const std::string sql =
             "INSERT INTO gpkg_metadata"
@@ -844,46 +825,48 @@ void RialtoDb::writeTileSet(const TileSetInfo& data)
         rs.push_back(r);
 
         m_sqlite->insert(sql, rs);
-    }
-
-    e_tileSetsWritten.stop();
+    }    
 }
 
 
-void RialtoDb::writeDimensions(uint32_t tileSetId,
-                             const std::vector<DimensionInfo>& dims)
+void RialtoDb::writeDimensions(const TileTableInfo& data)
 {
     if (!m_sqlite)
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
-    std::ostringstream oss;
-    oss << "INSERT INTO Dimensions "
-      << "(name, position, dataType, minimum, mean, maximum) "
-      << "VALUES (?, ?, ?, ?, ?, ?)";
+    const std::string sql =
+        "INSERT INTO pctiles_dimension_set"
+        " (table_name, dimension_name, data_type, ordinal_position, description,"
+        " minimum, mean, maximum)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
 
-    for (auto dim: dims)
+    int i = 0;
+    for (auto dim: data.getDimensions())
     {
         records rs;
         row r;
 
-        log()->get(LogLevel::Debug) << "INSERT for dim: " << dim.getName() << std::endl;
-
+        r.push_back(column(data.getName())); // table_name
         r.push_back(column(dim.getName()));
-        r.push_back(column(dim.getPosition()));
         r.push_back(column(dim.getDataType()));
+        r.push_back(column(i)); // ordinal_position
+        r.push_back(column("...description..."));
         r.push_back(column(dim.getMinimum()));
         r.push_back(column(dim.getMean()));
         r.push_back(column(dim.getMaximum()));
+
         rs.push_back(r);
 
-        m_sqlite->insert(oss.str(), rs);
+        m_sqlite->insert(sql, rs);
+
+        ++i;
     }
 }
 
 
-void RialtoDb::writeTile(const std::string& tileSetName, const TileInfo& data)
+void RialtoDb::writeTile(const std::string& tileTableName, const TileInfo& data)
 {
     if (!m_sqlite)
     {
@@ -917,7 +900,7 @@ void RialtoDb::writeTile(const std::string& tileSetName, const TileInfo& data)
         uint32_t numCols, numRows;
         matrixSizeAtLevel(data.getLevel(), numCols, numRows);
 
-        r.push_back(column(tileSetName));
+        r.push_back(column(tileTableName));
         r.push_back(column(data.getLevel()));
         r.push_back(column(numCols));
         r.push_back(column(numRows));
@@ -930,7 +913,7 @@ void RialtoDb::writeTile(const std::string& tileSetName, const TileInfo& data)
 
     {
         const std::string sql =
-            "INSERT INTO " + tileSetName +
+            "INSERT INTO " + tileTableName +
             " (zoom_level, tile_column, tile_row, tile_data, num_points, child_mask)"
             " VALUES (?, ?, ?, ?, ?, ?)";
 
@@ -1037,10 +1020,10 @@ void RialtoDb::queryForTileIds(std::string const& name,
 }
 
 
-void RialtoDb::queryForTileInfosBegin(std::string const& name,
-                                      double minx, double miny,
-                                      double maxx, double maxy,
-                                      uint32_t level)
+void RialtoDb::queryForTiles_begin(std::string const& name,
+                                   double minx, double miny,
+                                   double maxx, double maxy,
+                                   uint32_t level)
 {
     if (!m_sqlite)
     {
@@ -1081,7 +1064,7 @@ void RialtoDb::queryForTileInfosBegin(std::string const& name,
 }
 
 
-bool RialtoDb::queryForTileInfos(TileInfo& info)
+bool RialtoDb::queryForTiles_step(TileInfo& info)
 {
     e_tilesRead.start();
 
@@ -1112,17 +1095,17 @@ bool RialtoDb::queryForTileInfos(TileInfo& info)
 }
 
 
-bool RialtoDb::queryForTileInfosNext()
+bool RialtoDb::queryForTiles_next()
 {
     return m_sqlite->next();
 }
 
 
-void RialtoDb::setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout) const
+void RialtoDb::setupLayout(const TileTableInfo& tileTableInfo, PointLayoutPtr layout) const
 {
-    for (uint32_t i=0; i<tileSetInfo.getNumDimensions(); i++)
+    for (uint32_t i=0; i<tileTableInfo.getNumDimensions(); i++)
     {
-        const DimensionInfo& dimInfo = tileSetInfo.getDimensions()[i];
+        const DimensionInfo& dimInfo = tileTableInfo.getDimensions()[i];
 
         const Dimension::Id::Enum nameId = Dimension::id(dimInfo.getName());
         const Dimension::Type::Enum typeId = Dimension::type(dimInfo.getDataType());
@@ -1135,9 +1118,9 @@ void RialtoDb::setupLayout(const TileSetInfo& tileSetInfo, PointLayoutPtr layout
 void RialtoDb::dumpStats() const
 {
     e_tilesRead.dump();
-    e_tileSetsRead.dump();
+    e_tileTablesRead.dump();
     e_tilesWritten.dump();
-    e_tileSetsWritten.dump();
+    e_tileTablesWritten.dump();
     e_queries.dump();
     e_creation.dump();
     e_indexCreation.dump();

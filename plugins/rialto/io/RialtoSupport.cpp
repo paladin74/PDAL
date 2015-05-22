@@ -67,10 +67,10 @@ static double getMetadataF64(const MetadataNode& parent, const std::string& name
     return v;
 }
 
-static void extractStatistics(MetadataNode& tileSetNode, const std::string& dimName,
+static void extractStatistics(MetadataNode& tileTableNode, const std::string& dimName,
                                      double& minimum, double& mean, double& maximum)
 {
-    MetadataNode statisticNodes = tileSetNode.findChild("statistics");
+    MetadataNode statisticNodes = tileTableNode.findChild("statistics");
     assert(statisticNodes.valid());
 
     MetadataNode dimNode = statisticNodes.findChild(dimName);
@@ -90,16 +90,16 @@ static void extractStatistics(MetadataNode& tileSetNode, const std::string& dimN
 //---------------------------------------------------------------------
 
 
-TileSetInfo::TileSetInfo(const std::string& tileSetName,
-                         MetadataNode tileSetNode,
+TileTableInfo::TileTableInfo(const std::string& tileTableName,
+                         MetadataNode tileTableNode,
                          PointLayoutPtr layout,
                          const std::string& datetime)
 {
-    m_name = tileSetName;
+    m_name = tileTableName;
 
     m_datetime = datetime;
 
-    MetadataNode headerNode = tileSetNode.findChild("header");
+    MetadataNode headerNode = tileTableNode.findChild("header");
     assert(headerNode.valid());
     m_maxLevel = getMetadataU32(headerNode, "maxLevel");
     m_numDimensions = layout->dims().size();
@@ -114,11 +114,11 @@ TileSetInfo::TileSetInfo(const std::string& tileSetName,
     m_data_max_x = 179.0;
     m_data_max_y = 89.0;
 
-    DimensionInfo::importVector(tileSetNode, layout, m_dimensions);
+    DimensionInfo::importVector(tileTableNode, layout, m_dimensions);
 }
 
 
-void TileSetInfo::set(const std::string& datetime,
+void TileTableInfo::set(const std::string& datetime,
                       const std::string& name,
                       uint32_t maxLevel,
                       uint32_t numDimensions,
@@ -163,7 +163,7 @@ DimensionInfo::DimensionInfo(const std::string& name,
 { }       
 
 
-void DimensionInfo::importVector(MetadataNode tileSetNode,
+void DimensionInfo::importVector(MetadataNode tileTableNode,
                                  PointLayoutPtr layout,
                                  std::vector<DimensionInfo>& infoList)
 {
@@ -181,7 +181,7 @@ void DimensionInfo::importVector(MetadataNode tileSetNode,
         const std::string& dataTypeName = Dimension::interpretationName(layout->dimType(dim));
 
         double minimum, mean, maximum;
-        extractStatistics(tileSetNode, name, minimum, mean, maximum);
+        extractStatistics(tileTableNode, name, minimum, mean, maximum);
 
         DimensionInfo info(name, i, dataTypeName, description, minimum, mean, maximum);
         infoList.push_back(info);
@@ -306,16 +306,16 @@ void MyPatch::exportToPV(size_t numPoints, PointViewPtr view) const
 //---------------------------------------------------------------------
 
 
-void WriterAssister::setTileSetName(const std::string& tileSetName)
+void WriterAssister::setTileTableName(const std::string& tileTableName)
 {
-    m_tileSetName = tileSetName;
+    m_tileTableName = tileTableName;
 }
 
 
 void WriterAssister::ready(PointTableRef table)
 {
-    m_tileSetNode = table.metadata().findChild("filters.tiler");
-    if (!m_tileSetNode.valid()) {
+    m_tileTableNode = table.metadata().findChild("filters.tiler");
+    if (!m_tileTableNode.valid()) {
         throw pdal_error("RialtoWriter: \"filters.tiler\" metadata not found");
     }
 
@@ -325,7 +325,7 @@ void WriterAssister::ready(PointTableRef table)
     // TODO: this produces "ss", not "ss.sss" as the gpkg spec implies is required
     strftime(buf, sizeof(buf), "%FT%TZ", gmtime(&now));
     std::string datetime(buf);
-    writeHeader(m_tileSetName, m_tileSetNode, table.layout(), datetime);
+    writeHeader(m_tileTableName, m_tileTableNode, table.layout(), datetime);
 
     makePointViewMap();
 }
@@ -343,7 +343,7 @@ void WriterAssister::write(const PointViewPtr viewPtr)
     assert(pvid == 0xffffffff || pvid == (uint32_t)viewPtr->id());
 
     PointView* view = viewPtr.get();
-    writeTile(m_tileSetName, view, level, col, row, mask);
+    writeTile(m_tileTableName, view, level, col, row, mask);
 }
 
 
@@ -356,15 +356,15 @@ void WriterAssister::makePointViewMap()
     // the corresponding metadata node for it -- so here will make
     // a reverse lookup, from point view id to metadata node.
 
-    const MetadataNode tilesNode = m_tileSetNode.findChild("tiles");
+    const MetadataNode tilesNode = m_tileTableNode.findChild("tiles");
     if (!tilesNode.valid()) {
         throw pdal_error("RialtoWriter: \"filters.tiler/tiles\" metadata not found");
     }
 
-    MetadataNode numTilesNode = m_tileSetNode.findChild("tilesdatacount");
+    MetadataNode numTilesNode = m_tileTableNode.findChild("tilesdatacount");
     m_numTiles = boost::lexical_cast<uint32_t>(numTilesNode.value());
 
-    const MetadataNode tilesNode2 = m_tileSetNode.findChild("tilesdata");
+    const MetadataNode tilesNode2 = m_tileTableNode.findChild("tilesdata");
     std::string b64 = tilesNode2.value();
     std::vector<uint8_t> a = Utils::base64_decode(b64);
 
@@ -385,7 +385,7 @@ void WriterAssister::done()
 {
     // write empty tiles
     
-    const MetadataNode tilesNode = m_tileSetNode.findChild("tiles");
+    const MetadataNode tilesNode = m_tileTableNode.findChild("tiles");
     const MetadataNodeList tileNodes = tilesNode.children();
 
     for (uint32_t i=0; i<m_numTiles*5; i+=5)
@@ -398,7 +398,7 @@ void WriterAssister::done()
 
         if (pvid == 0xffffffff)
         {
-            writeTile(m_tileSetName, NULL, level, col, row, mask);
+            writeTile(m_tileTableName, NULL, level, col, row, mask);
         }
     }
 }

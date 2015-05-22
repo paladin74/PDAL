@@ -43,7 +43,7 @@ namespace rialto
 {
 
 
-class TileSetInfo;
+class TileTableInfo;
 class RialtoDb;
 
     
@@ -68,9 +68,9 @@ protected:
 
 private:
   RialtoDb* m_db;
-  std::string m_tileSetName;
+  std::string m_tileTableName;
   uint32_t m_level;
-  std::unique_ptr<TileSetInfo> m_tileSetInfo;
+  std::unique_ptr<TileTableInfo> m_tileTableInfo;
   BOX3D m_query;
   
   RialtoDbReader& operator=(const RialtoDbReader&); // not implemented

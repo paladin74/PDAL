@@ -99,7 +99,7 @@ void RialtoDbWriter::processOptions(const Options& options)
     // so we'll use a differently named variable to make it clear
     m_connection = m_filename;
 
-    m_assister.setTileSetName(options.getValueOrDefault<std::string>("tileSetName", "myunnamedlasfile")); // TODO
+    m_assister.setTileTableName(options.getValueOrDefault<std::string>("tileTableName", "myunnamedlasfile")); // TODO
 }
 
 
@@ -113,17 +113,17 @@ Options RialtoDbWriter::getDefaultOptions()
 //---------------------------------------------------------------------
 
 
-void DbWriterAssister::writeHeader(const std::string& tileSetName,
-                                 MetadataNode tileSetNode,
+void DbWriterAssister::writeHeader(const std::string& tileTableName,
+                                 MetadataNode tileTableNode,
                                  PointLayoutPtr layout, const std::string& datetime)
 {
-    const TileSetInfo tileSetInfo(tileSetName, tileSetNode, layout, datetime);
+    const TileTableInfo tileTableInfo(tileTableName, tileTableNode, layout, datetime);
 
-    m_rialtoDb->writeTileSet(tileSetInfo);
+    m_rialtoDb->writeTileTable(tileTableInfo);
 }
 
 
-void DbWriterAssister::writeTile(const std::string& tileSetName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
+void DbWriterAssister::writeTile(const std::string& tileTableName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
 {
     //log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
 
@@ -133,7 +133,7 @@ void DbWriterAssister::writeTile(const std::string& tileSetName, PointView* view
 
     if (!tileInfo.getPatch().isEmpty())
     {
-        m_rialtoDb->writeTile(tileSetName, tileInfo);
+        m_rialtoDb->writeTile(tileTableName, tileInfo);
     }
 }
 

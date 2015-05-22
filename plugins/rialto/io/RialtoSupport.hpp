@@ -72,7 +72,7 @@ public:
                   double mean,
                   double maximum);
 
-    static void importVector(MetadataNode tileSetNode,
+    static void importVector(MetadataNode tileTableNode,
                              PointLayoutPtr layout,
                              std::vector<DimensionInfo>& infoList);
 
@@ -101,13 +101,13 @@ private:
 //   we always cover the whole globe at the root
 //   we always do power-of-two reductions
 //   we store all levels between 0 and max, inclusive
-class TileSetInfo
+class TileTableInfo
 {
 public:
-    TileSetInfo() {}
+    TileTableInfo() {}
 
-    TileSetInfo(const std::string& tileSetName,
-                MetadataNode tileSetNode,
+    TileTableInfo(const std::string& tileTableName,
+                MetadataNode tileTableNode,
                 PointLayoutPtr layout,
                 const std::string& datetime);
 
@@ -192,30 +192,30 @@ private:
 class WriterAssister
 {
 public:
-    void setTileSetName(const std::string&);
+    void setTileTableName(const std::string&);
     
     void write(const PointViewPtr viewPtr);
     void ready(PointTableRef table);
     void done();
 
 protected:
-    virtual void writeHeader(const std::string& tileSetName,
-                             MetadataNode tileSetNode,
+    virtual void writeHeader(const std::string& tileTableName,
+                             MetadataNode tileTableNode,
                              PointLayoutPtr layout,
                              const std::string& datetime)=0;
-    virtual void writeTile(const std::string& tileSetName, PointView*,
+    virtual void writeTile(const std::string& tileTableName, PointView*,
                            uint32_t level, uint32_t col, uint32_t row, uint32_t mask)=0;
 
 private:    
     void makePointViewMap();
 
-    std::string m_tileSetName;
+    std::string m_tileTableName;
 
     std::map<uint32_t, uint32_t> m_pointViewMap; // PV id to array index
     uint32_t* m_tileMetadata;
     uint32_t m_numTiles;
 
-    MetadataNode m_tileSetNode;
+    MetadataNode m_tileTableNode;
 };
 
 
