@@ -109,12 +109,14 @@ public:
     TileTableInfo(const std::string& tileTableName,
                 MetadataNode tileTableNode,
                 PointLayoutPtr layout,
-                const std::string& datetime);
+                const std::string& datetime,
+                const SpatialReference& srs);
 
     void set(const std::string& datetime,
              const std::string& name,
              uint32_t maxLevel,
              uint32_t numDimensions,
+             const std::string& wkt,
              double data_min_x,
              double data_min_y,
              double data_max_x,
@@ -130,7 +132,8 @@ public:
     uint32_t getNumDimensions() const { return m_numDimensions; }
     const std::vector<DimensionInfo>& getDimensions() const { return m_dimensions; };
     std::vector<DimensionInfo>& getDimensionsRef() { return m_dimensions; };
-
+    const std::string getWkt() const { return m_wkt; }
+    
     double getDataMinX() const { return m_data_min_x; } // data extents
     double getDataMinY() const { return m_data_min_y; }
     double getDataMaxX() const { return m_data_max_x; }
@@ -147,6 +150,7 @@ private:
     uint32_t m_maxLevel;
     uint32_t m_numDimensions;
     std::vector<DimensionInfo> m_dimensions;
+    std::string m_wkt; // the srs
     double m_data_min_x; // data extents
     double m_data_min_y;
     double m_data_max_x;
@@ -195,14 +199,15 @@ public:
     void setTileTableName(const std::string&);
     
     void write(const PointViewPtr viewPtr);
-    void ready(PointTableRef table);
+    void ready(PointTableRef table, const SpatialReference& srs);
     void done();
 
 protected:
     virtual void writeHeader(const std::string& tileTableName,
                              MetadataNode tileTableNode,
                              PointLayoutPtr layout,
-                             const std::string& datetime)=0;
+                             const std::string& datetime,
+                             const SpatialReference& srs)=0;
     virtual void writeTile(const std::string& tileTableName, PointView*,
                            uint32_t level, uint32_t col, uint32_t row, uint32_t mask)=0;
 

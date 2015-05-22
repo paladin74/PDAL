@@ -177,7 +177,7 @@ void RialtoTest::createDatabase(pdal::PointTable& table,
                                 pdal::PointViewPtr view,
                                 const std::string& filename,
                                 uint32_t maxLevel)
-{
+{    
     pdal::Options readerOptions;
     pdal::BufferReader reader;
     reader.setOptions(readerOptions);
@@ -197,14 +197,10 @@ void RialtoTest::createDatabase(pdal::PointTable& table,
 
     pdal::StageFactory f;
     pdal::Options writerOptions;
-#if 1
     writerOptions.add("filename", filename);
     writerOptions.add("overwrite", true);
     //writerOptions.add("verbose", LogLevel::Debug);
     pdal::Stage* writer = f.createStage("writers.rialtodb");
-#else
-    pdal::Stage* writer = f.createStage("writers.null");
-#endif    
     writer->setOptions(writerOptions);
     writer->setInput(tiler);
 

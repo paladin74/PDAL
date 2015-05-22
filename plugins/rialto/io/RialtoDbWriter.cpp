@@ -65,7 +65,11 @@ void RialtoDbWriter::ready(PointTableRef table)
 
     m_assister.m_rialtoDb = m_rialtoDb;
 
-    m_assister.ready(table);
+    const SpatialReference& srs = getSpatialReference().empty() ?
+        table.spatialRef() : getSpatialReference();
+    setSpatialReference(srs);
+
+    m_assister.ready(table, getSpatialReference());
 }
 
 
@@ -115,9 +119,10 @@ Options RialtoDbWriter::getDefaultOptions()
 
 void DbWriterAssister::writeHeader(const std::string& tileTableName,
                                  MetadataNode tileTableNode,
-                                 PointLayoutPtr layout, const std::string& datetime)
+                                 PointLayoutPtr layout, const std::string& datetime,
+                                 const SpatialReference& srs)
 {
-    const TileTableInfo tileTableInfo(tileTableName, tileTableNode, layout, datetime);
+    const TileTableInfo tileTableInfo(tileTableName, tileTableNode, layout, datetime, srs);
 
     m_rialtoDb->writeTileTable(tileTableInfo);
 }

@@ -85,6 +85,9 @@ void RialtoDbReader::initialize()
         m_tileTableInfo = std::unique_ptr<TileTableInfo>(new TileTableInfo());
 
         m_db->readTileTable(m_tileTableName, *m_tileTableInfo);
+        
+        SpatialReference srs(m_tileTableInfo->getWkt()); // TODO: or do I need to call setWKT()?
+        setSpatialReference(srs);
     }
 }
 

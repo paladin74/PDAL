@@ -68,7 +68,7 @@ void RialtoFileWriter::ready(PointTableRef table)
 
     m_assister.m_directory = m_filename;
 
-    m_assister.ready(table);
+    m_assister.ready(table, getSpatialReference());
 }
 
 
@@ -115,9 +115,10 @@ Options RialtoFileWriter::getDefaultOptions()
 void FileWriterAssister::writeHeader(const std::string& tileTableName,
                                    MetadataNode tileTableNode,
                                    PointLayoutPtr layout,
-                                   const std::string& datetime)
-{
-    const TileTableInfo tileTableInfo(tileTableName, tileTableNode, layout, datetime);
+                                   const std::string& datetime,
+                                   const SpatialReference& srs)
+{    
+    const TileTableInfo tileTableInfo(tileTableName, tileTableNode, layout, datetime, srs);
 
     const std::string filename(m_directory + "/header.json");
     FILE* fp = fopen(filename.c_str(), "wt");

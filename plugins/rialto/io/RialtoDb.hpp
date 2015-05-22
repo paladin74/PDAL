@@ -100,6 +100,9 @@ public:
      bool queryForTiles_step(TileInfo& tileInfo);
      bool queryForTiles_next();
 
+     uint32_t querySrsId(const std::string& wkt) const;
+     std::string querySrsWkt(uint32_t srs_id) const;
+
     // fills in the dimensions of an otherwise empty layout with
     // the dimension information from the tile set
     void setupLayout(const TileTableInfo& tileTableInfo, PointLayoutPtr layout) const;

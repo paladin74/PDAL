@@ -73,6 +73,16 @@ TEST(RialtoDbReaderTest, test)
   options.add("filename", filename);
   //options.add("verbose", LogLevel::Debug);
   reader.setOptions(options);
+
+  {
+      PointTable table;
+      reader.prepare(table);
+      const SpatialReference& srs = reader.getSpatialReference();
+      const std::string& wkt = srs.getWKT();
+      const SpatialReference srs4326("EPSG:4326");
+      const std::string wkt4326 = srs4326.getWKT();
+      EXPECT_EQ(wkt, wkt4326);
+  }
   
   {
       PointTable table;

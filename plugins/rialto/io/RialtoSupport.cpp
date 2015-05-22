@@ -93,7 +93,8 @@ static void extractStatistics(MetadataNode& tileTableNode, const std::string& di
 TileTableInfo::TileTableInfo(const std::string& tileTableName,
                          MetadataNode tileTableNode,
                          PointLayoutPtr layout,
-                         const std::string& datetime)
+                         const std::string& datetime,
+                         const SpatialReference& srs)
 {
     m_name = tileTableName;
 
@@ -104,15 +105,22 @@ TileTableInfo::TileTableInfo(const std::string& tileTableName,
     m_maxLevel = getMetadataU32(headerNode, "maxLevel");
     m_numDimensions = layout->dims().size();
 
+    m_wkt = srs.getWKT(SpatialReference::eCompoundOK);
+    
     m_tmset_min_x = -180.0;
     m_tmset_min_y = -90.0;
     m_tmset_max_x = 180.0;
     m_tmset_max_y = 90.0;
 
-    m_data_min_x = -189.0; // TODO
-    m_data_min_y = -89.0;
-    m_data_max_x = 179.0;
-    m_data_max_y = 89.0;
+    double statMinX, statMeanX, statMaxX;
+    double statMinY, statMeanY, statMaxY;
+    extractStatistics(tileTableNode, "X", statMinX, statMeanX, statMaxX);
+    extractStatistics(tileTableNode, "Y", statMinY, statMeanY, statMaxY);
+
+    m_data_min_x = statMinX; // TODO
+    m_data_min_y = statMinY;
+    m_data_max_x = statMaxX;
+    m_data_max_y = statMaxY;
 
     DimensionInfo::importVector(tileTableNode, layout, m_dimensions);
 }
@@ -122,6 +130,7 @@ void TileTableInfo::set(const std::string& datetime,
                       const std::string& name,
                       uint32_t maxLevel,
                       uint32_t numDimensions,
+                      const std::string& wkt,
                       double data_min_x,
                       double data_min_y,
                       double data_max_x,
@@ -135,6 +144,7 @@ void TileTableInfo::set(const std::string& datetime,
     m_name = name;
     m_maxLevel = maxLevel;
     m_numDimensions = numDimensions;
+    m_wkt = wkt;
     m_data_min_x = data_min_x;
     m_data_min_y = data_min_y;
     m_data_max_x = data_max_x;
@@ -312,7 +322,7 @@ void WriterAssister::setTileTableName(const std::string& tileTableName)
 }
 
 
-void WriterAssister::ready(PointTableRef table)
+void WriterAssister::ready(PointTableRef table, const SpatialReference& srs)
 {
     m_tileTableNode = table.metadata().findChild("filters.tiler");
     if (!m_tileTableNode.valid()) {
@@ -325,7 +335,7 @@ void WriterAssister::ready(PointTableRef table)
     // TODO: this produces "ss", not "ss.sss" as the gpkg spec implies is required
     strftime(buf, sizeof(buf), "%FT%TZ", gmtime(&now));
     std::string datetime(buf);
-    writeHeader(m_tileTableName, m_tileTableNode, table.layout(), datetime);
+    writeHeader(m_tileTableName, m_tileTableNode, table.layout(), datetime, srs);
 
     makePointViewMap();
 }

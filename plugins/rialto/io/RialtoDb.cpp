@@ -221,12 +221,12 @@ void RialtoDb::createTableGpkgSpatialRefSys()
     row r2;
     row r3;
 
-
+    const std::string wkt4326 = SpatialReference("EPSG:4326").getWKT(SpatialReference::eCompoundOK);
     r1.push_back(column("EPSG:4326"));
     r1.push_back(column(4326));
     r1.push_back(column("EPSG"));
     r1.push_back(column(4326));
-    r1.push_back(column("EPSG:4326"));
+    r1.push_back(column(wkt4326));
     r1.push_back(column("EPSG:4326"));
     rs1.push_back(r1);
     m_sqlite->insert(data, rs1);
@@ -515,10 +515,11 @@ void RialtoDb::readTileTable(std::string const& name, TileTableInfo& info) const
     e_tileTablesRead.start();
 
     std::string datetime;
+    uint32_t srs_id;
     double data_min_x, data_min_y, data_max_x, data_max_y;
     {
         std::ostringstream oss;
-        oss << "SELECT last_change,data_min_x, data_min_y, data_max_x, data_max_y "
+        oss << "SELECT last_change, data_min_x, data_min_y, data_max_x, data_max_y, srs_id "
             << "FROM gpkg_contents WHERE table_name='" << name << "'";
 
         log()->get(LogLevel::Debug) << "SELECT for tile set" << std::endl;
@@ -533,6 +534,7 @@ void RialtoDb::readTileTable(std::string const& name, TileTableInfo& info) const
         data_min_y = boost::lexical_cast<double>(r->at(2).data);
         data_max_x = boost::lexical_cast<double>(r->at(3).data);
         data_max_y = boost::lexical_cast<double>(r->at(4).data);
+        srs_id = boost::lexical_cast<uint32_t>(r->at(5).data);
         assert(!m_sqlite->next());
     }
 
@@ -555,6 +557,8 @@ void RialtoDb::readTileTable(std::string const& name, TileTableInfo& info) const
         tmset_max_y = boost::lexical_cast<double>(r->at(3).data);
         assert(!m_sqlite->next());
     }
+
+    std::string wkt = querySrsWkt(srs_id);
 
     uint32_t maxLevel;
     {
@@ -587,7 +591,7 @@ void RialtoDb::readTileTable(std::string const& name, TileTableInfo& info) const
         assert(!m_sqlite->next());
     }
 
-    info.set(datetime, name, maxLevel, numDimensions,
+    info.set(datetime, name, maxLevel, numDimensions, wkt,
              data_min_x, data_min_y, data_max_x, data_max_y,
              tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y);
 
@@ -724,11 +728,14 @@ void RialtoDb::writeTileTable(const TileTableInfo& data)
         createTableGpkgPctile(data.getName());
     }
 
+
+    const uint32_t srs_id = querySrsId(data.getWkt());
+
     {
         const std::string sql =
             "INSERT INTO gpkg_contents"
-            " (table_name, data_type, identifier, description, last_change,"
-            " data_min_x, data_min_y, data_max_x, data_max_y, srs_id)"
+            " (table_name, data_type, identifier, description, last_change, srs_id,"
+            " data_min_x, data_min_y, data_max_x, data_max_y)"
             " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         records rs;
@@ -739,7 +746,7 @@ void RialtoDb::writeTileTable(const TileTableInfo& data)
         r.push_back(column(data.getName())); // identifier
         r.push_back(column(data.getName())); // description
         r.push_back(column(data.getDateTime())); // last_change
-        r.push_back(column(4326)); // srs_id
+        r.push_back(column(srs_id));
         r.push_back(column(data.getDataMinX()));
         r.push_back(column(data.getDataMinY()));
         r.push_back(column(data.getDataMaxX()));
@@ -761,11 +768,11 @@ void RialtoDb::writeTileTable(const TileTableInfo& data)
         row r;
 
         r.push_back(column(data.getName())); // table_name
-        r.push_back(column(4326)); // srs_id
+        r.push_back(column(srs_id));
         r.push_back(column(data.getTmsetMinX()));
-        r.push_back(column(data.getTmsetMinX()));
-        r.push_back(column(data.getTmsetMinX()));
-        r.push_back(column(data.getTmsetMinX()));
+        r.push_back(column(data.getTmsetMinY()));
+        r.push_back(column(data.getTmsetMaxX()));
+        r.push_back(column(data.getTmsetMaxY()));
 
         rs.push_back(r);
 
@@ -775,7 +782,7 @@ void RialtoDb::writeTileTable(const TileTableInfo& data)
     writeDimensions(data);
     
     writeMetadata(data);
-    
+
     e_tileTablesWritten.stop();
 }
 
@@ -934,6 +941,50 @@ void RialtoDb::writeTile(const std::string& tileTableName, const TileInfo& data)
     e_tilesWritten.stop();
 
     m_numPointsWritten += data.getNumPoints();
+}
+
+
+uint32_t RialtoDb::querySrsId(const std::string& wkt) const
+{
+    if (!m_sqlite)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
+    // TODO: how better to look up SRS than text match of WKT?
+    
+    std::ostringstream oss;
+    oss << "SELECT srs_id FROM gpkg_spatial_ref_sys"
+        << " WHERE definition='" << wkt << "'";
+
+    m_sqlite->query(oss.str());
+
+    const row* r = m_sqlite->get();
+    if (!r) return 0;
+
+    // take the first one, ignore any others
+    const uint32_t srs_id = boost::lexical_cast<uint32_t>(r->at(0).data);
+
+    return srs_id;
+}
+
+
+std::string RialtoDb::querySrsWkt(uint32_t srs_id) const
+{
+    std::ostringstream oss;
+    oss << "SELECT definition "
+        << "FROM gpkg_spatial_ref_sys WHERE srs_id=" << srs_id;
+
+    log()->get(LogLevel::Debug) << "SELECT for tile set" << std::endl;
+
+    m_sqlite->query(oss.str());
+
+    // should get exactly one row back
+    const row* r = m_sqlite->get();
+    assert(r);
+    const std::string wkt = r->at(0).data;
+    assert(!m_sqlite->next());
+    return wkt;
 }
 
 

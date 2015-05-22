@@ -83,6 +83,15 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     EXPECT_EQ(tileTableInfo.getMaxLevel(), 2u);
     EXPECT_EQ(tileTableInfo.getNumDimensions(), 3u);
 
+    EXPECT_DOUBLE_EQ(tileTableInfo.getDataMinX(), -179.0);
+    EXPECT_DOUBLE_EQ(tileTableInfo.getDataMinY(), -89.0);
+    EXPECT_DOUBLE_EQ(tileTableInfo.getDataMaxX(), 91.0);
+    EXPECT_DOUBLE_EQ(tileTableInfo.getDataMaxY(), 89.0);
+    EXPECT_DOUBLE_EQ(tileTableInfo.getTmsetMinX(), -180.0);
+    EXPECT_DOUBLE_EQ(tileTableInfo.getTmsetMinY(), -90.0);
+    EXPECT_DOUBLE_EQ(tileTableInfo.getTmsetMaxX(), 180.0);
+    EXPECT_DOUBLE_EQ(tileTableInfo.getTmsetMaxY(), 90.0);
+
     const std::vector<DimensionInfo>& dimensionsInfo = tileTableInfo.getDimensions();
     EXPECT_EQ(dimensionsInfo[0].getName(), "X");
     EXPECT_EQ(dimensionsInfo[0].getDataType(), "double");
