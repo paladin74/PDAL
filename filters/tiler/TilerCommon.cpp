@@ -50,6 +50,7 @@ namespace tilercommon
 TileSet::TileSet(
         uint32_t maxLevel,
         LogPtr log) :
+    tmm(-180, -90, 180, 90, 2, 1), // TODO: hard-coded for now
     m_sourceView(NULL),
     m_outputSet(NULL),
     m_maxLevel(maxLevel),
@@ -61,10 +62,9 @@ TileSet::TileSet(
 
     // TODO: for now, we only support two tiles at the root
     m_roots = new tilercommon::Tile*[2];
-    const tilercommon::Rectangle r00(-180.0, -90.0, 0.0, 90.0); // wsen
-    const tilercommon::Rectangle r10(0.0, -90.0, 180.0, 90.0);
-    m_roots[0] = new tilercommon::Tile(*this, 0, 0, 0, r00);
-    m_roots[1] = new tilercommon::Tile(*this, 0, 1, 0, r10);
+
+    m_roots[0] = new tilercommon::Tile(*this, 0, 0, 0);
+    m_roots[1] = new tilercommon::Tile(*this, 0, 1, 0);
 }
 
 
@@ -82,7 +82,7 @@ void TileSet::ready(PointTableRef table)
 {
     m_tableMetadata =  table.metadata();
     assert(m_tableMetadata.valid());
-    
+
     m_tileSetMetadata = m_tableMetadata.findChild("filters.tiler");
     assert(m_tileSetMetadata.valid());
 }
@@ -96,17 +96,17 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
     // enter each point into the tile set
     Tile& westTile = *(m_roots[0]);
     Tile& eastTile = *(m_roots[1]);
-    
+
     const uint32_t numPoints = sourceView->size();
     for (PointId idx = 0; idx < numPoints; ++idx)
     {
-        const double lon = sourceView->getFieldAs<double>(Dimension::Id::X, idx);
-        const double lat = sourceView->getFieldAs<double>(Dimension::Id::Y, idx);
-        
-        if (lon < 0.0)
-            westTile.add(m_sourceView, idx, lon, lat);
+        const double x = sourceView->getFieldAs<double>(Dimension::Id::X, idx);
+        const double y = sourceView->getFieldAs<double>(Dimension::Id::Y, idx);
+
+        if (x < 0.0) // TODO: because we've hard-coded to a 2x1 matrix
+            westTile.add(m_sourceView, idx, x, y);
         else
-            eastTile.add(m_sourceView, idx, lon, lat);
+            eastTile.add(m_sourceView, idx, x, y);
     }
 
     setHeaderMetadata();
@@ -115,7 +115,7 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
     {
         westTile.setMask();
         eastTile.setMask();
-        
+
         uint32_t* data = new uint32_t[m_tileId*5]; // level, col, row, mask, pv id
         westTile.setTileMetadata(data);
         eastTile.setTileMetadata(data);
@@ -124,7 +124,7 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
         MetadataNode tilesMetadata3 = m_tileSetMetadata.add("tilesdata", b64);
         MetadataNode tilesMetadata2 = m_tileSetMetadata.add("tilesdatacount", m_tileId);
     }
-    
+
     MetadataNode tilesMetadata = m_tileSetMetadata.addList("tiles");
     assert(tilesMetadata.valid());
 }
@@ -187,32 +187,29 @@ void TileSet::setHeaderMetadata()
     assert(node.valid());
 
     node.add("maxLevel", m_maxLevel);
-    node.add("numCols", 2);
-    node.add("numRows", 1);
-    node.add("minX", -180.0);
-    node.add("minY", -90.0);
-    node.add("maxX", 180.0);
-    node.add("maxY", 90.0);
+    node.add("numCols", tmm.numColsAtLevel(0));
+    node.add("numRows", tmm.numRowsAtLevel(0));
+    node.add("minX", tmm.minX());
+    node.add("minY", tmm.minY());
+    node.add("maxX", tmm.maxX());
+    node.add("maxY", tmm.maxY());
 }
 
 
 Tile::Tile(
         TileSet& tileSet,
         uint32_t level,
-        uint32_t tx,
-        uint32_t ty,
-        const Rectangle& r) :
+        uint32_t column,
+        uint32_t row) :
     m_tileSet(tileSet),
     m_level(level),
-    m_tileX(tx),
-    m_tileY(ty),
+    m_column(column),
+    m_row(row),
     m_children(NULL),
     m_skip(0),
     m_pointView(NULL),
     m_mask(0)
 {
-    m_rect.set(r);
-
     m_id = tileSet.newTileId();
 
     assert(m_level <= m_tileSet.getMaxLevel());
@@ -265,8 +262,8 @@ Tile::~Tile()
 void Tile::setTileMetadata(uint32_t* data) const
 {
     data[m_id*5+0] = m_level;
-    data[m_id*5+1] = m_tileX;
-    data[m_id*5+2] = m_tileY;
+    data[m_id*5+1] = m_column;
+    data[m_id*5+2] = m_row;
     data[m_id*5+3] = m_mask;
     data[m_id*5+4] = 0xffffffff;
 
@@ -290,10 +287,10 @@ void Tile::setMask()
   m_mask = 0x0;
   if (m_children)
   {
-      if (m_children[Rectangle::QuadrantSW]) m_mask += 1;
-      if (m_children[Rectangle::QuadrantSE]) m_mask += 2;
-      if (m_children[Rectangle::QuadrantNE]) m_mask += 4;
-      if (m_children[Rectangle::QuadrantNW]) m_mask += 8;
+      if (m_children[TileMatrixMath::QuadSW]) m_mask += 1;
+      if (m_children[TileMatrixMath::QuadSE]) m_mask += 2;
+      if (m_children[TileMatrixMath::QuadNE]) m_mask += 4;
+      if (m_children[TileMatrixMath::QuadNW]) m_mask += 8;
   }
 
   if (m_children) {
@@ -311,10 +308,8 @@ void Tile::setMask()
 // point, where N is based on the level.
 //
 // If we're not a leaf tile, add the node to one of our child tiles.
-void Tile::add(PointViewPtr sourcePointView, PointId pointNumber, double lon, double lat)
+void Tile::add(PointViewPtr sourcePointView, PointId pointNumber, double x, double y)
 {
-    assert(m_rect.contains(lon, lat));
-
     //log()->get(LogLevel::Debug5) << "-- -- " << pointNumber
         //<< " " << m_skip
         //<< " " << (pointNumber % m_skip == 0) << "\n";
@@ -341,35 +336,18 @@ void Tile::add(PointViewPtr sourcePointView, PointId pointNumber, double lon, do
         m_children[3] = NULL;
     }
 
-    Rectangle::Quadrant q = m_rect.getQuadrantOf(lon, lat);
     //log()->get(LogLevel::Debug5) << "which=" << q << "\n";
 
-    Tile* child = m_children[q];
-    if (child == NULL)
+    const TileMatrixMath::Quad q = m_tileSet.tmm.getQuadrant(m_column, m_row, m_level, x, y);
+
+    if (!m_children[q])
     {
-        Rectangle r;
-        m_rect.getRectangleOfQuadrant(q, r);
-        switch (q)
-        {
-            case Rectangle::QuadrantSW:
-                child = new Tile(m_tileSet, m_level+1, m_tileX*2, m_tileY*2+1, r);
-                break;
-            case Rectangle::QuadrantNW:
-                child = new Tile(m_tileSet, m_level+1, m_tileX*2, m_tileY*2, r);
-                break;
-            case Rectangle::QuadrantSE:
-                child = new Tile(m_tileSet, m_level+1, m_tileX*2+1, m_tileY*2+1, r);
-                break;
-            case Rectangle::QuadrantNE:
-                child = new Tile(m_tileSet, m_level+1, m_tileX*2+1, m_tileY*2, r);
-                break;
-            default:
-                throw pdal_error("invalid quadrant");
-        }
-        m_children[q] = child;
+        uint32_t childCol, childRow;
+        m_tileSet.tmm.getChildOfTile(m_column, m_row, q, childCol, childRow);
+        m_children[q] = new Tile(m_tileSet, m_level+1, childCol, childRow);
     }
 
-    child->add(sourcePointView, pointNumber, lon, lat);
+    m_children[q]->add(sourcePointView, pointNumber, x, y);
 }
 
 } // namespace tilercommon

@@ -79,14 +79,14 @@ public:
 
     void ready(PointTableRef table);
     void done(PointTableRef table);
-    
+
     Options getDefaultOptions();
 
 private:
     int32_t m_maxLevel; // number of highest level
     int32_t m_numTilesX; // number of tile rows at level 0
     int32_t m_numTilesY; // number of tile columns at level 0
-    tilercommon::Rectangle m_rectangle; // bbox of tile tree
+    double m_minx, m_miny, m_maxx, m_maxy; // bbox of tile tree
 
     tilercommon::TileSet* m_tileSet;
 

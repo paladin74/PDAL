@@ -67,7 +67,10 @@ void TilerFilter::processOptions(const Options& options)
 
     m_numTilesX = 2;
     m_numTilesY = 1;
-    m_rectangle.set(-180.0, -90.0, 180.0, 90.0);
+    m_minx = -180.0;
+    m_miny = -90.0;
+    m_maxx = 180.0;
+    m_maxy = 90.0;
 }
 
 
@@ -82,7 +85,7 @@ Options TilerFilter::getDefaultOptions()
 
 
 void TilerFilter::ready(PointTableRef table)
-{    
+{
     assert(m_tileSet == NULL);
 
     // we only support 4326 right now
@@ -95,11 +98,11 @@ void TilerFilter::ready(PointTableRef table)
     // we require that the stats filter has been run
     const MetadataNode statsNode = table.metadata().findChild("filters.stats");
     if (!statsNode.valid()) {
-        throw pdal_error("TilerFilter: pipeline must have stats filter");        
+        throw pdal_error("TilerFilter: pipeline must have stats filter");
     }
 
     m_tileSet = new tilercommon::TileSet(m_maxLevel, log());
-    
+
     m_tileSet->ready(table);
 }
 

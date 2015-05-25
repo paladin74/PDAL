@@ -47,101 +47,177 @@ namespace pdal
 namespace tilercommon
 {
 
-class Rectangle
+
+// the one, true class for the math operations on a tile matrix
+//
+// - a Tile is a rectangular region of space, covering a bbox
+// - a Tile Matrix is a 2D array of tiles
+// - a Tile Matrix has nc columns and nr rows and a level l
+// - tiles are numbered from (0,0) at upper left
+// - a Tile Matrix Set is the set of Tile Matrices for nl levels, 0<=l<nl
+// - a bbox is defined by the points (minx,miny) and (maxx,maxy), inclusive
+//   of the lower bound and exclusive of the upper bound
+// - point space has (0,0) at lower left
+// - tiles are defined with uint32s
+// - points are defined with doubles
+// - all methods are designed to be inlined
+// - all methods are const
+// - all methods are O(1) operations
+// - if arguments to an operation are out of bounds, results are undefined
+class TileMatrixMath
 {
 public:
-    enum Quadrant
+    enum Quad
     {
-        QuadrantSW=0, QuadrantNW=1, QuadrantSE=2, QuadrantNE=3,
+        QuadSW=0, QuadNW=1, QuadSE=2, QuadNE=3,
     };
 
-    Rectangle() :
-        m_north(0.0), m_south(0.0), m_east(0.0), m_west(0.0),
-        m_midx(0.0), m_midy(0.0)
-        {}
-
-    Rectangle(double w, double s, double e, double n) :
-        m_north(n), m_south(s), m_east(e), m_west(w),
-        m_midx((w+e)*0.5), m_midy((s+n)*0.5)
-        {}
-
-    void set(const Rectangle& r)
+    TileMatrixMath(double minx, double miny, double maxx, double maxy,
+                   uint32_t numColsAtL0, uint32_t numRowsAtL0) :
+    m_minx(minx),
+    m_miny(miny),
+    m_maxx(maxx),
+    m_maxy(maxy),
+    m_nc0(numColsAtL0),
+    m_nr0(numRowsAtL0)
     {
-        m_north = r.m_north;
-        m_south = r.m_south;
-        m_east = r.m_east;
-        m_west = r.m_west;
-        m_midx = r.m_midx;
-        m_midy = r.m_midy;
+        assert(minx < maxx);
+        assert(miny < maxy);
+        assert(numColsAtL0 > 0);
+        assert(numRowsAtL0 > 0);
     }
 
-    void set(double w, double s, double e, double n) // same order as ctor
-    {
-        m_north = n;
-        m_south = s;
-        m_east = e;
-        m_west = w;
-        m_midx = (w + e) * 0.5;
-        m_midy = (s + n) * 0.5;
-    }
-    
-    // return the quadrant of the child of this rect, for the given point
-    Quadrant getQuadrantOf(double lon, double lat) const
-    {
-        // NW=1  NE=3
-        // SW=0  SE=2
-        const bool lowX = (lon <= m_midx);
-        const bool lowY = (lat <= m_midy);
+    // bounds of the matrix
+    double minX() const { return m_minx; }
+    double maxX() const { return m_maxx; }
+    double minY() const { return m_miny; }
+    double maxY() const { return m_maxy; }
 
-        if (lowX && lowY)
-            return QuadrantSW;
-        if (lowX && !lowY)
-            return QuadrantNW;
-        if (!lowX && lowY)
-            return QuadrantSE;
-        return QuadrantNE;
+    // does this matrix contain the point?
+    bool matrixContains(double x, double y) const
+    {
+        return contains(m_minx, m_miny, m_maxx, m_maxy, x, y);
     }
 
-    // return the rect of the given child quadrant of this rect
-    void getRectangleOfQuadrant(Quadrant q, Rectangle& rect) const
+    uint32_t numColsAtLevel(uint32_t level) const
     {
-        switch (q) {
-        case QuadrantSW:
-            rect.set(m_west, m_south, m_midx, m_midy);
-            break;
-        case QuadrantNW:
-            rect.set(m_west, m_midy, m_midx, m_north);
-            break;
-        case QuadrantSE:
-            rect.set(m_midx, m_south, m_east, m_midy);
-            break;
-        case QuadrantNE:
-            rect.set(m_midx, m_midy, m_east, m_north);
-            break;
-        default:
-            throw pdal_error("invalid quadrant");
+        return ipow2(level) * m_nc0;
+    }
+
+    uint32_t numRowsAtLevel(uint32_t level) const
+    {
+        return ipow2(level) * m_nr0;
+    }
+
+    double tileWidthAtLevel(uint32_t level) const
+    {
+        return (m_maxx - m_minx) / numColsAtLevel(level);
+    }
+
+    double tileHeightAtLevel(uint32_t level) const
+    {
+        return (m_maxy - m_miny) / numRowsAtLevel(level);
+    }
+
+    // lower bound of a tile (c,r,l)
+    void getTileBounds(uint32_t col, uint32_t row, uint32_t level,
+                    double& minx, double& miny,
+                    double& maxx, double& maxy) const
+    {
+        const double w = tileWidthAtLevel(level);
+        const double h = tileHeightAtLevel(level);
+        minx = m_minx + col * w;
+        maxx = minx + w;
+        maxy = m_maxy - row * h;
+        miny = maxy - h;
+    }
+
+    void getTileOfPoint(double x, double y, uint32_t level,
+                        uint32_t& col, uint32_t& row) const
+    {
+        const double w = tileWidthAtLevel(level);
+        const double h = tileHeightAtLevel(level);
+        col = std::floor((x - m_minx) / w);
+        row = std::floor((m_maxy - y) / h) - 1;
+    }
+
+    bool tileContains(uint32_t col, uint32_t row, uint32_t level,
+                      double x, double y) const
+    {
+        double minx, miny, maxx, maxy;
+        getTileBounds(col, row, level, minx, miny, maxx, maxy);
+        return contains(minx, miny, maxx, maxy, x, y);
+    }
+
+    void getChildOfTile(uint32_t col, uint32_t row, Quad q,
+                        uint32_t& childCol, uint32_t& childRow) const
+    {
+        childCol = col * 2;
+        childRow = row * 2;
+        if (q == QuadNW)
+        {
+           // ok
+        }
+        else if (q == QuadNE)
+        {
+           ++childCol;
+        }
+        else if (q == QuadSW)
+        {
+            ++childRow;
+        }
+        else
+        {
+            assert(q == QuadSE);
+            ++childCol;
+            ++childRow;
         }
     }
 
-    bool contains(double lon, double lat) const
+    void getParentOfTile(uint32_t col, uint32_t row,
+                         uint32_t& parentCol, uint32_t& parentRow) const
     {
-        return (lon >= m_west) && (lon <= m_east) &&
-               (lat >= m_south) && (lat <= m_north);
+        // integer division rounds down
+        parentCol = col / 2;
+        parentRow = row / 2;
     }
 
-    double north() const { return m_north; }
-    double south() const { return m_south; }
-    double east() const { return m_east; }
-    double west() const { return m_west; }
-    double midx() const { return m_midx; }
-    double midy() const { return m_midy; }
+    Quad getQuadrant(uint32_t col, uint32_t row, uint32_t level,
+                     double x, double y) const
+    {
+        double minx, miny, maxx, maxy;
+        getTileBounds(col, row, level, minx, miny, maxx, maxy);
+
+        const double w = tileWidthAtLevel(level);
+        const double h = tileHeightAtLevel(level);
+        const double midx = minx + w/2.0;
+        const double midy = miny + h/2.0;
+
+        if (contains(minx, miny, midx, midy, x, y)) return QuadSW;
+        if (contains(midx, miny, maxx, midy, x, y)) return QuadSE;
+        if (contains(minx, midy, midx, maxy, x, y)) return QuadNW;
+        assert(contains(midx, midy, maxx, maxy, x, y));
+        return QuadNE;
+    }
 
 private:
-    double m_north, m_south, m_east, m_west, m_midx, m_midy;
+    // computes 2^n
+    //
+    // note that 2^0 == 1
+    static uint32_t ipow2(uint32_t n)
+    {
+      return 1u << n;
+    }
 
-    // not implemented
-    Rectangle(const Rectangle&);
-    Rectangle& operator=(const Rectangle&);
+    static bool contains(double minx, double miny,
+                         double maxx, double maxy,
+                         double x, double y)
+    {
+        return (x >= minx && x < maxx && y >= miny && y < maxy);
+    }
+
+    const double m_minx, m_miny, m_maxx, m_maxy;
+    const uint32_t m_nc0, m_nr0;
 };
 
 
@@ -168,7 +244,9 @@ class TileSet
         LogPtr log() { return m_log; }
 
         uint32_t newTileId() { uint32_t t = m_tileId; ++m_tileId; return t; }
-        
+
+        const TileMatrixMath tmm;
+
     private:
         void setHeaderMetadata();
         void setStatisticsMetadata();
@@ -179,7 +257,7 @@ class TileSet
         LogPtr m_log;
         Tile** m_roots;
         uint32_t m_tileId;
-        
+
         MetadataNode m_tableMetadata;
         MetadataNode m_tileSetMetadata;
 };
@@ -193,13 +271,13 @@ class TileSet
 class Tile
 {
 public:
-    Tile(TileSet& tileSet, uint32_t level, uint32_t tileX, uint32_t tileY, const Rectangle &r);
+    Tile(TileSet& tileSet, uint32_t level, uint32_t column, uint32_t row);
     ~Tile();
 
     void add(PointViewPtr pointView, PointId pointNumber, double lon, double lat);
     void setTileMetadata(uint32_t* data) const;
     void setMask();
-    
+
 private:
     LogPtr log() { return m_tileSet.log(); }
     char* getPointData(const PointView& buf, PointId& idx) const;
@@ -208,10 +286,9 @@ private:
     uint32_t m_id;
     TileSet& m_tileSet;
     uint32_t m_level;
-    uint32_t m_tileX;
-    uint32_t m_tileY;
+    uint32_t m_column;
+    uint32_t m_row;
     Tile** m_children;
-    Rectangle m_rect;
     uint64_t m_skip;
     PointViewPtr m_pointView;
     uint32_t m_mask;

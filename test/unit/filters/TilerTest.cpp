@@ -43,6 +43,288 @@
 using namespace pdal;
 
 
+static void checkMath(const tilercommon::TileMatrixMath& tmm,
+                      uint32_t e_col, uint32_t e_row, uint32_t e_level,
+                      double e_minx, double e_miny, double e_maxx, double e_maxy)
+{
+    using namespace tilercommon;
+
+    double a_minx, a_miny, a_maxx, a_maxy;
+    uint32_t a_col, a_row, a_level;
+
+    const double e_maxx_eps = e_maxx - 0.0001 * (e_maxx - e_minx);
+    const double e_maxy_eps = e_maxy - 0.0001 * (e_maxy - e_miny);
+
+    tmm.getTileBounds(e_col, e_row, e_level, a_minx, a_miny, a_maxx, a_maxy);
+
+    EXPECT_DOUBLE_EQ(e_minx, a_minx);
+    EXPECT_DOUBLE_EQ(e_miny, a_miny);
+    EXPECT_DOUBLE_EQ(e_maxx, a_maxx);
+    EXPECT_DOUBLE_EQ(e_maxy, a_maxy);
+
+    tmm.getTileOfPoint(e_minx, e_miny, e_level, a_col, a_row);
+    EXPECT_EQ(e_col, a_col);
+    EXPECT_EQ(e_row, a_row);
+
+    EXPECT_TRUE(tmm.tileContains(e_col, e_row, e_level, e_minx, e_miny));
+    EXPECT_FALSE(tmm.tileContains(e_col, e_row, e_level, e_minx, e_maxy));
+    EXPECT_FALSE(tmm.tileContains(e_col, e_row, e_level, e_maxx, e_miny));
+    EXPECT_FALSE(tmm.tileContains(e_col, e_row, e_level, e_maxx, e_maxy));
+
+    EXPECT_EQ(TileMatrixMath::QuadSW, tmm.getQuadrant(e_col, e_row, e_level, e_minx, e_miny));
+    EXPECT_EQ(TileMatrixMath::QuadNW, tmm.getQuadrant(e_col, e_row, e_level, e_minx, e_maxy_eps));
+    EXPECT_EQ(TileMatrixMath::QuadSE, tmm.getQuadrant(e_col, e_row, e_level, e_maxx_eps, e_miny));
+    EXPECT_EQ(TileMatrixMath::QuadNE, tmm.getQuadrant(e_col, e_row, e_level, e_maxx_eps, e_maxy_eps));
+}
+
+
+static void checkChildren(const tilercommon::TileMatrixMath& tmm,
+                          uint32_t col, uint32_t row, uint32_t level,
+                          uint32_t col_nw, uint32_t row_nw,
+                          uint32_t col_ne, uint32_t row_ne,
+                          uint32_t col_sw, uint32_t row_sw,
+                          uint32_t col_se, uint32_t row_se)
+{
+    using namespace tilercommon;
+
+    uint32_t a_col, a_row;
+
+    tmm.getChildOfTile(col, row, TileMatrixMath::QuadNW, a_col, a_row);
+    EXPECT_EQ(a_col, col_nw);
+    EXPECT_EQ(a_row, row_nw);
+
+    tmm.getChildOfTile(col, row, TileMatrixMath::QuadNE, a_col, a_row);
+    EXPECT_EQ(a_col, col_ne);
+    EXPECT_EQ(a_row, row_ne);
+
+    tmm.getChildOfTile(col, row, TileMatrixMath::QuadSW, a_col, a_row);
+    EXPECT_EQ(a_col, col_sw);
+    EXPECT_EQ(a_row, row_sw);
+
+    tmm.getChildOfTile(col, row, TileMatrixMath::QuadSE, a_col, a_row);
+    EXPECT_EQ(a_col, col_se);
+    EXPECT_EQ(a_row, row_se);
+
+    tmm.getParentOfTile(col_nw, row_nw, a_col, a_row);
+    EXPECT_EQ(a_col, col);
+    EXPECT_EQ(a_row, row);
+
+    tmm.getParentOfTile(col_ne, row_ne, a_col, a_row);
+    EXPECT_EQ(a_col, col);
+    EXPECT_EQ(a_row, row);
+
+    tmm.getParentOfTile(col_sw, row_sw, a_col, a_row);
+    EXPECT_EQ(a_col, col);
+    EXPECT_EQ(a_row, row);
+
+    tmm.getParentOfTile(col_se, row_se, a_col, a_row);
+    EXPECT_EQ(a_col, col);
+    EXPECT_EQ(a_row, row);
+}
+
+
+TEST(TilerTest, test_tiler_matrix_math_one)
+{
+    // 4326
+    // two cols, one row
+    // (-180,-90) to (180,90)
+
+    using namespace tilercommon;
+
+    const TileMatrixMath tmm(-180.0, -90.0, 180.0, 90.0, 2u, 1u);
+
+    EXPECT_DOUBLE_EQ(tmm.minX(), -180.0);
+    EXPECT_DOUBLE_EQ(tmm.minY(), -90.0);
+    EXPECT_DOUBLE_EQ(tmm.maxX(), 180.0);
+    EXPECT_DOUBLE_EQ(tmm.maxY(), 90.0);
+
+    EXPECT_TRUE(tmm.matrixContains(-180.0, -90.0));
+    EXPECT_FALSE(tmm.matrixContains(-180.0, 90.0));
+    EXPECT_FALSE(tmm.matrixContains(180.0, -90.0));
+    EXPECT_FALSE(tmm.matrixContains(180.0, 90.0));
+
+    EXPECT_EQ(tmm.numColsAtLevel(0), 2u);
+    EXPECT_EQ(tmm.numRowsAtLevel(0), 1u);
+    EXPECT_EQ(tmm.numColsAtLevel(1), 4u);
+    EXPECT_EQ(tmm.numRowsAtLevel(1), 2u);
+    EXPECT_EQ(tmm.numColsAtLevel(2), 8u);
+    EXPECT_EQ(tmm.numRowsAtLevel(2), 4u);
+
+    EXPECT_DOUBLE_EQ(tmm.tileWidthAtLevel(0), 180.0);
+    EXPECT_DOUBLE_EQ(tmm.tileHeightAtLevel(0), 180.0);
+    EXPECT_DOUBLE_EQ(tmm.tileWidthAtLevel(1), 90.0);
+    EXPECT_DOUBLE_EQ(tmm.tileHeightAtLevel(1), 90.0);
+    EXPECT_DOUBLE_EQ(tmm.tileWidthAtLevel(2), 45.0);
+    EXPECT_DOUBLE_EQ(tmm.tileHeightAtLevel(2), 45.0);
+
+    checkMath(tmm, 0, 0, 0, -180, -90, 0, 90);
+    checkMath(tmm, 1, 0, 0, 0, -90, 180, 90);
+
+    checkMath(tmm, 0, 0, 1, -180, 0, -90, 90);
+    checkMath(tmm, 1, 0, 1, -90, 0, 0, 90);
+    checkMath(tmm, 2, 0, 1, 0, 0, 90, 90);
+    checkMath(tmm, 3, 0, 1, 90, 0, 180, 90);
+    checkMath(tmm, 0, 1, 1, -180, -90, -90, 0);
+    checkMath(tmm, 1, 1, 1, -90, -90, 0, 0);
+    checkMath(tmm, 2, 1, 1, -0, -90, 90, 0);
+    checkMath(tmm, 3, 1, 1, 90, -90, 180, 0);
+
+    uint32_t c, r;
+    double x, y;
+    for (c=0, x=-180; c<8; c++, x+=45)
+    {
+        for (r=0, y=90-45; r<4; r++, y+=-45)
+        {
+          checkMath(tmm, c, r, 2, x, y, x+45, y+45);
+        }
+    }
+
+    checkChildren(tmm, 0, 0, 0,
+                  0, 0, 1, 0, 0, 1, 1, 1);
+    checkChildren(tmm, 1, 0, 0,
+                  2, 0, 3, 0, 2, 1, 3, 1);
+
+    checkChildren(tmm, 0, 0, 1,
+                  0, 0, 1, 0, 0, 1, 1, 1);
+    checkChildren(tmm, 1, 0, 1,
+                  2, 0, 3, 0, 2, 1, 3, 1);
+    checkChildren(tmm, 2, 0, 1,
+                  4, 0, 5, 0, 4, 1, 5, 1);
+    checkChildren(tmm, 3, 0, 1,
+                  6, 0, 7, 0, 6, 1, 7, 1);
+    checkChildren(tmm, 0, 1, 1,
+                  0, 2, 1, 2, 0, 3, 1, 3);
+    checkChildren(tmm, 1, 1, 1,
+                  2, 2, 3, 2, 2, 3, 3, 3);
+    checkChildren(tmm, 2, 1, 1,
+                  4, 2, 5, 2, 4, 3, 5, 3);
+    checkChildren(tmm, 3, 1, 1,
+                  6, 2, 7, 2, 6, 3, 7, 3);
+
+}
+
+TEST(TilerTest, test_tiler_matrix_math_two)
+{
+    // one col by one row
+    // (10,2000) to (100,3000)
+
+    using namespace tilercommon;
+
+    const TileMatrixMath tmm(10.0, 2000.0, 100.0, 3000.0, 1u, 1u);
+
+    EXPECT_DOUBLE_EQ(tmm.minX(), 10.0);
+    EXPECT_DOUBLE_EQ(tmm.minY(), 2000.0);
+    EXPECT_DOUBLE_EQ(tmm.maxX(), 100.0);
+    EXPECT_DOUBLE_EQ(tmm.maxY(), 3000.0);
+
+    EXPECT_TRUE(tmm.matrixContains(10.0, 2000.0));
+    EXPECT_FALSE(tmm.matrixContains(10.0, 3000.0));
+    EXPECT_FALSE(tmm.matrixContains(100.0, 2000.0));
+    EXPECT_FALSE(tmm.matrixContains(100.0, 3000.0));
+
+    EXPECT_EQ(tmm.numColsAtLevel(0), 1u);
+    EXPECT_EQ(tmm.numRowsAtLevel(0), 1u);
+    EXPECT_EQ(tmm.numColsAtLevel(1), 2u);
+    EXPECT_EQ(tmm.numRowsAtLevel(1), 2u);
+    EXPECT_EQ(tmm.numColsAtLevel(2), 4u);
+    EXPECT_EQ(tmm.numRowsAtLevel(2), 4u);
+
+    EXPECT_DOUBLE_EQ(tmm.tileWidthAtLevel(0), 90.0);
+    EXPECT_DOUBLE_EQ(tmm.tileHeightAtLevel(0), 1000.0);
+    EXPECT_DOUBLE_EQ(tmm.tileWidthAtLevel(1), 45.0);
+    EXPECT_DOUBLE_EQ(tmm.tileHeightAtLevel(1), 500.0);
+    EXPECT_DOUBLE_EQ(tmm.tileWidthAtLevel(2), 22.5);
+    EXPECT_DOUBLE_EQ(tmm.tileHeightAtLevel(2), 250.0);
+
+    checkMath(tmm, 0, 0, 0, 10, 2000, 100, 3000);
+
+    checkMath(tmm, 0, 0, 1, 10, 2500, 55, 3000);
+    checkMath(tmm, 1, 0, 1, 55, 2500, 100, 3000);
+    checkMath(tmm, 0, 1, 1, 10, 2000, 55, 2500);
+    checkMath(tmm, 1, 1, 1, 55, 2000, 100, 2500);
+
+    uint32_t c, r;
+    double x, y;
+    for (c=0, x=10; c<4; c++, x+=22.5)
+    {
+        for (r=0, y=3000-250; r<4; r++, y+=-250)
+        {
+          checkMath(tmm, c, r, 2, x, y, x+22.5, y+250);
+        }
+    }
+
+    checkChildren(tmm, 0, 0, 0,
+                  0, 0, 1, 0, 0, 1, 1, 1);
+    checkChildren(tmm, 1, 0, 0,
+                  2, 0, 3, 0, 2, 1, 3, 1);
+
+    checkChildren(tmm, 0, 0, 1,
+                  0, 0, 1, 0, 0, 1, 1, 1);
+    checkChildren(tmm, 1, 0, 1,
+                  2, 0, 3, 0, 2, 1, 3, 1);
+    checkChildren(tmm, 2, 0, 1,
+                  4, 0, 5, 0, 4, 1, 5, 1);
+    checkChildren(tmm, 3, 0, 1,
+                  6, 0, 7, 0, 6, 1, 7, 1);
+    checkChildren(tmm, 0, 1, 1,
+                  0, 2, 1, 2, 0, 3, 1, 3);
+    checkChildren(tmm, 1, 1, 1,
+                  2, 2, 3, 2, 2, 3, 3, 3);
+    checkChildren(tmm, 2, 1, 1,
+                  4, 2, 5, 2, 4, 3, 5, 3);
+    checkChildren(tmm, 3, 1, 1,
+                  6, 2, 7, 2, 6, 3, 7, 3);
+
+}
+
+TEST(TilerTest, test_tiler_matrix_math_three)
+{
+    // two cols by three rows
+    // (0,0) to (20,30)
+
+    using namespace tilercommon;
+
+    const TileMatrixMath tmm(0.0, 0.0, 20.0, 30.0, 2u, 3u);
+
+    EXPECT_DOUBLE_EQ(tmm.minX(), 0.0);
+    EXPECT_DOUBLE_EQ(tmm.minY(), 0.0);
+    EXPECT_DOUBLE_EQ(tmm.maxX(), 20.0);
+    EXPECT_DOUBLE_EQ(tmm.maxY(), 30.0);
+
+    EXPECT_TRUE(tmm.matrixContains(0.0, 0.0));
+    EXPECT_FALSE(tmm.matrixContains(0.0, 30.0));
+    EXPECT_FALSE(tmm.matrixContains(20.0, 0.0));
+    EXPECT_FALSE(tmm.matrixContains(20.0, 30.0));
+
+    EXPECT_EQ(tmm.numColsAtLevel(0), 2u);
+    EXPECT_EQ(tmm.numRowsAtLevel(0), 3u);
+    EXPECT_EQ(tmm.numColsAtLevel(1), 4u);
+    EXPECT_EQ(tmm.numRowsAtLevel(1), 6u);
+    EXPECT_EQ(tmm.numColsAtLevel(2), 8u);
+    EXPECT_EQ(tmm.numRowsAtLevel(2), 12u);
+
+    EXPECT_DOUBLE_EQ(tmm.tileWidthAtLevel(0), 10.0);
+    EXPECT_DOUBLE_EQ(tmm.tileHeightAtLevel(0), 10.0);
+    EXPECT_DOUBLE_EQ(tmm.tileWidthAtLevel(1), 5.0);
+    EXPECT_DOUBLE_EQ(tmm.tileHeightAtLevel(1), 5.0);
+
+    checkMath(tmm, 0, 0, 0, 0, 20, 10, 30);
+    checkMath(tmm, 1, 0, 0, 10, 20, 20, 30);
+    checkMath(tmm, 0, 1, 0, 0, 10, 10, 20);
+    checkMath(tmm, 1, 1, 0, 10, 10, 20, 20);
+    checkMath(tmm, 0, 2, 0, 0, 0, 10, 10);
+    checkMath(tmm, 1, 2, 0, 10, 0, 20, 10);
+
+    checkMath(tmm, 1, 2, 1, 5, 15, 10, 20);
+    checkMath(tmm, 3, 5, 1, 15, 0, 20, 5);
+    checkMath(tmm, 0, 5, 1, 0, 0, 5, 5);
+    checkMath(tmm, 3, 0, 1, 15, 25, 20, 30);
+
+    checkChildren(tmm, 0, 2, 0,
+                  0, 4, 1, 4, 0, 5, 1, 5);
+
+}
+
 const struct Data {
     double x;
     double y;
@@ -295,7 +577,7 @@ TEST(TilerTest, test_tiler_filter)
     reader.setOptions(readerOptions);
     reader.addView(inputView);
     reader.setSpatialReference(SpatialReference("EPSG:4326"));
-    
+
     StatsFilter stats;
     stats.setOptions(statsOptions);
     stats.setInput(reader);
@@ -410,7 +692,7 @@ TEST(TilerTest, test_tiler_filter_not4326)
     reader.setOptions(readerOptions);
     reader.addView(inputView);
     //reader.setSpatialReference(SpatialReference("EPSG:4326"));
-    
+
     StatsFilter stats;
     stats.setOptions(statsOptions);
     stats.setInput(reader);
@@ -457,7 +739,7 @@ TEST(TilerTest, test_tiler_filter_nostats)
     reader.setOptions(readerOptions);
     reader.addView(inputView);
     reader.setSpatialReference(SpatialReference("EPSG:4326"));
-    
+
     //StatsFilter stats;
     //stats.setOptions(statsOptions);
     //stats.setInput(reader);
