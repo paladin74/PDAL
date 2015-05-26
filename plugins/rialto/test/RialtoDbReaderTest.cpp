@@ -50,6 +50,7 @@
 #include <boost/filesystem.hpp>
 
 #include "../plugins/rialto/io/RialtoDbReader.hpp" // TODO: fix path
+#include "../plugins/rialto/io/RialtoDb.hpp" // TODO: fix path
 
 using namespace pdal;
 using namespace rialto;
@@ -77,11 +78,18 @@ TEST(RialtoDbReaderTest, test)
   {
       PointTable table;
       reader.prepare(table);
+      
       const SpatialReference& srs = reader.getSpatialReference();
       const std::string& wkt = srs.getWKT();
       const SpatialReference srs4326("EPSG:4326");
       const std::string wkt4326 = srs4326.getWKT();
       EXPECT_EQ(wkt, wkt4326);
+      
+      const TileTableInfo& info = reader.getTileTableInfo();
+      EXPECT_EQ(3u, info.getNumDimensions());
+      const std::vector<DimensionInfo>& dims = info.getDimensions();
+      EXPECT_EQ(3u, dims.size());
+      EXPECT_EQ(89.0, dims[1].getMaximum());
   }
   
   {

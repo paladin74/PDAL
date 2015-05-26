@@ -59,6 +59,8 @@ public:
 
     Options getDefaultOptions();
 
+    const TileTableInfo& getTileTableInfo() const { return *m_tileTableInfo; }
+    
 protected:
   virtual void processOptions(const Options& options);
   virtual void initialize();
