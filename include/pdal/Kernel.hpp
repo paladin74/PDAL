@@ -141,7 +141,14 @@ protected:
         m_stages.push_back(std::unique_ptr<Stage>(s));
         return *s;
     }
+    bool argumentExists(const std::string& name)
+        { return (bool)m_variablesMap.count(name); }
+    bool argumentSpecified(const std::string& name);
+
     bool m_usestdin;
+    int m_argc;
+    const char** m_argv;
+    Log m_log;
 
 private:
     int innerRun();
@@ -162,8 +169,6 @@ private:
     std::string m_showOptions;
     bool m_showVersion;
     bool m_showTime;
-    int m_argc;
-    const char** m_argv;
     std::string m_appName;
     bool m_hardCoreDebug;
     std::vector<std::string> m_heartbeat_shell_command;
@@ -171,6 +176,7 @@ private:
     std::string m_scales;
     std::string m_offsets;
     bool m_visualize;
+    std::string m_label;
 
     std::vector<po::options_description*> m_public_options;
     std::vector<po::options_description*> m_hidden_options;

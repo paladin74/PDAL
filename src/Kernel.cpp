@@ -59,6 +59,7 @@ namespace pdal
 
 Kernel::Kernel()
     : m_usestdin(false)
+    , m_log("pdal", "stderr")
     , m_isDebug(false)
     , m_verboseLevel(0)
     , m_showHelp(false)
@@ -67,16 +68,15 @@ Kernel::Kernel()
     , m_hardCoreDebug(false)
     , m_reportDebug(false)
     , m_visualize(false)
-{
-}
+{}
 
 
 std::ostream& operator<<(std::ostream& ostr, const Kernel& kernel)
 {
     ostr << "  Name: " << kernel.getName() << std::endl;
-
     return ostr;
 }
+
 
 int Kernel::do_switches()
 {
@@ -93,8 +93,7 @@ int Kernel::do_switches()
     }
     catch (std::exception const& e)
     {
-        const std::string s("Caught exception handling switches: ");
-        utils::printError(s + e.what());
+        utils::printError(e.what());
         return 1;
     }
     catch (...)
@@ -219,6 +218,7 @@ int Kernel::run(int argc, const char* argv[], const std::string& appName)
     return shutdown_status;
 }
 
+
 void Kernel::collectExtraOptions()
 {
     for (const auto& o : m_extra_options)
@@ -274,6 +274,15 @@ void Kernel::collectExtraOptions()
         Option op(option_name, option_value);
         m_extraStageOptions[stageName].add(op);
     }
+}
+
+
+bool Kernel::argumentSpecified(const std::string& name)
+{
+    auto ai = m_variablesMap.find(name);
+    if (ai == m_variablesMap.end())
+        return false;
+    return !(ai->second.defaulted());
 }
 
 
@@ -422,7 +431,7 @@ void Kernel::setCommonOptions(Options &options)
 
     boost::char_separator<char> sep(",| ");
 
-    if (m_variablesMap.count("scale"))
+    if (argumentExists("scale"))
     {
         std::vector<double> scales;
         tokenizer scale_tokens(m_scales, sep);
@@ -448,7 +457,7 @@ void Kernel::setCommonOptions(Options &options)
         }
     }
 
-    if (m_variablesMap.count("offset"))
+    if (argumentExists("offset"))
     {
         std::vector<double> offsets;
         tokenizer offset_tokens(m_offsets, sep);
@@ -492,21 +501,15 @@ void Kernel::outputHelp()
         std::cout << std::endl;
     }
 
-    std::string headline(90, '-');
-
     std::cout <<"\nFor more information, see the full documentation for "
-        "PDAL at http://pdal.io/\n" <<
-        headline << std::endl << std::endl;
+        "PDAL at http://pdal.io/\n" << std::endl << std::endl;
 }
 
 
 void Kernel::outputVersion()
 {
-    std::string headline(90, '-');
-    std::cout << headline << std::endl;
     std::cout << "pdal " << m_appName << " (" <<
         GetFullVersionString() << ")\n";
-    std::cout << headline << std::endl;
     std::cout << std::endl;
 }
 
@@ -532,6 +535,9 @@ void Kernel::addBasicSwitchSet()
         po::value<bool>(&m_hardCoreDebug)->zero_tokens()->implicit_value(true),
         "Enable developer debug mode (don't trap exceptions so segfaults "
         "are thrown)")
+    ("label",
+        po::value<std::string>(&m_label)->default_value(""),
+        "A string to label the process with")
     ("verbose,v", po::value<uint32_t>(&m_verboseLevel)->default_value(0),
         "Set verbose message level")
     ("version",

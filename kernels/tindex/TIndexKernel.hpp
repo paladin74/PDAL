@@ -1,5 +1,5 @@
 /******************************************************************************
-* Copyright (c) 2011, Howard Butler, hobu.inc@gmail.com
+* Copyright (c) 2015, Howard Butler (howard@hobu.co)
 *
 * All rights reserved.
 *
@@ -34,71 +34,81 @@
 
 #pragma once
 
-#include <pdal/Writer.hpp>
-#include <pdal/StageFactory.hpp>
+#include <pdal/GDALUtils.hpp>
+#include <pdal/Kernel.hpp>
+#include <pdal/Stage.hpp>
+#include <pdal/util/FileUtils.hpp>
+#include <pdal/plugin.hpp>
 
-#include <memory>
 
-#include <boost/tuple/tuple.hpp>
-
-#include <points2grid/config.h>
-#include <points2grid/Interpolation.hpp>
-#include <points2grid/Global.hpp>
-#include <points2grid/OutCoreInterp.hpp>
+extern "C" int32_t TIndexKernel_ExitFunc();
+extern "C" PF_ExitFunc TIndexKernel_InitPlugin();
 
 namespace pdal
 {
+    
+class KernelFactory;
 
-
-class p2g_error : public pdal_error
+class PDAL_DLL TIndexKernel : public Kernel
 {
+    struct FileInfo
+    {
+        std::string m_filename;
+        std::string m_srs;
+        std::string m_boundary;
+        struct tm m_ctime;
+        struct tm m_mtime;
+    };
+
+    struct FieldIndexes
+    {
+        int m_filename;
+        int m_srs;
+        int m_ctime;
+        int m_mtime;
+    };
+
 public:
-    p2g_error(std::string const& msg)
-        : pdal_error(msg)
-    {}
-};
-
-
-
-class CoreInterp;
-
-class PDAL_DLL P2gWriter : public pdal::Writer
-{
-public:
-    P2gWriter() : Writer(), m_outputTypes(0), m_outputFormat(OUTPUT_FORMAT_ARC_ASCII) {};
-    ~P2gWriter() {};
-
     static void * create();
     static int32_t destroy(void *);
     std::string getName() const;
-
-    Options getDefaultOptions();
-
+    int execute(); // overrride
+    
 private:
-    P2gWriter& operator=(const P2gWriter&); // not implemented
+    TIndexKernel();
+    void addSwitches(); // overrride
+    void validateSwitches(); // overrride
 
-    virtual void processOptions(const Options& options);
-    virtual void write(const PointViewPtr view);
-    virtual void done(PointTableRef table);
+    StringList glob(std::string& path);
+    void createFile();
+    void mergeFile();
+    bool openDataset(const std::string& filename);
+    bool createDataset(const std::string& filename);
+    bool openLayer(const std::string& layerName);
+    bool createLayer(const std::string& layerName);
+    FieldIndexes getFields();
+    FileInfo getFileInfo(KernelFactory& factory, const std::string& filename);
+    bool createFeature(const FieldIndexes& indexes, const FileInfo& info);
+    gdal::Geometry prepareGeometry(const FileInfo& fileInfo);
+    gdal::Geometry prepareGeometry(const std::string& wkt,
+        const gdal::SpatialRef& inSrs, const gdal::SpatialRef& outSrs);
+    void createFields();
 
-    std::unique_ptr<OutCoreInterp> m_interpolator;
-    uint64_t m_pointCount;
+    std::string m_idxFilename;
+    std::string m_filespec;
+    StringList m_files;
+    std::string m_layerName;
+    std::string m_driverName;
+    std::string m_tileIndexColumnName;
+    std::string m_srsColumnName;
+    std::string m_filterGeom;
+    bool m_merge;
+    bool m_absPath;
 
-    uint32_t m_GRID_SIZE_X;
-    uint32_t m_GRID_SIZE_Y;
-
-    double m_GRID_DIST_X;
-    double m_GRID_DIST_Y;
-
-    double m_RADIUS;
-    unsigned int m_outputTypes;
-    uint32_t m_fill_window_size;
-    BOX3D m_bounds;
-
-    std::string m_filename;
-    int m_outputFormat;
-
-    std::vector<boost::tuple<double, double, double> > m_coordinates;
+    void *m_dataset;
+    void *m_layer;
+    std::string m_tgtSrsString;
 };
 
-} // namespaces
+} // namespace pdal
+

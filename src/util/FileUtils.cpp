@@ -32,6 +32,8 @@
 * OF SUCH DAMAGE.
 ****************************************************************************/
 
+#include <sys/stat.h>
+
 #include <pdal/util/FileUtils.hpp>
 #include <pdal/pdal_error.hpp>
 #include <pdal/Utils.hpp>
@@ -56,11 +58,11 @@ bool isStdin(std::string filename)
 
 bool isStdout(std::string filename)
 {
-    return Utils::toupper(filename) == "STOUT" || Utils::toupper(filename) == "STDOUT";
+    return Utils::toupper(filename) == "STOUT" ||
+        Utils::toupper(filename) == "STDOUT";
 }
 
-    
-}
+} // unnamed namespace
 
 istream* FileUtils::openFile(string const& filename, bool asBinary)
 {
@@ -75,7 +77,7 @@ istream* FileUtils::openFile(string const& filename, bool asBinary)
         mode |= ios::binary;
 
     std::ifstream *ifs = new std::ifstream(filename, mode);
-    if (! ifs->good())
+    if (!ifs->good())
     {
         delete ifs;
         return NULL;
@@ -113,6 +115,7 @@ bool FileUtils::createDirectory(std::string const& dirname)
 {
     return boost::filesystem::create_directory(dirname); 
 }
+
 
 void FileUtils::deleteDirectory(std::string const& dirname)
 {
@@ -176,6 +179,7 @@ bool FileUtils::fileExists(const string& name)
     boost::filesystem::exists(name, ec);
     return boost::filesystem::exists(name) || isStdin(name);
 }
+
 
 uintmax_t FileUtils::fileSize(const string& file)
 {
@@ -250,6 +254,7 @@ string FileUtils::getDirectory(const string& path)
     return addTrailingSlash(dir.string());
 }
 
+
 // Determine if the path is an absolute path
 bool FileUtils::isAbsolutePath(const string& path)
 {
@@ -259,6 +264,30 @@ bool FileUtils::isAbsolutePath(const string& path)
     return boost::filesystem::path(path).is_complete();
 #endif
 }
+
+
+void FileUtils::fileTimes(const std::string& filename,
+    struct tm *createTime, struct tm *modTime)
+{
+#ifdef WIN32
+    struct _stat statbuf;
+    _stat(filename.c_str(), &statbuf);
+
+    if (createTime)
+        *createTime = *gmtime(&statbuf.st_ctime);
+    if (modTime)
+        *modTime = *gmtime(&statbuf.st_mtime);
+#else
+    struct stat statbuf;
+    stat(filename.c_str(), &statbuf);
+
+    if (createTime)
+        gmtime_r(&statbuf.st_ctime, createTime);
+    if (modTime)
+        gmtime_r(&statbuf.st_mtime, modTime);
+#endif
+}
+
 
 string FileUtils::readFileAsString(string const& filename)
 {
