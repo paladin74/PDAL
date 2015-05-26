@@ -189,8 +189,4 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
 
 } // namespace rialto
 
-void Options::remove(const std::string& name)
-{
-    m_options.erase(name);
-}
 } // namespace pdal
