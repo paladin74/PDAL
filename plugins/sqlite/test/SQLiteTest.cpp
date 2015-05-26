@@ -82,7 +82,8 @@ void testReadWrite(bool compression, bool scaling)
     std::string tempFilename =
         getSQLITEOptions().getValueOrThrow<std::string>("connection");
 
-    {
+    FileUtils::deleteFile(tempFilename);
+
         Options sqliteOptions = getSQLITEOptions();
         if (scaling)
         {
@@ -91,6 +92,7 @@ void testReadWrite(bool compression, bool scaling)
         }
         sqliteOptions.add("compression", compression, "");
 
+    {
         // remove file from earlier run, if needed
         std::string temp_filename =
             sqliteOptions.getValueOrThrow<std::string>("connection");
@@ -110,8 +112,11 @@ void testReadWrite(bool compression, bool scaling)
         PointTable table;
         sqliteWriter->prepare(table);
         sqliteWriter->execute(table);
-
+    }
+    
+    {
         // Done - now read back.
+        StageFactory f;
         std::unique_ptr<Stage> sqliteReader(f.createStage("readers.sqlite"));
         sqliteReader->setOptions(sqliteOptions);
 
