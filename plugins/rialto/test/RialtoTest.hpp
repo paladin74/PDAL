@@ -154,6 +154,12 @@ void RialtoTest::createTileFiles(pdal::PointTable& table, pdal::PointViewPtr vie
 
     Options tilerOptions;
     tilerOptions.add("maxLevel", 2);
+    tilerOptions.add("numCols", 2);
+    tilerOptions.add("numRows", 1);
+    tilerOptions.add("minx", -180.0);
+    tilerOptions.add("miny", -90.0);
+    tilerOptions.add("maxx", 180.0);
+    tilerOptions.add("maxy", 90.0);
     TilerFilter tiler;
     tiler.setOptions(tilerOptions);
     tiler.setInput(stats);
@@ -191,6 +197,12 @@ void RialtoTest::createDatabase(pdal::PointTable& table,
 
     pdal::Options tilerOptions;
     tilerOptions.add("maxLevel", maxLevel);
+    tilerOptions.add("numCols", 2);
+    tilerOptions.add("numRows", 1);
+    tilerOptions.add("minx", -180.0);
+    tilerOptions.add("miny", -90.0);
+    tilerOptions.add("maxx", 180.0);
+    tilerOptions.add("maxy", 90.0);
     pdal::TilerFilter tiler;
     tiler.setOptions(tilerOptions);
     tiler.setInput(stats);

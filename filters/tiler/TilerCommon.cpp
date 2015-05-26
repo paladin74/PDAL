@@ -49,8 +49,10 @@ namespace tilercommon
 
 TileSet::TileSet(
         uint32_t maxLevel,
+        double minx, double miny,
+        double maxx, double maxy,
+        uint32_t numColsAtL0, uint32_t numRowsAtL0,
         LogPtr log) :
-    tmm(-180, -90, 180, 90, 2, 1), // TODO: hard-coded for now
     m_sourceView(NULL),
     m_outputSet(NULL),
     m_maxLevel(maxLevel),
@@ -58,21 +60,35 @@ TileSet::TileSet(
     m_roots(NULL),
     m_tileId(0)
 {
-    assert(m_maxLevel <= 32);
+    m_tmm = std::unique_ptr<TileMatrixMath>(new TileMatrixMath(minx, miny, maxx, maxy, numColsAtL0, numRowsAtL0));
 
-    // TODO: for now, we only support two tiles at the root
-    m_roots = new tilercommon::Tile*[2];
+    m_roots = new tilercommon::Tile**[numColsAtL0];
 
-    m_roots[0] = new tilercommon::Tile(*this, 0, 0, 0);
-    m_roots[1] = new tilercommon::Tile(*this, 0, 1, 0);
+    for (uint32_t c=0; c<numColsAtL0; c++)
+    {
+        m_roots[c] = new tilercommon::Tile*[numRowsAtL0];
+        for (uint32_t r=0; r<numRowsAtL0; r++)
+        {
+            m_roots[c][r] = new tilercommon::Tile(*this, 0, c, r);
+        }
+    }
 }
 
 
 TileSet::~TileSet()
 {
     if (m_roots) {
-        delete m_roots[0];
-        delete m_roots[1];
+        const uint32_t numCols = m_tmm->numColsAtLevel(0);
+        const uint32_t numRows = m_tmm->numRowsAtLevel(0);
+        
+        for (uint32_t c=0; c<numCols; c++)
+        {
+            for (uint32_t r=0; r<numRows; r++)
+            {
+                delete m_roots[c][r];
+            }
+            delete[] m_roots[c];
+        }
         delete[] m_roots;
     }
 }
@@ -93,9 +109,8 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
     m_sourceView = sourceView;
     m_outputSet = outputSet;
 
-    // enter each point into the tile set
-    Tile& westTile = *(m_roots[0]);
-    Tile& eastTile = *(m_roots[1]);
+    const uint32_t numCols = m_tmm->numColsAtLevel(0);
+    const uint32_t numRows = m_tmm->numRowsAtLevel(0);
 
     const uint32_t numPoints = sourceView->size();
     for (PointId idx = 0; idx < numPoints; ++idx)
@@ -103,22 +118,47 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
         const double x = sourceView->getFieldAs<double>(Dimension::Id::X, idx);
         const double y = sourceView->getFieldAs<double>(Dimension::Id::Y, idx);
 
-        if (x < 0.0) // TODO: because we've hard-coded to a 2x1 matrix
-            westTile.add(m_sourceView, idx, x, y);
-        else
-            eastTile.add(m_sourceView, idx, x, y);
+        assert(m_tmm->matrixContains(x,y));
+
+        // TODO: we could optimize this, since the tile bounds are constant
+        // throughout the points loop
+        bool added = false;
+        for (uint32_t c=0; c<numCols; c++)
+        {
+            for (uint32_t r=0; r<numRows; r++)
+            {
+                if (m_tmm->tileContains(c, r, 0, x, y))
+                {
+                    Tile* tile = m_roots[c][r];
+                    tile->add(m_sourceView, idx, x, y);
+                    added = true;
+                    break;
+                }
+            }
+            if (added)
+            {
+                break;
+            }
+        }
+        assert(added);
     }
 
     setHeaderMetadata();
     setStatisticsMetadata();
 
     {
-        westTile.setMask();
-        eastTile.setMask();
-
         uint32_t* data = new uint32_t[m_tileId*5]; // level, col, row, mask, pv id
-        westTile.setTileMetadata(data);
-        eastTile.setTileMetadata(data);
+
+        for (uint32_t c=0; c<numCols; c++)
+        {
+            for (uint32_t r=0; r<numRows; r++)
+            {
+                Tile* tile = m_roots[c][r];
+                tile->setMask();
+                tile->setTileMetadata(data);
+            }
+        }
+
         unsigned char* p = (unsigned char*)data;
         std::string b64 = Utils::base64_encode(p, m_tileId*5*4);
         MetadataNode tilesMetadata3 = m_tileSetMetadata.add("tilesdata", b64);
@@ -185,14 +225,14 @@ void TileSet::setHeaderMetadata()
 {
     MetadataNode node = m_tileSetMetadata.addList("header");
     assert(node.valid());
-
+    
     node.add("maxLevel", m_maxLevel);
-    node.add("numCols", tmm.numColsAtLevel(0));
-    node.add("numRows", tmm.numRowsAtLevel(0));
-    node.add("minX", tmm.minX());
-    node.add("minY", tmm.minY());
-    node.add("maxX", tmm.maxX());
-    node.add("maxY", tmm.maxY());
+    node.add("numCols", m_tmm->numColsAtLevel(0));
+    node.add("numRows", m_tmm->numRowsAtLevel(0));
+    node.add("minX", m_tmm->minX());
+    node.add("minY", m_tmm->minY());
+    node.add("maxX", m_tmm->maxX());
+    node.add("maxY", m_tmm->maxY());
 }
 
 
@@ -338,12 +378,13 @@ void Tile::add(PointViewPtr sourcePointView, PointId pointNumber, double x, doub
 
     //log()->get(LogLevel::Debug5) << "which=" << q << "\n";
 
-    const TileMatrixMath::Quad q = m_tileSet.tmm.getQuadrant(m_column, m_row, m_level, x, y);
+    const TileMatrixMath& tmm = m_tileSet.tmm();
+    const TileMatrixMath::Quad q = tmm.getQuadrant(m_column, m_row, m_level, x, y);
 
     if (!m_children[q])
     {
         uint32_t childCol, childRow;
-        m_tileSet.tmm.getChildOfTile(m_column, m_row, q, childCol, childRow);
+        tmm.getChildOfTile(m_column, m_row, q, childCol, childRow);
         m_children[q] = new Tile(m_tileSet, m_level+1, childCol, childRow);
     }
 

@@ -84,8 +84,8 @@ public:
 
 private:
     int32_t m_maxLevel; // number of highest level
-    int32_t m_numTilesX; // number of tile rows at level 0
-    int32_t m_numTilesY; // number of tile columns at level 0
+    int32_t m_numColsAtL0;
+    int32_t m_numRowsAtL0;
     double m_minx, m_miny, m_maxx, m_maxy; // bbox of tile tree
 
     tilercommon::TileSet* m_tileSet;

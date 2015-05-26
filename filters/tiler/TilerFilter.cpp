@@ -41,13 +41,10 @@
 
 
 // TODO:
-//   - need to support other tiling at root -- right now we only support
-//     two tiles that span the entire earth
 //   - need to support wrtiting out only certain levels, e.g. just the
 //     highest res, or just levels 10..18, or...
 //   - we could make the use of the stats filter be optional -- but right now
 //     the rialto client viewer makes good use of this data
-//   - allow the input to be other than EPSG:4326
 
 namespace pdal
 {
@@ -63,14 +60,27 @@ std::string TilerFilter::getName() const { return s_info.name; }
 
 void TilerFilter::processOptions(const Options& options)
 {
-    m_maxLevel = options.getValueOrDefault<uint32_t>("maxLevel");
+    m_maxLevel = options.getValueOrThrow<uint32_t>("maxLevel");
+    m_numColsAtL0 = options.getValueOrThrow<uint32_t>("numCols");
+    m_numRowsAtL0 = options.getValueOrThrow<uint32_t>("numRows");
+    m_minx = options.getValueOrThrow<double>("minx");
+    m_miny = options.getValueOrThrow<double>("miny");
+    m_maxx = options.getValueOrThrow<double>("maxx");
+    m_maxy = options.getValueOrThrow<double>("maxy");
+    
+    if (m_maxLevel >= 64)
+    {
+        throw pdal_error("TilerFilter: invalid maxLevel must be less than 64");
+    }
+    if (m_minx >= m_maxx || m_miny >= m_maxy)
+    {
+        throw pdal_error("TilerFilter: invalid matrix bounding box");
+    }
+    if (m_numColsAtL0 == 0 || m_numRowsAtL0 == 0)
+    {
+        throw pdal_error("TilerFilter: invalid matrix dimensions");
+    }
 
-    m_numTilesX = 2;
-    m_numTilesY = 1;
-    m_minx = -180.0;
-    m_miny = -90.0;
-    m_maxx = 180.0;
-    m_maxy = 90.0;
 }
 
 
@@ -88,20 +98,17 @@ void TilerFilter::ready(PointTableRef table)
 {
     assert(m_tileSet == NULL);
 
-    // we only support 4326 right now
-    const SpatialReference srs4326("EPSG:4326");
-    const SpatialReference srs = table.spatialRef();
-    if (!srs.equals(srs4326)) {
-        throw pdal_error("TilerFilter: input must be in EPSG:4326");
-    }
-
     // we require that the stats filter has been run
     const MetadataNode statsNode = table.metadata().findChild("filters.stats");
-    if (!statsNode.valid()) {
+    if (!statsNode.valid())
+    {
         throw pdal_error("TilerFilter: pipeline must have stats filter");
     }
 
-    m_tileSet = new tilercommon::TileSet(m_maxLevel, log());
+    m_tileSet = new tilercommon::TileSet(m_maxLevel, 
+                                         m_minx, m_miny, m_maxx, m_maxy,
+                                         m_numColsAtL0, m_numRowsAtL0,
+                                         log());
 
     m_tileSet->ready(table);
 }

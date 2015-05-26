@@ -224,14 +224,15 @@ private:
 class Tile;
 
 
-// the tile set holds all the tiles that make up the tile tree
-//
-// (note the tree is not technically a tree as it has two roots,
-// one on each side of Greenwich)
+// the tile set holds all the tiles that make up the tile matrix
 class TileSet
 {
     public:
-        TileSet(uint32_t maxLevel, LogPtr log);
+        TileSet(uint32_t maxLevel,
+                double minx, double miny,
+                double maxx, double maxy,
+                uint32_t numColsAtL0, uint32_t numRowsAtL0,
+                LogPtr log);
         ~TileSet();
 
         void ready(PointTableRef);
@@ -245,7 +246,7 @@ class TileSet
 
         uint32_t newTileId() { uint32_t t = m_tileId; ++m_tileId; return t; }
 
-        const TileMatrixMath tmm;
+        const TileMatrixMath& tmm() const { return *m_tmm; }
 
     private:
         void setHeaderMetadata();
@@ -255,8 +256,9 @@ class TileSet
         PointViewSet* m_outputSet;
         uint32_t m_maxLevel;
         LogPtr m_log;
-        Tile** m_roots;
+        Tile*** m_roots;
         uint32_t m_tileId;
+        std::unique_ptr<TileMatrixMath> m_tmm;
 
         MetadataNode m_tableMetadata;
         MetadataNode m_tileSetMetadata;
