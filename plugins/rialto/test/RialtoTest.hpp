@@ -43,6 +43,11 @@
 #include <tiler/TilerFilter.hpp>
 #include <stats/StatsFilter.hpp>
 
+#include "../plugins/rialto/io/GeoPackage.hpp" // TODO: fix path
+#include "../plugins/rialto/io/GeoPackageManager.hpp" // TODO: fix path
+#include "../plugins/rialto/io/GeoPackageReader.hpp" // TODO: fix path
+#include "../plugins/rialto/io/GeoPackageWriter.hpp" // TODO: fix path
+
 namespace pdal
 {
 namespace rialto
@@ -166,7 +171,7 @@ void RialtoTest::createTileFiles(pdal::PointTable& table, pdal::PointViewPtr vie
 
     Options writerOptions;
     writerOptions.add("filename", Support::temppath("rialto1"));
-    writerOptions.add("overwrite", true);
+    //writerOptions.add("overwrite", true);
     //writerOptions.add("verbose", LogLevel::Debug);
     StageFactory f;
     std::unique_ptr<Stage> writer(f.createStage("writers.rialtofile"));
@@ -184,42 +189,55 @@ void RialtoTest::createDatabase(pdal::PointTable& table,
                                 const std::string& filename,
                                 uint32_t maxLevel)
 {    
-    pdal::Options readerOptions;
-    pdal::BufferReader reader;
-    reader.setOptions(readerOptions);
-    reader.addView(view);
-    reader.setSpatialReference(SpatialReference("EPSG:4326"));
+    assert(!FileUtils::fileExists(filename));
+    {
+        LogPtr log(new Log("rialtodbwritertest", "stdout"));
+        GeoPackageManager db(filename, log);
+        db.open();
+        db.close();
+    }
+    assert(FileUtils::fileExists(filename));
 
-    pdal::Options statsOptions;
-    pdal::StatsFilter stats;
-    stats.setOptions(statsOptions);
-    stats.setInput(reader);
+    {
+        pdal::Options readerOptions;
+        pdal::BufferReader reader;
+        reader.setOptions(readerOptions);
+        reader.addView(view);
+        reader.setSpatialReference(SpatialReference("EPSG:4326"));
 
-    pdal::Options tilerOptions;
-    tilerOptions.add("maxLevel", maxLevel);
-    tilerOptions.add("numCols", 2);
-    tilerOptions.add("numRows", 1);
-    tilerOptions.add("minx", -180.0);
-    tilerOptions.add("miny", -90.0);
-    tilerOptions.add("maxx", 180.0);
-    tilerOptions.add("maxy", 90.0);
-    pdal::TilerFilter tiler;
-    tiler.setOptions(tilerOptions);
-    tiler.setInput(stats);
+        pdal::Options statsOptions;
+        pdal::StatsFilter stats;
+        stats.setOptions(statsOptions);
+        stats.setInput(reader);
 
-    pdal::StageFactory f;
-    pdal::Options writerOptions;
-    writerOptions.add("filename", filename);
-    writerOptions.add("overwrite", true);
-    //writerOptions.add("verbose", LogLevel::Debug);
-    pdal::Stage* writer = f.createStage("writers.rialtodb");
-    writer->setOptions(writerOptions);
-    writer->setInput(tiler);
+        pdal::Options tilerOptions;
+        tilerOptions.add("maxLevel", maxLevel);
+        tilerOptions.add("numCols", 2);
+        tilerOptions.add("numRows", 1);
+        tilerOptions.add("minx", -180.0);
+        tilerOptions.add("miny", -90.0);
+        tilerOptions.add("maxx", 180.0);
+        tilerOptions.add("maxy", 90.0);
+        pdal::TilerFilter tiler;
+        tiler.setOptions(tilerOptions);
+        tiler.setInput(stats);
 
-    // execution: write to database
-    writer->prepare(table);
-    PointViewSet outputViews = writer->execute(table);
-    delete writer;
+        pdal::StageFactory f;
+        pdal::Options writerOptions;
+        writerOptions.add("filename", filename);
+        //writerOptions.add("overwrite", true);
+        //writerOptions.add("verbose", LogLevel::Debug);
+        pdal::Stage* writer = f.createStage("writers.rialtodb");
+        writer->setOptions(writerOptions);
+        writer->setInput(tiler);
+
+        // execution: write to database
+        writer->prepare(table);
+        PointViewSet outputViews = writer->execute(table);
+        delete writer;
+    }
+    
+    assert(FileUtils::fileExists(filename));
 }
 
 

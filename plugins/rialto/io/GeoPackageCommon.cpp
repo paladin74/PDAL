@@ -32,16 +32,14 @@
 * OF SUCH DAMAGE.
 ****************************************************************************/
 
-#include "RialtoSupport.hpp"
+#include "GeoPackageCommon.hpp"
 
 namespace pdal
 {
 namespace rialto
 {
 
-
-//---------------------------------------------------------------------
-
+    
 static uint32_t getMetadataU32(const MetadataNode& parent, const std::string& name)
 {
     const MetadataNode node = parent.findChild(name);
@@ -87,10 +85,7 @@ static void extractStatistics(MetadataNode& tileTableNode, const std::string& di
 }
 
 
-//---------------------------------------------------------------------
-
-
-TileTableInfo::TileTableInfo(const std::string& tileTableName,
+GpkgMatrixSet::GpkgMatrixSet(const std::string& tileTableName,
                          MetadataNode tileTableNode,
                          PointLayoutPtr layout,
                          const std::string& datetime,
@@ -122,11 +117,11 @@ TileTableInfo::TileTableInfo(const std::string& tileTableName,
     m_data_max_x = statMaxX;
     m_data_max_y = statMaxY;
 
-    DimensionInfo::importVector(tileTableNode, layout, m_dimensions);
+    GpkgDimension::importVector(tileTableNode, layout, m_dimensions);
 }
 
 
-void TileTableInfo::set(const std::string& datetime,
+void GpkgMatrixSet::set(const std::string& datetime,
                       const std::string& name,
                       uint32_t maxLevel,
                       uint32_t numDimensions,
@@ -156,7 +151,7 @@ void TileTableInfo::set(const std::string& datetime,
 }
 
 
-DimensionInfo::DimensionInfo(const std::string& name,
+GpkgDimension::GpkgDimension(const std::string& name,
                              uint32_t position,
                              const std::string& dataType,
                              const std::string& description,
@@ -173,9 +168,9 @@ DimensionInfo::DimensionInfo(const std::string& name,
 { }       
 
 
-void DimensionInfo::importVector(MetadataNode tileTableNode,
+void GpkgDimension::importVector(MetadataNode tileTableNode,
                                  PointLayoutPtr layout,
-                                 std::vector<DimensionInfo>& infoList)
+                                 std::vector<GpkgDimension>& infoList)
 {
     const uint32_t numDims = layout->dims().size();
 
@@ -193,7 +188,7 @@ void DimensionInfo::importVector(MetadataNode tileTableNode,
         double minimum, mean, maximum;
         extractStatistics(tileTableNode, name, minimum, mean, maximum);
 
-        DimensionInfo info(name, i, dataTypeName, description, minimum, mean, maximum);
+        GpkgDimension info(name, i, dataTypeName, description, minimum, mean, maximum);
         infoList.push_back(info);
         
         ++i;
@@ -201,7 +196,7 @@ void DimensionInfo::importVector(MetadataNode tileTableNode,
 }
 
 
-TileInfo::TileInfo(PointView* view,
+GpkgTile::GpkgTile(PointView* view,
                    uint32_t level, uint32_t column, uint32_t row, uint32_t mask) :
     m_level(level),
     m_column(column),
@@ -219,7 +214,7 @@ TileInfo::TileInfo(PointView* view,
 }
 
 
-void TileInfo::set(uint32_t level,
+void GpkgTile::set(uint32_t level,
                    uint32_t column,
                    uint32_t row,
                    uint32_t numPoints,
@@ -232,250 +227,6 @@ void TileInfo::set(uint32_t level,
     m_mask = mask;
 }
 
-
-//---------------------------------------------------------------------
-
-
-uint32_t MyPatch::size() const
-{
-     return m_vector.size();
-}
-
-
-void MyPatch::clear()
-{
-    m_vector.clear();
-}
-
-
-bool MyPatch::isEmpty() const
-{
-    return m_vector.size()==0;
-}
-
-const std::vector<unsigned char>& MyPatch::getVector() const
-{
-    return m_vector;
-}
-
-
-const unsigned char* MyPatch::getPointer() const
-{
-    if (isEmpty()) return NULL;
-    return (const unsigned char*)&m_vector[0];
-}
-
-void MyPatch::importFromVector(const std::vector<uint8_t>& vec)
-{
-    m_vector = vec;
-}
-
-void MyPatch::importFromPV(const PointView& view)
-{
-    const uint32_t pointSize = view.pointSize();
-    const uint32_t numPoints = view.size();
-    const uint32_t buflen = pointSize * numPoints;
-
-    m_vector.resize(buflen);
-
-    char* p = (char*)(&m_vector[0]);
-    const DimTypeList& dtl = view.dimTypes();
-
-    uint32_t numBytes = 0;
-    for (auto d: dtl)
-    {
-        numBytes += Dimension::size(d.m_type);
-    }
-
-    for (size_t i=0; i<numPoints; ++i)
-    {
-        view.getPackedPoint(dtl, i, p);
-        p += numBytes;
-    }
-
-    assert(m_vector.size() == buflen);
-}
-
-// does an append to the PV (does not start at index 0)
-void MyPatch::exportToPV(size_t numPoints, PointViewPtr view) const
-{
-    PointId idx = view->size();
-    const uint32_t pointSize = view->pointSize();
-
-    const char* p = (const char*)(&m_vector[0]);
-    const DimTypeList& dtl = view->dimTypes();
-    for (size_t i=0; i<numPoints; ++i)
-    {
-        view->setPackedPoint(dtl, idx, p);
-        p += pointSize;
-        ++idx;
-    }
-}
-
-
-//---------------------------------------------------------------------
-
-
-void WriterAssister::setTileTableName(const std::string& tileTableName)
-{
-    m_tileTableName = tileTableName;
-}
-
-
-void WriterAssister::ready(PointTableRef table, const SpatialReference& srs)
-{
-    m_tileTableNode = table.metadata().findChild("filters.tiler");
-    if (!m_tileTableNode.valid()) {
-        throw pdal_error("RialtoWriter: \"filters.tiler\" metadata not found");
-    }
-
-    time_t now;
-    time(&now);
-    char buf[sizeof("yyyy-mm-ddThh:mm:ss.sssZ")+1];
-    // TODO: this produces "ss", not "ss.sss" as the gpkg spec implies is required
-    strftime(buf, sizeof(buf), "%FT%TZ", gmtime(&now));
-    std::string datetime(buf);
-    writeHeader(m_tileTableName, m_tileTableNode, table.layout(), datetime, srs);
-
-    makePointViewMap();
-}
-
-
-void WriterAssister::write(const PointViewPtr viewPtr)
-{
-    // TODO: need to document/isolate this layout convention
-    uint32_t idx = m_pointViewMap[viewPtr->id()];
-    uint32_t level = m_tileMetadata[idx];
-    uint32_t col = m_tileMetadata[idx+1];
-    uint32_t row = m_tileMetadata[idx+2];
-    uint32_t mask = m_tileMetadata[idx+3];
-    uint32_t pvid = m_tileMetadata[idx+4];
-    assert(pvid == 0xffffffff || pvid == (uint32_t)viewPtr->id());
-
-    PointView* view = viewPtr.get();
-    writeTile(m_tileTableName, view, level, col, row, mask);
-}
-
-
-void WriterAssister::makePointViewMap()
-{
-    // The tiler filter creates a metadata node for each point view,
-    // and stores the point view id in that node.
-    //
-    // PDAL will be handing up point views, and we'll need to find
-    // the corresponding metadata node for it -- so here will make
-    // a reverse lookup, from point view id to metadata node.
-
-    const MetadataNode tilesNode = m_tileTableNode.findChild("tiles");
-    if (!tilesNode.valid()) {
-        throw pdal_error("RialtoWriter: \"filters.tiler/tiles\" metadata not found");
-    }
-
-    MetadataNode numTilesNode = m_tileTableNode.findChild("tilesdatacount");
-    m_numTiles = boost::lexical_cast<uint32_t>(numTilesNode.value());
-
-    const MetadataNode tilesNode2 = m_tileTableNode.findChild("tilesdata");
-    std::string b64 = tilesNode2.value();
-    std::vector<uint8_t> a = Utils::base64_decode(b64);
-
-    m_tileMetadata = new uint32_t[m_numTiles*5];
-    memcpy((unsigned char*)m_tileMetadata, a.data(), m_numTiles*5*4);
-    for (uint32_t i=0; i<m_numTiles*5; i+=5)
-    {
-        uint32_t pv = m_tileMetadata[i+4];
-        if (pv != 0xffffffff)
-        {
-            m_pointViewMap[pv] = i;
-        }
-    }
-}
-
-
-void WriterAssister::done()
-{
-    // write empty tiles
-    
-    const MetadataNode tilesNode = m_tileTableNode.findChild("tiles");
-    const MetadataNodeList tileNodes = tilesNode.children();
-
-    for (uint32_t i=0; i<m_numTiles*5; i+=5)
-    {
-        uint32_t level = m_tileMetadata[i];
-        uint32_t col = m_tileMetadata[i+1];
-        uint32_t row = m_tileMetadata[i+2];
-        uint32_t mask = m_tileMetadata[i+3];
-        uint32_t pvid = m_tileMetadata[i+4];
-
-        if (pvid == 0xffffffff)
-        {
-            writeTile(m_tileTableName, NULL, level, col, row, mask);
-        }
-    }
-}
-
-
-//---------------------------------------------------------------------
-
-
-RialtoEvent::RialtoEvent(const std::string& name) :
-  m_name(name),
-  m_count(0),
-  m_millis(0.0),
-  m_start(0)
-{}
-
-
-RialtoEvent::~RialtoEvent()
-{
-    assert(m_start == 0);
-}
-
-
-void RialtoEvent::start()
-{
-    assert(m_start == 0);
-    m_start = timerStart();
-}
-
-
-void RialtoEvent::stop()
-{
-    assert(m_start != 0);
-    ++m_count;
-    m_millis += timerStop(m_start);
-    m_start = 0;
-}
-
-
-void RialtoEvent::dump() const
-{
-    if (m_count)
-    {
-        printf("%s:  total=%.1fms  average=%.1fms  (%u events)\n",
-               m_name.c_str(),
-               m_millis,
-               m_millis/(double)m_count,
-               m_count);
-    }
-    else
-    {
-        printf("%s: -\n", m_name.c_str());
-    }
-}
-
-
-clock_t RialtoEvent::timerStart()
-{
-     return std::clock();
-}
-
-
-double RialtoEvent::timerStop(clock_t start)
-{
-    clock_t stop = std::clock();
-    const double secs = (double)(stop - start) / (double)CLOCKS_PER_SEC;
-    return secs * 1000.0;
-}
 
 
 } // namespace rialto

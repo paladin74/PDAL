@@ -34,59 +34,65 @@
 
 #pragma once
 
-#include <pdal/Writer.hpp>
-#include "RialtoWriterAssister.hpp"
+#include <pdal/pdal.hpp>
 
-extern "C" int32_t RialtoFileWriter_ExitFunc();
-extern "C" PF_ExitFunc RialtoFileWriter_InitPlugin();
+#include "GeoPackage.hpp"
+#include "Event.hpp"
+
 
 namespace pdal
 {
+    class Log;
+    class SQLite;
+
 namespace rialto
 {
-
-
-class RialtoFileWriterAssister: public RialtoWriterAssister
-{
-public:
-    std::string m_directory;
     
-private:
-    virtual void writeHeader(const std::string& tileTableName,
-                             MetadataNode tileTableNode,
-                             PointLayoutPtr layout,
-                             const std::string& datetime,
-                             const SpatialReference& srs);
-    virtual void writeTile(const std::string& tileTableName, PointView*,
-                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
-};
+class GpkgMatrixSet;
+class GpkgTile;
+class GpkgDimension;
 
 
-class PDAL_DLL RialtoFileWriter : public Writer
+class PDAL_DLL GeoPackageWriter : public GeoPackage
 {
 public:
-    RialtoFileWriter()
-    {}
+    // pass it the filename of the sqlite db
+    GeoPackageWriter(const std::string& connection, LogPtr log);
 
-    static void * create();
-    static int32_t destroy(void *);
-    std::string getName() const;
+    virtual ~GeoPackageWriter();
 
-    Options getDefaultOptions();
+    virtual void open();
+    virtual void close();
 
-    void ready(PointTableRef table);
-    void write(const PointViewPtr viewPtr);
-    void done(PointTableRef table);
+    // adds a tile set to the database, including its dimensions
+    //
+    // returns id of new data set
+    void writeTileTable(const GpkgMatrixSet& data);
 
-private:
-    virtual void processOptions(const Options& options);
+    // returns id of new tile
+    void writeTile(const std::string& tileTableName, const GpkgTile& data);
 
-    std::string m_directory;
-    RialtoFileWriterAssister m_assister;
 
-    RialtoFileWriter& operator=(const RialtoFileWriter&); // not implemented
-    RialtoFileWriter(const RialtoFileWriter&); // not implemented
+    virtual void dumpStats() const;
+
+private:    
+    void createTableGpkgPctile(const std::string& table_name);
+
+    void writeDimensions(const GpkgMatrixSet&);
+    void writeMetadata(const GpkgMatrixSet&);
+
+    int m_srid;
+    bool m_needsIndexing;
+    
+    mutable Event e_tilesWritten;
+    mutable Event e_tileTablesWritten;
+    mutable Event e_queries;
+    mutable uint32_t m_numPointsWritten;
+
+    GeoPackageWriter& operator=(const GeoPackageWriter&); // not implemented
+    GeoPackageWriter(const GeoPackageWriter&); // not implemented
 };
 
 } // namespace rialto
+
 } // namespace pdal

@@ -34,11 +34,7 @@
 
 #pragma once
 
-#include <pdal/Writer.hpp>
-#include "RialtoWriterAssister.hpp"
-
-extern "C" int32_t RialtoFileWriter_ExitFunc();
-extern "C" PF_ExitFunc RialtoFileWriter_InitPlugin();
+#include <pdal/pdal.hpp>
 
 namespace pdal
 {
@@ -46,47 +42,40 @@ namespace rialto
 {
 
 
-class RialtoFileWriterAssister: public RialtoWriterAssister
+class RialtoWriterAssister
 {
 public:
-    std::string m_directory;
+    void setTileTableName(const std::string&);
     
-private:
+    void write(const PointViewPtr viewPtr);
+    void ready(PointTableRef table, const SpatialReference& srs);
+    void done();
+
+protected:
     virtual void writeHeader(const std::string& tileTableName,
                              MetadataNode tileTableNode,
                              PointLayoutPtr layout,
                              const std::string& datetime,
-                             const SpatialReference& srs);
+                             const SpatialReference& srs)=0;
     virtual void writeTile(const std::string& tileTableName, PointView*,
-                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
+                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask)=0;
+
+    virtual void writeTiles_begin() {}
+    virtual void writeTiles_end() {}
+    
+private:    
+    void makePointViewMap();
+
+    std::string m_tileTableName;
+
+    std::map<uint32_t, uint32_t> m_pointViewMap; // PV id to array index
+    uint32_t* m_tileMetadata;
+    uint32_t m_numTiles;
+
+    MetadataNode m_tileTableNode;
 };
 
 
-class PDAL_DLL RialtoFileWriter : public Writer
-{
-public:
-    RialtoFileWriter()
-    {}
-
-    static void * create();
-    static int32_t destroy(void *);
-    std::string getName() const;
-
-    Options getDefaultOptions();
-
-    void ready(PointTableRef table);
-    void write(const PointViewPtr viewPtr);
-    void done(PointTableRef table);
-
-private:
-    virtual void processOptions(const Options& options);
-
-    std::string m_directory;
-    RialtoFileWriterAssister m_assister;
-
-    RialtoFileWriter& operator=(const RialtoFileWriter&); // not implemented
-    RialtoFileWriter(const RialtoFileWriter&); // not implemented
-};
 
 } // namespace rialto
 } // namespace pdal

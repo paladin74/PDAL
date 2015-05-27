@@ -34,59 +34,52 @@
 
 #pragma once
 
-#include <pdal/Writer.hpp>
-#include "RialtoWriterAssister.hpp"
+#include <pdal/pdal.hpp>
 
-extern "C" int32_t RialtoFileWriter_ExitFunc();
-extern "C" PF_ExitFunc RialtoFileWriter_InitPlugin();
+#include "GeoPackage.hpp"
+#include "Event.hpp"
+
 
 namespace pdal
 {
+    class Log;
+    class SQLite;
+
 namespace rialto
 {
-
-
-class RialtoFileWriterAssister: public RialtoWriterAssister
-{
-public:
-    std::string m_directory;
     
-private:
-    virtual void writeHeader(const std::string& tileTableName,
-                             MetadataNode tileTableNode,
-                             PointLayoutPtr layout,
-                             const std::string& datetime,
-                             const SpatialReference& srs);
-    virtual void writeTile(const std::string& tileTableName, PointView*,
-                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
-};
+class GpkgMatrixSet;
+class GpkgTile;
+class GpkgDimension;
 
 
-class PDAL_DLL RialtoFileWriter : public Writer
+class PDAL_DLL GeoPackageManager : public GeoPackage
 {
 public:
-    RialtoFileWriter()
-    {}
+    // pass it the filename of the sqlite db
+    GeoPackageManager(const std::string& connection, LogPtr log);
 
-    static void * create();
-    static int32_t destroy(void *);
-    std::string getName() const;
+    virtual ~GeoPackageManager();
 
-    Options getDefaultOptions();
+    virtual void open();
+    virtual void close();
 
-    void ready(PointTableRef table);
-    void write(const PointViewPtr viewPtr);
-    void done(PointTableRef table);
+private:    
+    void createGpkgId();
+    void createTableGpkgSpatialRefSys();
+    void createTableGpkgContents();
+    void createTableGpkgPctileMatrixSet();
+    void createTableGpkgPctileMatrix();
+    void createTableGpkgMetadata();
+    void createTableGpkgMetadataReference();
+    void createTableGpkgExtensions();
+    void createTablePctilesDimensionSet();
 
-private:
-    virtual void processOptions(const Options& options);
-
-    std::string m_directory;
-    RialtoFileWriterAssister m_assister;
-
-    RialtoFileWriter& operator=(const RialtoFileWriter&); // not implemented
-    RialtoFileWriter(const RialtoFileWriter&); // not implemented
+    GeoPackageManager& operator=(const GeoPackageManager&); // not implemented
+    GeoPackageManager(const GeoPackageManager&); // not implemented
 };
+
 
 } // namespace rialto
+
 } // namespace pdal

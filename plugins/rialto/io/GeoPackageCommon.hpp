@@ -42,29 +42,91 @@ namespace rialto
 {
 
 
-class MyPatch
+class GpkgPatch
 {
 public:
-    uint32_t size() const;
-    void clear();
-    bool isEmpty() const;
-    const std::vector<unsigned char>& getVector() const;
-    const unsigned char* getPointer() const;
-    void importFromVector(const std::vector<uint8_t>& vec);
-    void importFromPV(const PointView& view);
+    uint32_t size() const
+    {
+         return m_vector.size();
+    }
+
+    void clear()
+    {
+        m_vector.clear();
+    }
+
+    bool isEmpty() const
+    {
+        return m_vector.size()==0;
+    }
+
+    const std::vector<unsigned char>& getVector() const
+    {
+        return m_vector;
+    }
+    
+    const unsigned char* getPointer() const
+    {
+        if (isEmpty()) return NULL;
+        return (const unsigned char*)&m_vector[0];
+    }
+
+    void importFromVector(const std::vector<uint8_t>& vec)
+    {
+        m_vector = vec;
+    }
+    
+    void importFromPV(const PointView& view)
+    {
+        const uint32_t pointSize = view.pointSize();
+        const uint32_t numPoints = view.size();
+        const uint32_t buflen = pointSize * numPoints;
+
+        m_vector.resize(buflen);
+
+        char* p = (char*)(&m_vector[0]);
+        const DimTypeList& dtl = view.dimTypes();
+
+        uint32_t numBytes = 0;
+        for (auto d: dtl)
+        {
+            numBytes += Dimension::size(d.m_type);
+        }
+
+        for (size_t i=0; i<numPoints; ++i)
+        {
+            view.getPackedPoint(dtl, i, p);
+            p += numBytes;
+        }
+
+        assert(m_vector.size() == buflen);
+    }
 
     // does an append to the PV (does not start at index 0)
-    void exportToPV(size_t numPoints, PointViewPtr view) const;
+    void exportToPV(size_t numPoints, PointViewPtr view) const
+    {
+        PointId idx = view->size();
+        const uint32_t pointSize = view->pointSize();
+
+        const char* p = (const char*)(&m_vector[0]);
+        const DimTypeList& dtl = view->dimTypes();
+        for (size_t i=0; i<numPoints; ++i)
+        {
+            view->setPackedPoint(dtl, idx, p);
+            p += pointSize;
+            ++idx;
+        }
+    }
 
 private:
     std::vector<uint8_t> m_vector;
 };
 
 
-class DimensionInfo
+class GpkgDimension
 {
 public:
-    DimensionInfo(const std::string& name,
+    GpkgDimension(const std::string& name,
                   uint32_t position,
                   const std::string& dataType,
                   const std::string& description,
@@ -74,7 +136,7 @@ public:
 
     static void importVector(MetadataNode tileTableNode,
                              PointLayoutPtr layout,
-                             std::vector<DimensionInfo>& infoList);
+                             std::vector<GpkgDimension>& infoList);
 
     const std::string& getName() const { return m_name; }
     uint32_t getPosition() const { return m_position; }
@@ -101,12 +163,12 @@ private:
 //   we always cover the whole globe at the root
 //   we always do power-of-two reductions
 //   we store all levels between 0 and max, inclusive
-class TileTableInfo
+class GpkgMatrixSet
 {
 public:
-    TileTableInfo() {}
+    GpkgMatrixSet() {}
 
-    TileTableInfo(const std::string& tileTableName,
+    GpkgMatrixSet(const std::string& tileTableName,
                 MetadataNode tileTableNode,
                 PointLayoutPtr layout,
                 const std::string& datetime,
@@ -130,8 +192,8 @@ public:
     std::string getName() const { return m_name; } // aka filename
     uint32_t getMaxLevel() const { return m_maxLevel; }
     uint32_t getNumDimensions() const { return m_numDimensions; }
-    const std::vector<DimensionInfo>& getDimensions() const { return m_dimensions; };
-    std::vector<DimensionInfo>& getDimensionsRef() { return m_dimensions; };
+    const std::vector<GpkgDimension>& getDimensions() const { return m_dimensions; };
+    std::vector<GpkgDimension>& getDimensionsRef() { return m_dimensions; };
     const std::string getWkt() const { return m_wkt; }
     
     double getDataMinX() const { return m_data_min_x; } // data extents
@@ -149,7 +211,7 @@ private:
     std::string m_name; // aka filename
     uint32_t m_maxLevel;
     uint32_t m_numDimensions;
-    std::vector<DimensionInfo> m_dimensions;
+    std::vector<GpkgDimension> m_dimensions;
     std::string m_wkt; // the srs
     double m_data_min_x; // data extents
     double m_data_min_y;
@@ -162,12 +224,12 @@ private:
 };
 
 
-class TileInfo
+class GpkgTile
 {
 public:
-    TileInfo() {}
+    GpkgTile() {}
 
-    TileInfo(PointView* view, uint32_t level, uint32_t column, uint32_t row, uint32_t mask);
+    GpkgTile(PointView* view, uint32_t level, uint32_t column, uint32_t row, uint32_t mask);
 
     void set(uint32_t level,
              uint32_t column,
@@ -180,8 +242,8 @@ public:
     uint32_t getRow() const { return m_row; }
     uint32_t getNumPoints() const { return m_numPoints; }
     uint32_t getMask() const { return m_mask; }
-    const MyPatch& getPatch() const { return m_patch; }
-    MyPatch& getPatchRef() { return m_patch; }
+    const GpkgPatch& getPatch() const { return m_patch; }
+    GpkgPatch& getPatchRef() { return m_patch; }
 
 private:
     uint32_t m_level;
@@ -189,68 +251,7 @@ private:
     uint32_t m_row;
     uint32_t m_numPoints;
     uint32_t m_mask;
-    MyPatch m_patch;
-};
-
-
-class WriterAssister
-{
-public:
-    void setTileTableName(const std::string&);
-    
-    void write(const PointViewPtr viewPtr);
-    void ready(PointTableRef table, const SpatialReference& srs);
-    void done();
-
-protected:
-    virtual void writeHeader(const std::string& tileTableName,
-                             MetadataNode tileTableNode,
-                             PointLayoutPtr layout,
-                             const std::string& datetime,
-                             const SpatialReference& srs)=0;
-    virtual void writeTile(const std::string& tileTableName, PointView*,
-                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask)=0;
-
-private:    
-    void makePointViewMap();
-
-    std::string m_tileTableName;
-
-    std::map<uint32_t, uint32_t> m_pointViewMap; // PV id to array index
-    uint32_t* m_tileMetadata;
-    uint32_t m_numTiles;
-
-    MetadataNode m_tileTableNode;
-};
-
-
-class RialtoEvent
-{
-public:
-    // Event e_foo("foo");
-    // e.start();
-    // ...work...
-    // e.stop();
-    // e.dump();
-    RialtoEvent(const std::string& name);
-    ~RialtoEvent();
-
-    void start();
-    void stop();
-
-    void dump() const;
-
-    // clock_t start = timerStart();
-    // <spin cycles>
-    // uint32_t millis = timerStop(start);
-    static clock_t timerStart();
-    static double timerStop(clock_t start);
-
-private:
-     const std::string m_name;
-     uint32_t m_count;
-     double m_millis;
-     clock_t m_start;
+    GpkgPatch m_patch;
 };
 
 

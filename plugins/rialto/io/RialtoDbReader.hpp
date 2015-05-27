@@ -43,8 +43,8 @@ namespace rialto
 {
 
 
-class TileTableInfo;
-class RialtoDb;
+class GpkgMatrixSet;
+class GeoPackageReader;
 
     
 class PDAL_DLL RialtoDbReader : public Reader
@@ -59,7 +59,7 @@ public:
 
     Options getDefaultOptions();
 
-    const TileTableInfo& getTileTableInfo() const { return *m_tileTableInfo; }
+    const GpkgMatrixSet& getTileTableInfo() const { return *m_tileTableInfo; }
     
 protected:
   virtual void processOptions(const Options& options);
@@ -69,10 +69,10 @@ protected:
   point_count_t read(PointViewPtr view, point_count_t count);
 
 private:
-  RialtoDb* m_db;
+  GeoPackageReader* m_db;
   std::string m_tileTableName;
   uint32_t m_level;
-  std::unique_ptr<TileTableInfo> m_tileTableInfo;
+  std::unique_ptr<GpkgMatrixSet> m_tileTableInfo;
   BOX3D m_query;
   
   RialtoDbReader& operator=(const RialtoDbReader&); // not implemented

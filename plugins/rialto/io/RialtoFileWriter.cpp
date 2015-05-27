@@ -34,7 +34,8 @@
 
 #include "RialtoFileWriter.hpp"
 
-#include "RialtoDb.hpp"
+#include "GeoPackage.hpp"
+#include "GeoPackageCommon.hpp"
 
 namespace pdal
 {
@@ -112,13 +113,13 @@ Options RialtoFileWriter::getDefaultOptions()
 //---------------------------------------------------------------------
 
 
-void FileWriterAssister::writeHeader(const std::string& tileTableName,
+void RialtoFileWriterAssister::writeHeader(const std::string& tileTableName,
                                    MetadataNode tileTableNode,
                                    PointLayoutPtr layout,
                                    const std::string& datetime,
                                    const SpatialReference& srs)
 {    
-    const TileTableInfo tileTableInfo(tileTableName, tileTableNode, layout, datetime, srs);
+    const GpkgMatrixSet tileTableInfo(tileTableName, tileTableNode, layout, datetime, srs);
 
     const std::string filename(m_directory + "/header.json");
     FILE* fp = fopen(filename.c_str(), "wt");
@@ -129,8 +130,8 @@ void FileWriterAssister::writeHeader(const std::string& tileTableName,
     fprintf(fp, "    \"dimensions\": [\n");
 
 
-    std::vector<DimensionInfo> dimsInfo;
-    DimensionInfo::importVector(tileTableNode, layout, dimsInfo);
+    std::vector<GpkgDimension> dimsInfo;
+    GpkgDimension::importVector(tileTableNode, layout, dimsInfo);
 
     const size_t numDims = dimsInfo.size();
 
@@ -152,9 +153,9 @@ void FileWriterAssister::writeHeader(const std::string& tileTableName,
 }
 
 
-void FileWriterAssister::writeTile(const std::string& tileTableName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
+void RialtoFileWriterAssister::writeTile(const std::string& tileTableName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
 {
-    const TileInfo tileInfo(view, level, col, row, mask);
+    const GpkgTile tileInfo(view, level, col, row, mask);
 
     std::ostringstream os;
 
@@ -172,7 +173,7 @@ void FileWriterAssister::writeTile(const std::string& tileTableName, PointView* 
 
     // TODO: we don't write the number of points, but maybe we should
 
-    const MyPatch& patch = tileInfo.getPatch();
+    const GpkgPatch& patch = tileInfo.getPatch();
     if (!patch.isEmpty())
     {
         uint32_t bufLen = patch.size();

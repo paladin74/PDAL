@@ -33,7 +33,8 @@
 ****************************************************************************/
 
 #include "RialtoDbWriter.hpp"
-#include "RialtoDb.hpp"
+#include "GeoPackageWriter.hpp"
+#include "GeoPackageCommon.hpp"
 
 
 namespace pdal
@@ -54,14 +55,12 @@ void RialtoDbWriter::ready(PointTableRef table)
 {
     log()->get(LogLevel::Debug) << "RialtoDbWriter::localStart()" << std::endl;
 
-    // pdal writers always clobber their output file, so we follow
-    // the same convention here -- even though we're dealing with
-    // an output "database" instead of an output "file"
+    // TODO: drop the current tables, if any
 
-    FileUtils::deleteFile(m_connection);
+    assert(FileUtils::fileExists(m_connection));
 
-    m_rialtoDb = new RialtoDb(m_connection, log());
-    m_rialtoDb->create();
+    m_rialtoDb = new GeoPackageWriter(m_connection, log());
+    m_rialtoDb->open();
 
     m_assister.m_rialtoDb = m_rialtoDb;
 
@@ -117,29 +116,41 @@ Options RialtoDbWriter::getDefaultOptions()
 //---------------------------------------------------------------------
 
 
-void DbWriterAssister::writeHeader(const std::string& tileTableName,
+void RialtoDbWriterAssister::writeHeader(const std::string& tileTableName,
                                  MetadataNode tileTableNode,
                                  PointLayoutPtr layout, const std::string& datetime,
                                  const SpatialReference& srs)
 {
-    const TileTableInfo tileTableInfo(tileTableName, tileTableNode, layout, datetime, srs);
+    const GpkgMatrixSet tileTableInfo(tileTableName, tileTableNode, layout, datetime, srs);
 
     m_rialtoDb->writeTileTable(tileTableInfo);
 }
 
 
-void DbWriterAssister::writeTile(const std::string& tileTableName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
+void RialtoDbWriterAssister::writeTile(const std::string& tileTableName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
 {
     //log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
 
     //printf("writing tile %d/%d/%d\n", level, col, row);
 
-    const TileInfo tileInfo(view, level, col, row, mask);
+    const GpkgTile tileInfo(view, level, col, row, mask);
 
     if (!tileInfo.getPatch().isEmpty())
     {
         m_rialtoDb->writeTile(tileTableName, tileInfo);
     }
+}
+
+
+void RialtoDbWriterAssister::writeTiles_begin()
+{
+    m_rialtoDb->beginTransaction();
+}
+
+
+void RialtoDbWriterAssister::writeTiles_end()
+{
+    m_rialtoDb->commitTransaction();    
 }
 
 

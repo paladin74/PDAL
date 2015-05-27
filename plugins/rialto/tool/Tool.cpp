@@ -232,7 +232,7 @@ Stage* Tool::createReader(const char* name, FileType type, const BOX3D& rBounds,
             break;
         case TypeSqlite:
             opts.add("filename", name);
-            reader = new RialtoDbReader();
+            reader = new rialto::RialtoDbReader();
             break;
         default:
             assert(0);
@@ -268,11 +268,11 @@ Stage* Tool::createWriter(const char* name, FileType type)
             break;
         case TypeSqlite:
             opts.add("filename", name);
-            writer = new RialtoDbWriter();
+            writer = new rialto::RialtoDbWriter();
             break;
         case TypeTiles:
             opts.add("filename", name);
-            writer = new RialtoFileWriter();
+            writer = new rialto::RialtoFileWriter();
             break;
         default:
             assert(0);

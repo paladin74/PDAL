@@ -33,7 +33,8 @@
 ****************************************************************************/
 
 #include "RialtoDbReader.hpp"
-#include "RialtoDb.hpp"
+#include "GeoPackageReader.hpp"
+#include "GeoPackageCommon.hpp"
 
 namespace pdal
 {
@@ -74,15 +75,15 @@ void RialtoDbReader::initialize()
 
     if (!m_db)
     {
-        m_db = new RialtoDb(m_filename, log());
-        m_db->open(false);
+        m_db = new GeoPackageReader(m_filename, log());
+        m_db->open();
 
         std::vector<std::string> names;
         m_db->readTileTableNames(names);
         m_tileTableName = names[0];
         assert(names.size()==1); // TODO: always take the first one for now
 
-        m_tileTableInfo = std::unique_ptr<TileTableInfo>(new TileTableInfo());
+        m_tileTableInfo = std::unique_ptr<GpkgMatrixSet>(new GpkgMatrixSet());
 
         m_db->readTileTable(m_tileTableName, *m_tileTableInfo);
         
@@ -159,7 +160,7 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
 
     m_db->queryForTiles_begin(m_tileTableName, minx, miny, maxx, maxy, maxLevel);
 
-    TileInfo info;
+    GpkgTile info;
 
     do {
         bool ok = m_db->queryForTiles_step(info);

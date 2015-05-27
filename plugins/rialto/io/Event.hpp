@@ -34,58 +34,91 @@
 
 #pragma once
 
-#include <pdal/Writer.hpp>
-#include "RialtoWriterAssister.hpp"
-
-extern "C" int32_t RialtoFileWriter_ExitFunc();
-extern "C" PF_ExitFunc RialtoFileWriter_InitPlugin();
+#include <pdal/pdal.hpp>
 
 namespace pdal
 {
 namespace rialto
 {
 
-
-class RialtoFileWriterAssister: public RialtoWriterAssister
+class Event
 {
 public:
-    std::string m_directory;
-    
-private:
-    virtual void writeHeader(const std::string& tileTableName,
-                             MetadataNode tileTableNode,
-                             PointLayoutPtr layout,
-                             const std::string& datetime,
-                             const SpatialReference& srs);
-    virtual void writeTile(const std::string& tileTableName, PointView*,
-                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
-};
-
-
-class PDAL_DLL RialtoFileWriter : public Writer
-{
-public:
-    RialtoFileWriter()
+    // Event e_foo("foo");
+    // e.start();
+    // ...work...
+    // e.stop();
+    // e.dump();
+    Event(const std::string& name) :
+        m_name(name),
+        m_count(0),
+        m_millis(0.0),
+        m_start(0)
     {}
+        
+    ~Event()
+    {
+        if (m_start != 0)
+        {
+            std::ostringstream oss;
+            oss << "timing event not closed: " << m_name;
+            throw pdal_error(oss.str());
+        }
+    }
 
-    static void * create();
-    static int32_t destroy(void *);
-    std::string getName() const;
+    void start()
+    {
+        assert(m_start == 0);
+        m_start = timerStart();
+    }
 
-    Options getDefaultOptions();
+    void stop()
+    {
+        assert(m_start != 0);
+        ++m_count;
+        m_millis += timerStop(m_start);
+        m_start = 0;
+    }
 
-    void ready(PointTableRef table);
-    void write(const PointViewPtr viewPtr);
-    void done(PointTableRef table);
+
+    void dump() const
+    {
+        std::cout << m_name << ":";
+        
+        if (m_count)
+        {
+            std::cout << "  total=" << m_millis << "ms"
+                      << "  average=" << m_millis/(double)m_count << "ms"
+                      << "  (" << m_count << " events)";
+        }
+        else
+        {
+            std::cout << " -";
+        }
+        
+        std::cout << std::endl;
+    }
+
+    // clock_t start = timerStart();
+    // <spin cycles>
+    // uint32_t millis = timerStop(start);
+    static clock_t timerStart()
+    {
+         return std::clock();
+    }
+    
+    static double timerStop(clock_t start)
+    {
+        clock_t stop = std::clock();
+        const double secs = (double)(stop - start) / (double)CLOCKS_PER_SEC;
+        return secs * 1000.0;
+    }
 
 private:
-    virtual void processOptions(const Options& options);
-
-    std::string m_directory;
-    RialtoFileWriterAssister m_assister;
-
-    RialtoFileWriter& operator=(const RialtoFileWriter&); // not implemented
-    RialtoFileWriter(const RialtoFileWriter&); // not implemented
+     const std::string m_name;
+     uint32_t m_count;
+     double m_millis;
+     clock_t m_start;
 };
 
 } // namespace rialto

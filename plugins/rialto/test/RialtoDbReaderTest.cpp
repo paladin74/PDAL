@@ -50,14 +50,15 @@
 #include <boost/filesystem.hpp>
 
 #include "../plugins/rialto/io/RialtoDbReader.hpp" // TODO: fix path
-#include "../plugins/rialto/io/RialtoDb.hpp" // TODO: fix path
+#include "../plugins/rialto/io/GeoPackage.hpp" // TODO: fix path
+#include "../plugins/rialto/io/GeoPackageCommon.hpp" // TODO: fix path
 
 using namespace pdal;
 using namespace rialto;
 
 TEST(RialtoDbReaderTest, test)
 {
-    const std::string filename(Support::temppath("rialto4.sqlite"));
+    const std::string filename(Support::temppath("rialto4.gpkg"));
     
     FileUtils::deleteFile(filename);
 
@@ -85,9 +86,9 @@ TEST(RialtoDbReaderTest, test)
       const std::string wkt4326 = srs4326.getWKT();
       EXPECT_EQ(wkt, wkt4326);
       
-      const TileTableInfo& info = reader.getTileTableInfo();
+      const GpkgMatrixSet& info = reader.getTileTableInfo();
       EXPECT_EQ(3u, info.getNumDimensions());
-      const std::vector<DimensionInfo>& dims = info.getDimensions();
+      const std::vector<GpkgDimension>& dims = info.getDimensions();
       EXPECT_EQ(3u, dims.size());
       EXPECT_EQ(89.0, dims[1].getMaximum());
   }
@@ -99,7 +100,7 @@ TEST(RialtoDbReaderTest, test)
       PointViewSet viewSet = reader.execute(table);
       EXPECT_EQ(viewSet.size(), 1u);
       PointViewPtr view = *viewSet.begin();
-      EXPECT_EQ(view->size(), 8u);
+      EXPECT_EQ(8u, view->size());
   }
 
   {

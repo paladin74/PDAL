@@ -35,7 +35,7 @@
 #pragma once
 
 #include <pdal/Writer.hpp>
-#include "RialtoSupport.hpp"
+#include "RialtoWriterAssister.hpp"
 
 extern "C" int32_t RialtoDbWriter_ExitFunc();
 extern "C" PF_ExitFunc RialtoDbWriter_InitPlugin();
@@ -45,13 +45,13 @@ namespace pdal
 {
 namespace rialto
 {
-    class RialtoDb;
+    class GeoPackageWriter;
     
 
-class DbWriterAssister: public WriterAssister
+class RialtoDbWriterAssister: public RialtoWriterAssister
 {
 public:
-    RialtoDb* m_rialtoDb;
+    GeoPackageWriter* m_rialtoDb;
     
 private:
     virtual void writeHeader(const std::string& tileTableName,
@@ -61,6 +61,8 @@ private:
                              const SpatialReference& srs);
     virtual void writeTile(const std::string& tileTableName, PointView*,
                            uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
+    virtual void writeTiles_begin();
+    virtual void writeTiles_end();
 };
 
 
@@ -83,10 +85,10 @@ public:
 private:
     void processOptions(const Options& options);
 
-    DbWriterAssister m_assister;
+    RialtoDbWriterAssister m_assister;
 
     std::string m_connection;
-    RialtoDb* m_rialtoDb;
+    GeoPackageWriter* m_rialtoDb;
 
     RialtoDbWriter& operator=(const RialtoDbWriter&); // not implemented
     RialtoDbWriter(const RialtoDbWriter&); // not implemented

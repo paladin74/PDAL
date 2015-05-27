@@ -49,9 +49,11 @@
 
 #include <boost/filesystem.hpp>
 
-#include "../plugins/rialto/io/RialtoDb.hpp" // TODO: fix path
+#include "../plugins/rialto/io/GeoPackage.hpp" // TODO: fix path
+#include "../plugins/rialto/io/GeoPackageCommon.hpp" // TODO: fix path
 #include "../plugins/rialto/io/RialtoDbReader.hpp" // TODO: fix path
 #include "../plugins/sqlite/io/SQLiteCommon.hpp" // TODO: fix path
+#include "../filters/tiler/TilerCommon.hpp" // TODO: fix path
 #include "RialtoTest.hpp"
 
 using namespace pdal;
@@ -60,9 +62,13 @@ using namespace rialto;
 static bool testP2T(double x, double y, uint32_t level, uint32_t expected_col, uint32_t expected_row)
 {
     uint32_t actual_col, actual_row;
-    RialtoDb::xyPointToTileColRow(x, y, level, actual_col, actual_row); // nw
-    bool r = actual_col == expected_col;
-    bool c = actual_row == expected_row;
+    
+    // TODO: hard-coded for 4326
+    const tilercommon::TileMatrixMath tmm(-180.0, -90.0, 180.0, 90.0, 2, 1);
+    tmm.getTileOfPoint(x, y, level, actual_col, actual_row);
+
+    const bool r = actual_col == expected_col;
+    const bool c = actual_row == expected_row;
     return r && c;
 }
 
@@ -71,16 +77,16 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
 {
     LogPtr log(new Log("rialtodbwritertest", "stdout"));
 
-    RialtoDb db(filename, log);
-    db.open(false);
+    GeoPackageReader db(filename, log);
+    db.open();
 
     std::vector<std::string> names;
     db.readTileTableNames(names);
     EXPECT_EQ(names.size(), 1u);
 
-    TileTableInfo tileTableInfo;
+    GpkgMatrixSet tileTableInfo;
     db.readTileTable(names[0], tileTableInfo);
-    EXPECT_EQ(tileTableInfo.getMaxLevel(), 2u);
+    EXPECT_EQ(2u, tileTableInfo.getMaxLevel());
     EXPECT_EQ(tileTableInfo.getNumDimensions(), 3u);
 
     EXPECT_DOUBLE_EQ(tileTableInfo.getDataMinX(), -179.0);
@@ -92,7 +98,7 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     EXPECT_DOUBLE_EQ(tileTableInfo.getTmsetMaxX(), 180.0);
     EXPECT_DOUBLE_EQ(tileTableInfo.getTmsetMaxY(), 90.0);
 
-    const std::vector<DimensionInfo>& dimensionsInfo = tileTableInfo.getDimensions();
+    const std::vector<GpkgDimension>& dimensionsInfo = tileTableInfo.getDimensions();
     EXPECT_EQ(dimensionsInfo[0].getName(), "X");
     EXPECT_EQ(dimensionsInfo[0].getDataType(), "double");
     EXPECT_DOUBLE_EQ(dimensionsInfo[0].getMinimum(), -179.0);
@@ -122,7 +128,7 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     db.readTileIdsAtLevel(names[0], 3, tilesAt3);
     EXPECT_EQ(tilesAt3.size(), 0u);
 
-    TileInfo info;
+    GpkgTile info;
 
     {
         db.readTile(names[0], tilesAt0[0], true, info);
@@ -186,24 +192,27 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
         EXPECT_EQ(info.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[7]);
     }
+    
+    db.close();
 }
+
 
 TEST(RialtoDbWriterTest, testPointToTile)
 {
     uint32_t c, r;
 
     // level 0, four corners
-    EXPECT_TRUE(testP2T(-180.0, 90.0, 0, 0, 0)); // nw
-    EXPECT_TRUE(testP2T(-179, 89, 0, 0, 0)); // nw
+    EXPECT_TRUE(testP2T(-180.0, 89.999, 0, 0, 0)); // nw
+    EXPECT_TRUE(testP2T(-179, 89, 0, 0, 0));
 
-    EXPECT_TRUE(testP2T(180, 90, 0, 0, 0)); // ne (180 wraps to -180)
-    EXPECT_TRUE(testP2T(179, 89, 0, 1, 0)); // ne
+    EXPECT_TRUE(testP2T(179.999, 89.999, 0, 1, 0)); // ne
+    EXPECT_TRUE(testP2T(179, 89, 0, 1, 0));
 
     EXPECT_TRUE(testP2T(-180, -90, 0, 0, 0)); // sw
-    EXPECT_TRUE(testP2T(-179, -89, 0, 0, 0)); // sw
+    EXPECT_TRUE(testP2T(-179, -89, 0, 0, 0));
 
-    EXPECT_TRUE(testP2T(180, -90, 0, 0, 0)); // se (180 wraps to -180)
-    EXPECT_TRUE(testP2T(179, -89, 0, 1, 0)); // se
+    EXPECT_TRUE(testP2T(179.999, -90, 0, 1, 0)); // se
+    EXPECT_TRUE(testP2T(179, -89, 0, 1, 0));
 
     EXPECT_TRUE(testP2T(0, 0, 0, 1, 0)); // center
     EXPECT_TRUE(testP2T(-1, 1, 0, 0, 0)); // center nw
@@ -227,37 +236,6 @@ TEST(RialtoDbWriterTest, testPointToTile)
 }
 
 
-TEST(RialtoDbTest, test1)
-{
-    const std::string filename = Support::temppath("./test1.sqlite");
-
-    FileUtils::deleteFile(filename);
-
-    LogPtr log(new Log("rialtodbwritertest", "stdout"));
-
-    {
-        RialtoDb db(filename, log);
-        db.create();
-        db.close();
-    }
-
-    EXPECT_TRUE(FileUtils::fileExists(filename));
-
-    {
-        RialtoDb db(filename, log);
-        db.open(true);
-    }
-
-    {
-        RialtoDb db(filename, log);
-        db.open(false);
-        db.close();
-    }
-
-    FileUtils::deleteFile(filename);
-}
-
-
 TEST(RialtoDbWriterTest, createWriter)
 {
     StageFactory f;
@@ -268,7 +246,7 @@ TEST(RialtoDbWriterTest, createWriter)
 
 TEST(RialtoDbWriterTest, testWriter)
 {
-    const std::string filename(Support::temppath("rialto2.sqlite"));
+    const std::string filename(Support::temppath("rialto2.gpkg"));
 
     FileUtils::deleteFile(filename);
 
@@ -293,28 +271,32 @@ TEST(RialtoDbWriterTest, testWriter)
 
     LogPtr log(new Log("rialtodbwritertest", "stdout"));
 
-    RialtoDb db(filename, log);
-    db.open(false);
-    std::vector<std::string> names;
-    db.readTileTableNames(names);
-    std::string tileTableName = names[0];
-
     {
-        std::vector<uint32_t> ids;
+        GeoPackageReader db(filename, log);
+        db.open();
+        std::vector<std::string> names;
+        db.readTileTableNames(names);
+        std::string tileTableName = names[0];
 
-        db.queryForTileIds(tileTableName, 0.1, 0.1, 179.9, 89.9, 0, ids);
-        EXPECT_EQ(ids.size(), 0u);
+        {
+            std::vector<uint32_t> ids;
 
-        db.queryForTileIds(tileTableName, 0.1, 0.1, 179.9, 89.9, 1, ids);
-        EXPECT_EQ(ids.size(), 1u);
-        EXPECT_EQ(ids[0], 7u);
+            db.queryForTileIds(tileTableName, 0.1, 0.1, 179.9, 89.9, 0, ids);
+            EXPECT_EQ(ids.size(), 0u);
 
-        db.queryForTileIds(tileTableName, 0.1, 0.1, 179.9, 89.9, 2, ids);
-        EXPECT_EQ(ids.size(), 2u);
-        EXPECT_EQ(ids[0], 8u);
-        EXPECT_EQ(ids[1], 9u);
+            db.queryForTileIds(tileTableName, 0.1, 0.1, 179.9, 89.9, 1, ids);
+            EXPECT_EQ(ids.size(), 1u);
+            EXPECT_EQ(ids[0], 7u);
+
+            db.queryForTileIds(tileTableName, 0.1, 0.1, 179.9, 89.9, 2, ids);
+            EXPECT_EQ(ids.size(), 2u);
+            EXPECT_EQ(ids[0], 8u);
+            EXPECT_EQ(ids[1], 9u);
+        }
+        
+        db.close();
     }
-
+    
     {
         RialtoDbReader reader;
         Options options;
@@ -335,8 +317,6 @@ TEST(RialtoDbWriterTest, testWriter)
         RialtoTest::verifyPointToData(view, 1, actualData[5]);
     }
 
-    db.close();
-
     delete[] actualData;
 
     FileUtils::deleteFile(filename);
@@ -345,7 +325,7 @@ TEST(RialtoDbWriterTest, testWriter)
 
 TEST(RialtoDbWriterTest, testOscar)
 {
-    const std::string filename(Support::temppath("oscar.sqlite"));
+    const std::string filename(Support::temppath("oscar.gpkg"));
 
     FileUtils::deleteFile(filename);
 
@@ -440,7 +420,7 @@ TEST(RialtoDbWriterTest, testRandom)
     static const int NUM_POINTS = 100 * 1000;
     static const int NUM_QUERIES = 200;
 
-    const std::string filename(Support::temppath("rialto3.sqlite"));
+    const std::string filename(Support::temppath("rialto3.gpkg"));
     FileUtils::deleteFile(filename);
 
     RialtoTest::Data* actualData;
@@ -514,13 +494,13 @@ TEST(RialtoDbWriterTest, testRandom)
 
 TEST(RialtoDbWriterTest, writePerf)
 {
-    RialtoEvent e_all("allTests");
-    RialtoEvent e_write("writePart");
+    Event e_all("allTests");
+    Event e_write("writePart");
 
     static const int M = 1000 * 1000;
     static const int NUM_POINTS = 1 * M;
 
-    const std::string filename(Support::temppath("writeperf.sqlite"));
+    const std::string filename(Support::temppath("writeperf.gpkg"));
     FileUtils::deleteFile(filename);
 
     e_all.start();
@@ -551,14 +531,14 @@ TEST(RialtoDbWriterTest, writePerf)
 
 TEST(RialtoDbWriterTest, readPerf)
 {
-    RialtoEvent e_all("allTests");
-    RialtoEvent e_read("readPart");
+    Event e_all("allTests");
+    Event e_read("readPart");
 
     static const int M = 1000 * 1000;
     static const int NUM_POINTS = 2 * M;
     static const int NUM_QUERIES = 100;
 
-    const std::string filename(Support::temppath("readperf.sqlite"));
+    const std::string filename(Support::temppath("readperf.gpkg"));
     FileUtils::deleteFile(filename);
 
     const uint32_t maxLevel = 7;

@@ -32,61 +32,61 @@
 * OF SUCH DAMAGE.
 ****************************************************************************/
 
-#pragma once
+#include <pdal/pdal_test_main.hpp>
 
-#include <pdal/Writer.hpp>
-#include "RialtoWriterAssister.hpp"
+#include <pdal/Options.hpp>
+#include <pdal/PointTable.hpp>
+#include <pdal/StageFactory.hpp>
+#include <pdal/util/Bounds.hpp>
+#include <pdal/util/FileUtils.hpp>
 
-extern "C" int32_t RialtoFileWriter_ExitFunc();
-extern "C" PF_ExitFunc RialtoFileWriter_InitPlugin();
+#include <pdal/BufferReader.hpp>
+#include <tiler/TilerFilter.hpp>
+#include <crop/CropFilter.hpp>
+#include <stats/StatsFilter.hpp>
 
-namespace pdal
+#include "Support.hpp"
+
+#include <boost/filesystem.hpp>
+
+#include "../plugins/rialto/io/GeoPackage.hpp" // TODO: fix path
+#include "../plugins/rialto/io/GeoPackageCommon.hpp" // TODO: fix path
+#include "../plugins/rialto/io/RialtoDbReader.hpp" // TODO: fix path
+#include "../plugins/sqlite/io/SQLiteCommon.hpp" // TODO: fix path
+#include "../filters/tiler/TilerCommon.hpp" // TODO: fix path
+#include "RialtoTest.hpp"
+
+using namespace pdal;
+using namespace rialto;
+
+
+TEST(GeoPackageTest, test1)
 {
-namespace rialto
-{
+    const std::string filename = Support::temppath("./test1.gpkg");
 
+    FileUtils::deleteFile(filename);
 
-class RialtoFileWriterAssister: public RialtoWriterAssister
-{
-public:
-    std::string m_directory;
-    
-private:
-    virtual void writeHeader(const std::string& tileTableName,
-                             MetadataNode tileTableNode,
-                             PointLayoutPtr layout,
-                             const std::string& datetime,
-                             const SpatialReference& srs);
-    virtual void writeTile(const std::string& tileTableName, PointView*,
-                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
-};
+    LogPtr log(new Log("rialtodbwritertest", "stdout"));
 
+    {
+        GeoPackageManager db(filename, log);
+        db.open();
+        db.close();
+    }
 
-class PDAL_DLL RialtoFileWriter : public Writer
-{
-public:
-    RialtoFileWriter()
-    {}
+    EXPECT_TRUE(FileUtils::fileExists(filename));
 
-    static void * create();
-    static int32_t destroy(void *);
-    std::string getName() const;
+    {
+        GeoPackageWriter db(filename, log);
+        db.open();
+        db.close();
+    }
 
-    Options getDefaultOptions();
+    {
+        GeoPackageReader db(filename, log);
+        db.open();
+        db.close();
+    }
 
-    void ready(PointTableRef table);
-    void write(const PointViewPtr viewPtr);
-    void done(PointTableRef table);
-
-private:
-    virtual void processOptions(const Options& options);
-
-    std::string m_directory;
-    RialtoFileWriterAssister m_assister;
-
-    RialtoFileWriter& operator=(const RialtoFileWriter&); // not implemented
-    RialtoFileWriter(const RialtoFileWriter&); // not implemented
-};
-
-} // namespace rialto
-} // namespace pdal
+    FileUtils::deleteFile(filename);
+}
