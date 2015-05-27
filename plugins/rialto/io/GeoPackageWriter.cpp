@@ -35,8 +35,8 @@
 #include "GeoPackageWriter.hpp"
 #include "GeoPackageCommon.hpp"
 
-#include <pdal/../../plugins/sqlite/io/SQLiteCommon.hpp> // TODO: fix path
-#include <pdal/../../filters/tiler/TilerCommon.hpp> // TODO: fix path
+#include <pdal/../../plugins/sqlite/io/SQLiteCommon.hpp>
+#include <pdal/../../filters/tiler/TilerCommon.hpp>
 
 
 namespace pdal
@@ -239,8 +239,8 @@ void GeoPackageWriter::writeMetadata(const GpkgMatrixSet& data)
         row r;
 
         r.push_back(column("dataset"));
-        r.push_back(column("LAS")); // TODO
-        r.push_back(column("text/xml")); // TODO
+        r.push_back(column("LAS"));
+        r.push_back(column("text/xml"));
         r.push_back(column("...data..."));
 
         rs.push_back(r);
@@ -297,7 +297,7 @@ void GeoPackageWriter::writeDimensions(const GpkgMatrixSet& data)
         r.push_back(column(dim.getName()));
         r.push_back(column(dim.getDataType()));
         r.push_back(column(i)); // ordinal_position
-        r.push_back(column("...description...")); // TODO
+        r.push_back(column("...description..."));
         r.push_back(column(dim.getMinimum()));
         r.push_back(column(dim.getMean()));
         r.push_back(column(dim.getMaximum()));

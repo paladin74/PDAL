@@ -43,10 +43,10 @@
 #include <tiler/TilerFilter.hpp>
 #include <stats/StatsFilter.hpp>
 
-#include "../plugins/rialto/io/GeoPackage.hpp" // TODO: fix path
-#include "../plugins/rialto/io/GeoPackageManager.hpp" // TODO: fix path
-#include "../plugins/rialto/io/GeoPackageReader.hpp" // TODO: fix path
-#include "../plugins/rialto/io/GeoPackageWriter.hpp" // TODO: fix path
+#include "../plugins/rialto/io/GeoPackage.hpp"
+#include "../plugins/rialto/io/GeoPackageManager.hpp"
+#include "../plugins/rialto/io/GeoPackageReader.hpp"
+#include "../plugins/rialto/io/GeoPackageWriter.hpp"
 
 namespace pdal
 {

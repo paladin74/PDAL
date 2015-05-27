@@ -168,7 +168,7 @@ void RialtoDbReader::setQueryParams()
 
 point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t /*not used*/)
 {
-    // TODO: okay to ignore point cloud parameter?
+    // TODO: okay to ignore point count parameter?
     
     log()->get(LogLevel::Debug) << "RialtoDbReader::read()" << std::endl;
 

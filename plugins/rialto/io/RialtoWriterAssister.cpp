@@ -73,7 +73,6 @@ void RialtoWriterAssister::ready(PointTableRef table, const SpatialReference& sr
 
 void RialtoWriterAssister::write(const PointViewPtr viewPtr)
 {
-    // TODO: need to document/isolate this layout convention
     uint32_t idx = m_pointViewMap[viewPtr->id()];
     uint32_t level = m_tileMetadata[idx];
     uint32_t col = m_tileMetadata[idx+1];

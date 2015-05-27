@@ -49,9 +49,9 @@
 #include "RialtoTest.hpp"
 #include <boost/filesystem.hpp>
 
-#include "../plugins/rialto/io/RialtoDbReader.hpp" // TODO: fix path
-#include "../plugins/rialto/io/GeoPackage.hpp" // TODO: fix path
-#include "../plugins/rialto/io/GeoPackageCommon.hpp" // TODO: fix path
+#include "../plugins/rialto/io/RialtoDbReader.hpp"
+#include "../plugins/rialto/io/GeoPackage.hpp"
+#include "../plugins/rialto/io/GeoPackageCommon.hpp"
 
 using namespace pdal;
 using namespace rialto;

@@ -49,11 +49,11 @@
 
 #include <boost/filesystem.hpp>
 
-#include "../plugins/rialto/io/GeoPackage.hpp" // TODO: fix path
-#include "../plugins/rialto/io/GeoPackageCommon.hpp" // TODO: fix path
-#include "../plugins/rialto/io/RialtoDbReader.hpp" // TODO: fix path
-#include "../plugins/sqlite/io/SQLiteCommon.hpp" // TODO: fix path
-#include "../filters/tiler/TilerCommon.hpp" // TODO: fix path
+#include "../plugins/rialto/io/GeoPackage.hpp"
+#include "../plugins/rialto/io/GeoPackageCommon.hpp"
+#include "../plugins/rialto/io/RialtoDbReader.hpp"
+#include "../plugins/sqlite/io/SQLiteCommon.hpp"
+#include "../filters/tiler/TilerCommon.hpp"
 #include "RialtoTest.hpp"
 
 using namespace pdal;

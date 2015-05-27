@@ -55,8 +55,6 @@ void RialtoDbWriter::ready(PointTableRef table)
 {
     log()->get(LogLevel::Debug) << "RialtoDbWriter::localStart()" << std::endl;
 
-    // TODO: drop the current tables, if any
-
     assert(FileUtils::fileExists(m_connection));
 
     m_rialtoDb = new GeoPackageWriter(m_connection, log());

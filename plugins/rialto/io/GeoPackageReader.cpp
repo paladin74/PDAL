@@ -35,8 +35,8 @@
 #include "GeoPackageReader.hpp"
 #include "GeoPackageCommon.hpp"
 
-#include <pdal/../../plugins/sqlite/io/SQLiteCommon.hpp> // TODO: fix path
-#include <pdal/../../filters/tiler/TilerCommon.hpp> // TODO: fix path
+#include <pdal/../../plugins/sqlite/io/SQLiteCommon.hpp>
+#include <pdal/../../filters/tiler/TilerCommon.hpp>
 
 
 namespace pdal

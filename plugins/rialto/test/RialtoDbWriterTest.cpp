@@ -49,11 +49,11 @@
 
 #include <boost/filesystem.hpp>
 
-#include "../plugins/rialto/io/GeoPackage.hpp" // TODO: fix path
-#include "../plugins/rialto/io/GeoPackageCommon.hpp" // TODO: fix path
-#include "../plugins/rialto/io/RialtoDbReader.hpp" // TODO: fix path
-#include "../plugins/sqlite/io/SQLiteCommon.hpp" // TODO: fix path
-#include "../filters/tiler/TilerCommon.hpp" // TODO: fix path
+#include "../plugins/rialto/io/GeoPackage.hpp"
+#include "../plugins/rialto/io/GeoPackageCommon.hpp"
+#include "../plugins/rialto/io/RialtoDbReader.hpp"
+#include "../plugins/sqlite/io/SQLiteCommon.hpp"
+#include "../filters/tiler/TilerCommon.hpp"
 #include "RialtoTest.hpp"
 
 using namespace pdal;
@@ -101,17 +101,17 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     EXPECT_EQ(dimensionsInfo[0].getName(), "X");
     EXPECT_EQ(dimensionsInfo[0].getDataType(), "double");
     EXPECT_DOUBLE_EQ(dimensionsInfo[0].getMinimum(), -179.0);
-    EXPECT_DOUBLE_EQ(dimensionsInfo[0].getMean()+100.0, 0.0+100.0); // TODO
+    EXPECT_NEAR(dimensionsInfo[0].getMean(), 0.0, 0.00000001);
     EXPECT_DOUBLE_EQ(dimensionsInfo[0].getMaximum(), 91.0);
     EXPECT_EQ(dimensionsInfo[1].getName(), "Y");
     EXPECT_EQ(dimensionsInfo[1].getDataType(), "double");
     EXPECT_DOUBLE_EQ(dimensionsInfo[1].getMinimum(), -89.0);
-    EXPECT_DOUBLE_EQ(dimensionsInfo[1].getMean()+100.0, 0.0+100.0); // TODO
+    EXPECT_NEAR(dimensionsInfo[1].getMean(), 0.0, 0.00000001);
     EXPECT_DOUBLE_EQ(dimensionsInfo[1].getMaximum(), 89.0);
     EXPECT_EQ(dimensionsInfo[2].getName(), "Z");
     EXPECT_EQ(dimensionsInfo[2].getDataType(), "double");
     EXPECT_DOUBLE_EQ(dimensionsInfo[2].getMinimum(), 0.0);
-    EXPECT_DOUBLE_EQ(dimensionsInfo[2].getMean()+100.0, 38.5+100.0); // TODO
+    EXPECT_NEAR(dimensionsInfo[2].getMean(), 38.5, 0.00000001);
     EXPECT_DOUBLE_EQ(dimensionsInfo[2].getMaximum(), 77.0);
 
     std::vector<uint32_t> tilesAt0;
