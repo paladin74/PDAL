@@ -138,7 +138,7 @@ public:
         const double w = tileWidthAtLevel(level);
         const double h = tileHeightAtLevel(level);
         col = std::floor((x - m_minx) / w);
-        row = std::floor((m_maxy - y) / h) - 1;
+        row = std::ceil((m_maxy - y) / h) - 1.0;
     }
 
     bool tileContains(uint32_t col, uint32_t row, uint32_t level,

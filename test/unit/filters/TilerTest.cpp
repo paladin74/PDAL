@@ -892,3 +892,44 @@ TEST(TilerTest, test_cartesian_10x20)
     ++iter;
     EXPECT_EQ(outputViews.end(), iter);
 }
+
+TEST(TilerTest, test_boundary_bug)
+{
+   const double minx = -179.9;
+   const double miny = -89.9;
+   const double maxx = 179.9;
+   const double maxy = 89.9;
+
+   const tilercommon::TileMatrixMath tmm(-180.0, -90.0, 180.0, 90.0, 2, 1);
+   uint32_t mincol, minrow, maxcol, maxrow;
+
+   {
+       tmm.getTileOfPoint(minx, miny, 0, mincol, minrow);
+       tmm.getTileOfPoint(maxx, maxy, 0, maxcol, maxrow);
+
+       EXPECT_EQ(0u, mincol);
+       EXPECT_EQ(0u, minrow);
+       EXPECT_EQ(1u, maxcol);
+       EXPECT_EQ(0u, maxrow);
+   }
+
+   {
+       tmm.getTileOfPoint(minx, miny, 1, mincol, minrow);
+       tmm.getTileOfPoint(maxx, maxy, 1, maxcol, maxrow);
+
+       EXPECT_EQ(0u, mincol);
+       EXPECT_EQ(1u, minrow);
+       EXPECT_EQ(3u, maxcol);
+       EXPECT_EQ(0u, maxrow);
+   }
+
+   {
+       tmm.getTileOfPoint(minx, miny, 2, mincol, minrow);
+       tmm.getTileOfPoint(maxx, maxy, 2, maxcol, maxrow);
+
+       EXPECT_EQ(0u, mincol);
+       EXPECT_EQ(3u, minrow);
+       EXPECT_EQ(7u, maxcol);
+       EXPECT_EQ(0u, maxrow);
+   }
+}
