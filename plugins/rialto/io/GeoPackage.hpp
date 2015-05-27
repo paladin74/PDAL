@@ -77,6 +77,8 @@ public:
 
     virtual void dumpStats() const {};
 
+    bool doesTableExist(std::string const& name) const;
+    
 protected:
     void internalOpen(bool writable);
     void internalClose();

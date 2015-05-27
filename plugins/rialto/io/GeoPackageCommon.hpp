@@ -172,7 +172,9 @@ public:
                 MetadataNode tileTableNode,
                 PointLayoutPtr layout,
                 const std::string& datetime,
-                const SpatialReference& srs);
+                const SpatialReference& srs,
+                uint32_t numColsAtL0,
+                uint32_t numRowsAtL0);
 
     void set(const std::string& datetime,
              const std::string& name,
@@ -186,7 +188,9 @@ public:
              double tmset_min_x,
              double tmset_min_y,
              double tmset_max_x,
-             double tmset_max_y);
+             double tmset_max_y,
+             uint32_t numColsAtL0,
+             uint32_t numRowsAtL0);
 
     std::string getDateTime() const { return m_datetime; }
     std::string getName() const { return m_name; } // aka filename
@@ -206,6 +210,9 @@ public:
     double getTmsetMaxX() const { return m_tmset_max_x; }
     double getTmsetMaxY() const { return m_tmset_max_y; }
 
+    uint32_t getNumColsAtL0() const { return m_numColsAtL0; }
+    uint32_t getNumRowsAtL0() const { return m_numRowsAtL0; }
+    
 private:
     std::string m_datetime;
     std::string m_name; // aka filename
@@ -221,6 +228,8 @@ private:
     double m_tmset_min_y;
     double m_tmset_max_x;
     double m_tmset_max_y;
+    uint32_t m_numColsAtL0;
+    uint32_t m_numRowsAtL0;
 };
 
 

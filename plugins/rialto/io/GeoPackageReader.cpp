@@ -161,6 +161,7 @@ void GeoPackageReader::readTileIdsAtLevel(std::string const& name, uint32_t leve
         if (!r) break;
 
         uint32_t id = boost::lexical_cast<uint32_t>(r->at(0).data);
+
         //log()->get(LogLevel::Debug) << "  got tile id=" << id << std::endl;
         ids.push_back(id);
     } while (m_sqlite->next());
@@ -191,11 +192,11 @@ void GeoPackageReader::queryForTileIds(std::string const& name,
     GpkgMatrixSet info;
     readMatrixSet(name, info); // TODO: should cache this
     
-    // TODO (2,1)
     const tilercommon::TileMatrixMath tmm(info.getTmsetMinX(), info.getTmsetMinY(), 
-                                          info.getTmsetMaxX(), info.getTmsetMaxY(), 2, 1);
-                                          
+                                          info.getTmsetMaxX(), info.getTmsetMaxY(),
+                                          info.getNumColsAtL0(), info.getNumRowsAtL0());                                          
     uint32_t mincol, minrow, maxcol, maxrow;
+    // we use mincol/maxrow and maxcol/minrow because the tile matrix has (0,0) at upper-left
     tmm.getTileOfPoint(minx, miny, level, mincol, minrow);
     tmm.getTileOfPoint(maxx, maxy, level, maxcol, maxrow);
 
@@ -245,9 +246,13 @@ void GeoPackageReader::queryForTiles_begin(std::string const& name,
 
     assert(minx <= maxx);
     assert(miny <= maxy);
+    
+    GpkgMatrixSet info;
+    readMatrixSet(name, info); // TODO: should cache this
 
-    // TODO: hard-coded for 4326
-    const tilercommon::TileMatrixMath tmm(-180.0, -90.0, 180.0, 90.0, 2, 1);
+    const tilercommon::TileMatrixMath tmm(info.getTmsetMinX(), info.getTmsetMinY(), 
+                                          info.getTmsetMaxX(), info.getTmsetMaxY(),
+                                          info.getNumColsAtL0(), info.getNumRowsAtL0());                                          
     uint32_t mincol, minrow, maxcol, maxrow;
     // we use mincol/maxrow and maxcol/minrow because the tile matrix has (0,0) at upper-left
     tmm.getTileOfPoint(minx, miny, level, mincol, maxrow);

@@ -81,7 +81,6 @@ public:
                                      double minx, double miny, double maxx, double maxy);
     static uint32_t countPointsInBounds(Data* xyz, uint32_t numPoints,
                                         double minx, double miny, double maxx, double maxy);
-
 };
 
 
@@ -197,7 +196,7 @@ void RialtoTest::createDatabase(pdal::PointTable& table,
         db.close();
     }
     assert(FileUtils::fileExists(filename));
-
+    
     {
         pdal::Options readerOptions;
         pdal::BufferReader reader;
@@ -225,6 +224,9 @@ void RialtoTest::createDatabase(pdal::PointTable& table,
         pdal::StageFactory f;
         pdal::Options writerOptions;
         writerOptions.add("filename", filename);
+        writerOptions.add("name", "_unnamed_");
+        writerOptions.add("numCols", 2);
+        writerOptions.add("numRows", 1);
         //writerOptions.add("overwrite", true);
         //writerOptions.add("verbose", LogLevel::Debug);
         pdal::Stage* writer = f.createStage("writers.rialtodb");

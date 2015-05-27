@@ -89,7 +89,9 @@ GpkgMatrixSet::GpkgMatrixSet(const std::string& tileTableName,
                          MetadataNode tileTableNode,
                          PointLayoutPtr layout,
                          const std::string& datetime,
-                         const SpatialReference& srs)
+                         const SpatialReference& srs,
+                         uint32_t numColsAtL0,
+                         uint32_t numRowsAtL0)
 {
     m_name = tileTableName;
 
@@ -112,11 +114,14 @@ GpkgMatrixSet::GpkgMatrixSet(const std::string& tileTableName,
     extractStatistics(tileTableNode, "X", statMinX, statMeanX, statMaxX);
     extractStatistics(tileTableNode, "Y", statMinY, statMeanY, statMaxY);
 
-    m_data_min_x = statMinX; // TODO
+    m_data_min_x = statMinX;
     m_data_min_y = statMinY;
     m_data_max_x = statMaxX;
     m_data_max_y = statMaxY;
 
+    m_numColsAtL0 = numColsAtL0;
+    m_numRowsAtL0 = numRowsAtL0;
+    
     GpkgDimension::importVector(tileTableNode, layout, m_dimensions);
 }
 
@@ -133,7 +138,9 @@ void GpkgMatrixSet::set(const std::string& datetime,
                       double tmset_min_x,
                       double tmset_min_y,
                       double tmset_max_x,
-                      double tmset_max_y)
+                      double tmset_max_y,
+                      uint32_t numColsAtL0,
+                      uint32_t numRowsAtL0)
 {
     m_datetime = datetime;
     m_name = name;
@@ -148,6 +155,8 @@ void GpkgMatrixSet::set(const std::string& datetime,
     m_tmset_min_y = tmset_min_y;
     m_tmset_max_x = tmset_max_x;
     m_tmset_max_y = tmset_max_y;
+    m_numColsAtL0 = numColsAtL0;
+    m_numRowsAtL0 = numRowsAtL0;
 }
 
 

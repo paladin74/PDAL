@@ -98,11 +98,12 @@ std::string RialtoDbWriter::getName() const
 
 void RialtoDbWriter::processOptions(const Options& options)
 {
-    // we treat the target "filename" as the database name,
-    // so we'll use a differently named variable to make it clear
-    m_connection = m_filename;
+    m_connection = options.getValueOrThrow<std::string>("filename");
+    m_matrixSetName = options.getValueOrThrow<std::string>("name");
+    m_numCols = options.getValueOrThrow<uint32_t>("numCols");
+    m_numRows = options.getValueOrThrow<uint32_t>("numRows");
 
-    m_assister.setTileTableName(options.getValueOrDefault<std::string>("tileTableName", "myunnamedlasfile")); // TODO
+    m_assister.setParameters(m_matrixSetName, m_numCols, m_numRows);
 }
 
 
@@ -116,28 +117,28 @@ Options RialtoDbWriter::getDefaultOptions()
 //---------------------------------------------------------------------
 
 
-void RialtoDbWriterAssister::writeHeader(const std::string& tileTableName,
-                                 MetadataNode tileTableNode,
-                                 PointLayoutPtr layout, const std::string& datetime,
-                                 const SpatialReference& srs)
+void RialtoDbWriterAssister::writeHeader(MetadataNode tileTableNode,
+                                         PointLayoutPtr layout,
+                                         const std::string& datetime,
+                                         const SpatialReference& srs)
 {
-    const GpkgMatrixSet tileTableInfo(tileTableName, tileTableNode, layout, datetime, srs);
+    const GpkgMatrixSet info(m_matrixSetName, tileTableNode, layout, datetime, srs, m_numColsAtL0, m_numRowsAtL0);
 
-    m_rialtoDb->writeTileTable(tileTableInfo);
+    m_rialtoDb->writeTileTable(info);
 }
 
 
-void RialtoDbWriterAssister::writeTile(const std::string& tileTableName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
+void RialtoDbWriterAssister::writeTile(PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
 {
     //log()->get(LogLevel::Debug1) << "RialtoDbWriter::writeTile()" << std::endl;
 
     //printf("writing tile %d/%d/%d\n", level, col, row);
 
-    const GpkgTile tileInfo(view, level, col, row, mask);
+    const GpkgTile tile(view, level, col, row, mask);
 
-    if (!tileInfo.getPatch().isEmpty())
+    if (!tile.getPatch().isEmpty())
     {
-        m_rialtoDb->writeTile(tileTableName, tileInfo);
+        m_rialtoDb->writeTile(m_matrixSetName, tile);
     }
 }
 

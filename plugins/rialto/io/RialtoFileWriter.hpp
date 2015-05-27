@@ -52,13 +52,13 @@ public:
     std::string m_directory;
     
 private:
-    virtual void writeHeader(const std::string& tileTableName,
-                             MetadataNode tileTableNode,
+    virtual void writeHeader(MetadataNode tileTableNode,
                              PointLayoutPtr layout,
                              const std::string& datetime,
                              const SpatialReference& srs);
-    virtual void writeTile(const std::string& tileTableName, PointView*,
-                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask);
+    virtual void writeTile(PointView*,
+                           uint32_t level, uint32_t col, uint32_t row,
+                           uint32_t mask);
 };
 
 

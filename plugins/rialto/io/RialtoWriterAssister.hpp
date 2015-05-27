@@ -45,28 +45,33 @@ namespace rialto
 class RialtoWriterAssister
 {
 public:
-    void setTileTableName(const std::string&);
+    void setParameters(const std::string& matrixSetName,
+                       uint32_t numColsAtL0,
+                       uint32_t numRowsAtL0);
     
     void write(const PointViewPtr viewPtr);
     void ready(PointTableRef table, const SpatialReference& srs);
     void done();
 
 protected:
-    virtual void writeHeader(const std::string& tileTableName,
-                             MetadataNode tileTableNode,
+    virtual void writeHeader(MetadataNode tileTableNode,
                              PointLayoutPtr layout,
                              const std::string& datetime,
                              const SpatialReference& srs)=0;
-    virtual void writeTile(const std::string& tileTableName, PointView*,
-                           uint32_t level, uint32_t col, uint32_t row, uint32_t mask)=0;
+                             
+    virtual void writeTile(PointView*,
+                           uint32_t level, uint32_t col, uint32_t row,
+                           uint32_t mask)=0;
 
     virtual void writeTiles_begin() {}
     virtual void writeTiles_end() {}
     
+    std::string m_matrixSetName;
+    uint32_t m_numColsAtL0;
+    uint32_t m_numRowsAtL0;
+
 private:    
     void makePointViewMap();
-
-    std::string m_tileTableName;
 
     std::map<uint32_t, uint32_t> m_pointViewMap; // PV id to array index
     uint32_t* m_tileMetadata;

@@ -99,7 +99,8 @@ void RialtoFileWriter::processOptions(const Options& options)
     // so we'll use a differently named variable to make it clear
     m_directory = m_filename;
 
-    m_assister.setTileTableName(options.getValueOrDefault<std::string>("tileTableName", "unnamed")); // TODO
+    // Cesium requires a 2x1 matrix
+    m_assister.setParameters("unnamed", 2, 1);
 }
 
 
@@ -113,22 +114,24 @@ Options RialtoFileWriter::getDefaultOptions()
 //---------------------------------------------------------------------
 
 
-void RialtoFileWriterAssister::writeHeader(const std::string& tileTableName,
-                                   MetadataNode tileTableNode,
-                                   PointLayoutPtr layout,
-                                   const std::string& datetime,
-                                   const SpatialReference& srs)
+void RialtoFileWriterAssister::writeHeader(MetadataNode tileTableNode,
+                                           PointLayoutPtr layout,
+                                           const std::string& datetime,
+                                           const SpatialReference& srs)
 {    
-    const GpkgMatrixSet tileTableInfo(tileTableName, tileTableNode, layout, datetime, srs);
+    // Cesium expects a 2x1 grid in 4326
+    assert(m_numColsAtL0 == 2);
+    assert(m_numRowsAtL0 == 1);
+
+    const GpkgMatrixSet info(m_matrixSetName, tileTableNode, layout, datetime, srs, m_numColsAtL0, m_numRowsAtL0);
 
     const std::string filename(m_directory + "/header.json");
     FILE* fp = fopen(filename.c_str(), "wt");
 
     fprintf(fp, "{\n");
     fprintf(fp, "    \"version\": 4,\n");
-    fprintf(fp, "    \"maxLevel\": %d,\n", tileTableInfo.getMaxLevel());
+    fprintf(fp, "    \"maxLevel\": %d,\n", info.getMaxLevel());
     fprintf(fp, "    \"dimensions\": [\n");
-
 
     std::vector<GpkgDimension> dimsInfo;
     GpkgDimension::importVector(tileTableNode, layout, dimsInfo);
@@ -153,7 +156,7 @@ void RialtoFileWriterAssister::writeHeader(const std::string& tileTableName,
 }
 
 
-void RialtoFileWriterAssister::writeTile(const std::string& tileTableName, PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
+void RialtoFileWriterAssister::writeTile(PointView* view, uint32_t level, uint32_t col, uint32_t row, uint32_t mask)
 {
     const GpkgTile tileInfo(view, level, col, row, mask);
 

@@ -63,7 +63,6 @@ static bool testP2T(double x, double y, uint32_t level, uint32_t expected_col, u
 {
     uint32_t actual_col, actual_row;
     
-    // TODO: hard-coded for 4326
     const tilercommon::TileMatrixMath tmm(-180.0, -90.0, 180.0, 90.0, 2, 1);
     tmm.getTileOfPoint(x, y, level, actual_col, actual_row);
 

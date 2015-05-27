@@ -61,15 +61,23 @@ The Main Classes, and what they do
       a base class they both derive from)_
 
 
-Notes on RialtoDbReader behaviors
----------------------------------
+Notes on Reader and Writer behaviors
+------------------------------------
 
-* Options:
-  * filename: required
-  * name: name of matrix set (optional, defaults to 1st one in database but throws if db has more than one)
-  * bbox: query bounds (optional, defaults to matrix set bounds)
-  * level: zoom level to use (optional, defaults to max level)
-
+* RialtoDBReader
+  * You may call execute() multiple times
+    * but you need to remove and re-add the bbox option each time
+   * Options:
+    * filename: required
+    * name: name of matrix set (optional, defaults to 1st one in database but throws if db has more than one)
+    * bbox: query bounds (optional, defaults to matrix set bounds)
+    * level: zoom level to use (optional, defaults to max level)
+* RialtoDbWriter
+  * Options
+    * filename - name of database (required)
+    * name - name of table (required)
+    * numRows, numCols - grid size at level 0 (required)
+      
 
 OGC GeoPackage Nomenclature
 -----------------------

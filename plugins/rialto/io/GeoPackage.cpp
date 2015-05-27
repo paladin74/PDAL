@@ -138,11 +138,17 @@ std::string GeoPackage::querySrsWkt(uint32_t srs_id) const
 }
 
 
+bool GeoPackage::doesTableExist(std::string const& name) const
+{
+    return m_sqlite->doesTableExist(name);
+}
+
+
 void GeoPackage::verifyTableExists(std::string const& name) const
 {
-    if (!m_sqlite->doesTableExist(name))
+    if (!doesTableExist(name))
     {
-        throw pdal_error("RialtoDb: required table '" + name + "' not found");
+        throw pdal_error("required GeoPackage table not found: " + name);
     }
 }
 
@@ -223,10 +229,11 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
         // should get exactly one row back
         const row* r = m_sqlite->get();
         assert(r);
+        
         maxLevel = boost::lexical_cast<uint32_t>(r->at(0).data);
         assert(!m_sqlite->next());
     }
-
+    
     uint32_t numDimensions;
     {
         std::ostringstream oss;
@@ -243,9 +250,30 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
         assert(!m_sqlite->next());
     }
 
+    uint32_t numColsAtL0, numRowsAtL0;
+    {
+        std::ostringstream oss;
+        oss << "SELECT matrix_width, matrix_height"
+            << " FROM gpkg_pctile_matrix"
+            << " WHERE table_name='" << name << "'"
+            << " AND zoom_level=0";
+
+        m_sqlite->query(oss.str());
+
+        // should get exactly one row back
+        const row* r = m_sqlite->get();
+        assert(r);
+        numColsAtL0 = boost::lexical_cast<uint32_t>(r->at(0).data);
+        numRowsAtL0 = boost::lexical_cast<uint32_t>(r->at(1).data);
+        assert(!m_sqlite->next());
+    }
+    assert(numColsAtL0==2);
+    assert(numRowsAtL0==1);
+    
     info.set(datetime, name, maxLevel, numDimensions, wkt,
              data_min_x, data_min_y, data_max_x, data_max_y,
-             tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y);
+             tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y,
+             numColsAtL0, numRowsAtL0);
 
     readDimensions(info.getName(), info.getDimensionsRef());
     assert(info.getDimensions().size() == info.getNumDimensions());

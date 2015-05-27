@@ -189,8 +189,9 @@ void GeoPackageWriter::writeTileTable(const GpkgMatrixSet& data)
     }
 
     {
-        // TODO: hard-coded for 4326
-        const tilercommon::TileMatrixMath tmm(-180.0, -90.0, 180.0, 90.0, 2, 1);
+        const tilercommon::TileMatrixMath tmm(data.getTmsetMinX(), data.getTmsetMinY(), 
+            data.getTmsetMaxX(), data.getTmsetMaxY(),
+            data.getNumColsAtL0(), data.getNumRowsAtL0());
 
         for (uint32_t level=0; level<=data.getMaxLevel(); ++level)
         {
@@ -269,7 +270,7 @@ void GeoPackageWriter::writeMetadata(const GpkgMatrixSet& data)
         rs.push_back(r);
 
         m_sqlite->insert(sql, rs);
-    }    
+    }
 }
 
 
@@ -296,7 +297,7 @@ void GeoPackageWriter::writeDimensions(const GpkgMatrixSet& data)
         r.push_back(column(dim.getName()));
         r.push_back(column(dim.getDataType()));
         r.push_back(column(i)); // ordinal_position
-        r.push_back(column("...description..."));
+        r.push_back(column("...description...")); // TODO
         r.push_back(column(dim.getMinimum()));
         r.push_back(column(dim.getMean()));
         r.push_back(column(dim.getMaximum()));

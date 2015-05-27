@@ -40,9 +40,13 @@ namespace rialto
 {
 
 
-void RialtoWriterAssister::setTileTableName(const std::string& tileTableName)
+void RialtoWriterAssister::setParameters(const std::string& matrixSetName,
+                                         uint32_t numColsAtL0,
+                                         uint32_t numRowsAtL0)
 {
-    m_tileTableName = tileTableName;
+    m_matrixSetName = matrixSetName;
+    m_numColsAtL0 = numColsAtL0;
+    m_numRowsAtL0 = numRowsAtL0;
 }
 
 
@@ -59,7 +63,7 @@ void RialtoWriterAssister::ready(PointTableRef table, const SpatialReference& sr
     // TODO: this produces "ss", not "ss.sss" as the gpkg spec implies is required
     strftime(buf, sizeof(buf), "%FT%TZ", gmtime(&now));
     std::string datetime(buf);
-    writeHeader(m_tileTableName, m_tileTableNode, table.layout(), datetime, srs);
+    writeHeader(m_tileTableNode, table.layout(), datetime, srs);
 
     makePointViewMap();
     
@@ -79,7 +83,7 @@ void RialtoWriterAssister::write(const PointViewPtr viewPtr)
     assert(pvid == 0xffffffff || pvid == (uint32_t)viewPtr->id());
 
     PointView* view = viewPtr.get();
-    writeTile(m_tileTableName, view, level, col, row, mask);
+    writeTile(view, level, col, row, mask);
 }
 
 
@@ -134,7 +138,7 @@ void RialtoWriterAssister::done()
 
         if (pvid == 0xffffffff)
         {
-            writeTile(m_tileTableName, NULL, level, col, row, mask);
+            writeTile(NULL, level, col, row, mask);
         }
     }
     
