@@ -86,7 +86,7 @@ TEST(RialtoDbReaderTest, test)
       const std::string wkt4326 = srs4326.getWKT();
       EXPECT_EQ(wkt, wkt4326);
       
-      const GpkgMatrixSet& info = reader.getTileTableInfo();
+      const GpkgMatrixSet& info = reader.getMatrixSet();
       EXPECT_EQ(3u, info.getNumDimensions());
       const std::vector<GpkgDimension>& dims = info.getDimensions();
       EXPECT_EQ(3u, dims.size());
@@ -105,8 +105,8 @@ TEST(RialtoDbReaderTest, test)
 
   {
       BOX3D bounds(0.0, 0.0, 0.0, 10.0, 10.0, 10.0);
-      options.remove("bbox");
-      options.add("bbox", bounds);
+      options.remove("bounds");
+      options.add("bounds", bounds);
       reader.setOptions(options);
   
       PointTable table;
@@ -120,8 +120,8 @@ TEST(RialtoDbReaderTest, test)
   
   {
       BOX3D bounds(1.0, 1.0, -10000, 89.0, 89.0, 10000.0);
-      options.remove("bbox");
-      options.add("bbox", bounds);
+      options.remove("bounds");
+      options.add("bounds", bounds);
       reader.setOptions(options);
   
       PointTable table;

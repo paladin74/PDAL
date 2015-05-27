@@ -119,6 +119,25 @@ uint32_t GeoPackage::querySrsId(const std::string& wkt) const
 }
 
 
+std::string GeoPackage::querySrsWkt(uint32_t srs_id) const
+{
+    std::ostringstream oss;
+    oss << "SELECT definition "
+        << "FROM gpkg_spatial_ref_sys WHERE srs_id=" << srs_id;
+
+    log()->get(LogLevel::Debug) << "SELECT for tile set" << std::endl;
+
+    m_sqlite->query(oss.str());
+
+    // should get exactly one row back
+    const row* r = m_sqlite->get();
+    assert(r);
+    const std::string wkt = r->at(0).data;
+    assert(!m_sqlite->next());
+    return wkt;
+}
+
+
 void GeoPackage::verifyTableExists(std::string const& name) const
 {
     if (!m_sqlite->doesTableExist(name))
@@ -137,6 +156,188 @@ void GeoPackage::beginTransaction()
 void GeoPackage::commitTransaction()
 {
     m_sqlite->commit();    
+}
+
+
+void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) const
+{
+    if (!m_sqlite)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
+    std::string datetime;
+    uint32_t srs_id;
+    double data_min_x, data_min_y, data_max_x, data_max_y;
+    {
+        std::ostringstream oss;
+        oss << "SELECT last_change, data_min_x, data_min_y, data_max_x, data_max_y, srs_id "
+            << "FROM gpkg_contents WHERE table_name='" << name << "'";
+
+        log()->get(LogLevel::Debug) << "SELECT for tile set" << std::endl;
+
+        m_sqlite->query(oss.str());
+
+        // should get exactly one row back
+        const row* r = m_sqlite->get();
+        assert(r);
+        datetime = r->at(0).data;
+        data_min_x = boost::lexical_cast<double>(r->at(1).data);
+        data_min_y = boost::lexical_cast<double>(r->at(2).data);
+        data_max_x = boost::lexical_cast<double>(r->at(3).data);
+        data_max_y = boost::lexical_cast<double>(r->at(4).data);
+        srs_id = boost::lexical_cast<uint32_t>(r->at(5).data);
+        assert(!m_sqlite->next());
+    }
+
+    double tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y;
+    {
+        std::ostringstream oss;
+        oss << "SELECT tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y "
+            << "FROM gpkg_pctile_matrix_set WHERE table_name='" << name << "'";
+
+        log()->get(LogLevel::Debug) << "SELECT for tile set" << std::endl;
+
+        m_sqlite->query(oss.str());
+
+        // should get exactly one row back
+        const row* r = m_sqlite->get();
+        assert(r);
+        tmset_min_x = boost::lexical_cast<double>(r->at(0).data);
+        tmset_min_y = boost::lexical_cast<double>(r->at(1).data);
+        tmset_max_x = boost::lexical_cast<double>(r->at(2).data);
+        tmset_max_y = boost::lexical_cast<double>(r->at(3).data);
+        assert(!m_sqlite->next());
+    }
+
+    std::string wkt = querySrsWkt(srs_id);
+
+    uint32_t maxLevel;
+    {
+        std::ostringstream oss;
+        oss << "SELECT MAX(zoom_level) "
+            << "FROM gpkg_pctile_matrix WHERE table_name='" << name << "'";
+
+        m_sqlite->query(oss.str());
+
+        // should get exactly one row back
+        const row* r = m_sqlite->get();
+        assert(r);
+        maxLevel = boost::lexical_cast<uint32_t>(r->at(0).data);
+        assert(!m_sqlite->next());
+    }
+
+    uint32_t numDimensions;
+    {
+        std::ostringstream oss;
+        oss << "SELECT COUNT(table_name) "
+            << "FROM pctiles_dimension_set WHERE table_name='" << name << "'";
+
+        m_sqlite->query(oss.str());
+
+        // should get exactly one row back
+        const row* r = m_sqlite->get();
+        assert(r);
+        numDimensions = boost::lexical_cast<uint32_t>(r->at(0).data);
+        assert(numDimensions != 0);
+        assert(!m_sqlite->next());
+    }
+
+    info.set(datetime, name, maxLevel, numDimensions, wkt,
+             data_min_x, data_min_y, data_max_x, data_max_y,
+             tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y);
+
+    readDimensions(info.getName(), info.getDimensionsRef());
+    assert(info.getDimensions().size() == info.getNumDimensions());
+}
+
+
+void GeoPackage::readMatrixSetNames(std::vector<std::string>& names) const
+{
+    if (!m_sqlite)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
+    const std::string sql("SELECT table_name FROM gpkg_contents WHERE data_type = 'pctiles'");
+
+    log()->get(LogLevel::Debug1) << "SELECT for tile set ids" << std::endl;
+
+    names.clear();
+
+    m_sqlite->query(sql);
+
+    do {
+        const row* r = m_sqlite->get();
+        if (!r) break;
+
+        column const& c = r->at(0);
+        const std::string name = c.data;
+        log()->get(LogLevel::Debug1) << " got name: " << name << std::endl;
+        names.push_back(name);
+
+    } while (m_sqlite->next());
+}
+
+
+void GeoPackage::readMatrixSets(std::vector<GpkgMatrixSet>& infos) const
+{
+    if (!m_sqlite)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
+    // first get all the table names
+    std::vector<std::string> names;
+    readMatrixSetNames(names);
+    
+    infos.resize(names.size());
+    
+    // now, get the info for each table
+    for (uint32_t i=0; i<names.size(); i++)
+    {
+        GpkgMatrixSet& info = infos[i];
+        readMatrixSet(names[i], info);
+    }
+}
+
+
+void GeoPackage::readDimensions(std::string const& name, std::vector<GpkgDimension>& dimensionsInfo) const
+{
+    if (!m_sqlite)
+    {
+        throw pdal_error("RialtoDB: invalid state (session does exist)");
+    }
+
+    dimensionsInfo.clear();
+
+    std::ostringstream oss;
+    oss << "SELECT ordinal_position, dimension_name, data_type, description, minimum, mean, maximum "
+        << "FROM pctiles_dimension_set WHERE table_name='" << name << "'";
+
+    m_sqlite->query(oss.str());
+
+    int i = 0;
+    do {
+        const row* r = m_sqlite->get();
+        if (!r) break;
+
+        const uint32_t position = boost::lexical_cast<uint32_t>(r->at(0).data);
+        const std::string name = r->at(1).data;
+        const std::string dataType = r->at(2).data;
+        const std::string description = r->at(3).data;
+        const double minimum = boost::lexical_cast<double>(r->at(4).data);
+        const double mean = boost::lexical_cast<double>(r->at(5).data);
+        const double maximum = boost::lexical_cast<double>(r->at(6).data);
+
+        GpkgDimension info(name, position, dataType, description, minimum, mean, maximum);
+
+        log()->get(LogLevel::Debug1) << "read dim: " << info.getName() << std::endl;
+
+        ++i;
+
+        dimensionsInfo.push_back(info);
+    } while (m_sqlite->next());
 }
 
 

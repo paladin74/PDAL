@@ -64,12 +64,6 @@ public:
     virtual void open();
     virtual void close();
 
-    // get list all the tile sets in the database, as a list of its
-    void readTileTableNames(std::vector<std::string>& names) const;
-
-    // get info about a specific tile set (including its dimensions)
-    void readTileTable(std::string const& name, GpkgMatrixSet& info) const;
-
     // get info about a tile
     void readTile(std::string const& name, uint32_t tileId, bool withPoints, GpkgTile& tileInfo) const;
 
@@ -94,19 +88,13 @@ public:
      bool queryForTiles_step(GpkgTile& tileInfo);
      bool queryForTiles_next();
 
-     std::string querySrsWkt(uint32_t srs_id) const;
-
      virtual void dumpStats() const;
 
      // fills in the dimensions of an otherwise empty layout with
      // the dimension information from the tile set
      static void setupLayout(const GpkgMatrixSet& tileTableInfo, PointLayoutPtr layout);
 
-private:    
-
-    // get info about one of the dimensions of a tile set
-    void readDimensions(std::string const& name, std::vector<GpkgDimension>&) const;
-
+private:
     int m_srid;
     
     mutable Event e_tilesRead;

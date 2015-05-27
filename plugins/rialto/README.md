@@ -61,6 +61,15 @@ The Main Classes, and what they do
       a base class they both derive from)_
 
 
+Notes on RialtoDbReader behaviors
+---------------------------------
+
+* Options:
+  * filename: required
+  * name: name of matrix set (optional, defaults to 1st one in database but throws if db has more than one)
+  * bbox: query bounds (optional, defaults to matrix set bounds)
+  * level: zoom level to use (optional, defaults to max level)
+
 
 OGC GeoPackage Nomenclature
 -----------------------

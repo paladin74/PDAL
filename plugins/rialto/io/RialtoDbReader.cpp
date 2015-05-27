@@ -78,16 +78,26 @@ void RialtoDbReader::initialize()
         m_db = new GeoPackageReader(m_filename, log());
         m_db->open();
 
-        std::vector<std::string> names;
-        m_db->readTileTableNames(names);
-        m_tileTableName = names[0];
-        assert(names.size()==1); // TODO: always take the first one for now
+        m_matrixSet = std::unique_ptr<GpkgMatrixSet>(new GpkgMatrixSet());
 
-        m_tileTableInfo = std::unique_ptr<GpkgMatrixSet>(new GpkgMatrixSet());
+        if (m_matrixSetName == "")
+        {
+            std::vector<std::string> names;
+            m_db->readMatrixSetNames(names);
+            if (names.size() == 0)
+            {
+                throw pdal_error("geopackage has no tile matrix sets");
+            }
+            if (names.size() > 1)
+            {
+                throw pdal_error("tile matrix set name not specified in options list");
+            }
+            m_matrixSetName = names[0];
+        }
 
-        m_db->readTileTable(m_tileTableName, *m_tileTableInfo);
+        m_db->readMatrixSet(m_matrixSetName, *m_matrixSet);
         
-        SpatialReference srs(m_tileTableInfo->getWkt()); // TODO: or do I need to call setWKT()?
+        const SpatialReference srs(m_matrixSet->getWkt());
         setSpatialReference(srs);
     }
 }
@@ -105,24 +115,19 @@ Options RialtoDbReader::getDefaultOptions()
 
 void RialtoDbReader::processOptions(const Options& options)
 {
-    m_filename = options.getValueOrThrow<std::string>("filename");
-
     log()->get(LogLevel::Debug) << "RialtoDbReader::processOptions()" << std::endl;
 
-    static const double minx = -179.9;
-    static const double miny = -89.9;
-    static const double maxx = 179.9;
-    static const double maxy = 89.9;
-    static const double minz = (std::numeric_limits<double>::lowest)();
-    static const double maxz = (std::numeric_limits<double>::max)();
-    static const BOX3D all(minx, miny, minz, maxx, maxy, maxz);
+    if (!m_db)
+    {
+        // you can't change the filename or dataset name once we've opened the DB
+        m_filename = options.getValueOrThrow<std::string>("filename");
+        m_matrixSetName = options.getValueOrDefault<std::string>("name", "");
+    }
+    
+    m_queryBox = options.getValueOrDefault<BOX3D>("bounds", BOX3D());
+    m_queryLevel = options.getValueOrDefault<uint32_t>("level", 0xffff);
 
-    m_query = options.getValueOrDefault<BOX3D>("bbox", all);
-
-    log()->get(LogLevel::Debug) << "process options: bbox="
-        << m_query << std::endl;
-
-    m_level = options.getValueOrDefault<uint32_t>("level", 9999);
+    log()->get(LogLevel::Debug) << "process options: bounds=" << m_queryBox << std::endl;
 }
 
 
@@ -130,35 +135,53 @@ void RialtoDbReader::addDimensions(PointLayoutPtr layout)
 {
     log()->get(LogLevel::Debug) << "RialtoDbReader::addDimensions()" << std::endl;
 
-    m_db->setupLayout(*m_tileTableInfo, layout);
+    m_db->setupLayout(*m_matrixSet, layout);
 }
 
 
 void RialtoDbReader::ready(PointTableRef table)
 {
     log()->get(LogLevel::Debug) << "RialtoDbReader::ready()" << std::endl;
-    // TODO: anything to do here?
 }
 
 
-point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t count)
+void RialtoDbReader::setQueryParams()
 {
+    if (m_queryBox.empty())
+    {
+        m_queryBox.minx = m_matrixSet->getDataMinX();
+        m_queryBox.miny = m_matrixSet->getDataMinY();
+        m_queryBox.maxx = m_matrixSet->getDataMaxX();
+        m_queryBox.maxy = m_matrixSet->getDataMaxY();
+    }
+            
+    if (m_queryLevel == 0xffff)
+    {
+        m_queryLevel = m_matrixSet->getMaxLevel();
+    }
+    else if (m_queryLevel > m_matrixSet->getMaxLevel())
+    {
+        throw pdal_error("Zoom level set higher than data set allows");
+    }
+}
+
+
+point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t /*not used*/)
+{
+    // TODO: okay to ignore point cloud parameter?
+    
     log()->get(LogLevel::Debug) << "RialtoDbReader::read()" << std::endl;
 
-    // TODO: `count` is ignored
+    setQueryParams();
+    
+    const double minx = m_queryBox.minx;
+    const double miny = m_queryBox.miny;
+    const double maxx = m_queryBox.maxx;
+    const double maxy = m_queryBox.maxy;
 
-    const double minx = m_query.minx;
-    const double miny = m_query.miny;
-    const double maxx = m_query.maxx;
-    const double maxy = m_query.maxy;
+    const uint32_t level = m_queryLevel;
 
-    uint32_t maxLevel = m_level;
-    if (maxLevel == 9999) // TODO
-    {
-        maxLevel = m_tileTableInfo->getMaxLevel();
-    }
-
-    m_db->queryForTiles_begin(m_tileTableName, minx, miny, maxx, maxy, maxLevel);
+    m_db->queryForTiles_begin(m_matrixSetName, minx, miny, maxx, maxy, level);
 
     GpkgTile info;
 

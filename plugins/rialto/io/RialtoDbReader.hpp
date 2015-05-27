@@ -42,11 +42,10 @@ namespace pdal
 namespace rialto
 {
 
-
 class GpkgMatrixSet;
 class GeoPackageReader;
 
-    
+
 class PDAL_DLL RialtoDbReader : public Reader
 {
 public:
@@ -59,24 +58,27 @@ public:
 
     Options getDefaultOptions();
 
-    const GpkgMatrixSet& getTileTableInfo() const { return *m_tileTableInfo; }
+    const GpkgMatrixSet& getMatrixSet() const { return *m_matrixSet; }
     
 protected:
-  virtual void processOptions(const Options& options);
-  virtual void initialize();
-  virtual void addDimensions(PointLayoutPtr layout);
-  virtual void ready(PointTableRef table);
-  point_count_t read(PointViewPtr view, point_count_t count);
+    virtual void processOptions(const Options& options);
+    virtual void initialize();
+    virtual void addDimensions(PointLayoutPtr layout);
+    virtual void ready(PointTableRef table);
+    point_count_t read(PointViewPtr view, point_count_t /*not used*/);
 
-private:
-  GeoPackageReader* m_db;
-  std::string m_tileTableName;
-  uint32_t m_level;
-  std::unique_ptr<GpkgMatrixSet> m_tileTableInfo;
-  BOX3D m_query;
-  
-  RialtoDbReader& operator=(const RialtoDbReader&); // not implemented
-  RialtoDbReader(const RialtoDbReader&); // not implemented
+private:    
+    void setQueryParams();
+
+    GeoPackageReader* m_db;
+    std::unique_ptr<GpkgMatrixSet> m_matrixSet;
+    std::string m_matrixSetName;
+
+    uint32_t m_queryLevel;
+    BOX3D m_queryBox;
+
+    RialtoDbReader& operator=(const RialtoDbReader&); // not implemented
+    RialtoDbReader(const RialtoDbReader&); // not implemented
 };
 
 } // rialto namespace

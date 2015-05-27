@@ -81,24 +81,24 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     db.open();
 
     std::vector<std::string> names;
-    db.readTileTableNames(names);
+    db.readMatrixSetNames(names);
     EXPECT_EQ(names.size(), 1u);
 
-    GpkgMatrixSet tileTableInfo;
-    db.readTileTable(names[0], tileTableInfo);
-    EXPECT_EQ(2u, tileTableInfo.getMaxLevel());
-    EXPECT_EQ(tileTableInfo.getNumDimensions(), 3u);
+    GpkgMatrixSet info;
+    db.readMatrixSet(names[0], info);
+    EXPECT_EQ(2u, info.getMaxLevel());
+    EXPECT_EQ(info.getNumDimensions(), 3u);
 
-    EXPECT_DOUBLE_EQ(tileTableInfo.getDataMinX(), -179.0);
-    EXPECT_DOUBLE_EQ(tileTableInfo.getDataMinY(), -89.0);
-    EXPECT_DOUBLE_EQ(tileTableInfo.getDataMaxX(), 91.0);
-    EXPECT_DOUBLE_EQ(tileTableInfo.getDataMaxY(), 89.0);
-    EXPECT_DOUBLE_EQ(tileTableInfo.getTmsetMinX(), -180.0);
-    EXPECT_DOUBLE_EQ(tileTableInfo.getTmsetMinY(), -90.0);
-    EXPECT_DOUBLE_EQ(tileTableInfo.getTmsetMaxX(), 180.0);
-    EXPECT_DOUBLE_EQ(tileTableInfo.getTmsetMaxY(), 90.0);
+    EXPECT_DOUBLE_EQ(info.getDataMinX(), -179.0);
+    EXPECT_DOUBLE_EQ(info.getDataMinY(), -89.0);
+    EXPECT_DOUBLE_EQ(info.getDataMaxX(), 91.0);
+    EXPECT_DOUBLE_EQ(info.getDataMaxY(), 89.0);
+    EXPECT_DOUBLE_EQ(info.getTmsetMinX(), -180.0);
+    EXPECT_DOUBLE_EQ(info.getTmsetMinY(), -90.0);
+    EXPECT_DOUBLE_EQ(info.getTmsetMaxX(), 180.0);
+    EXPECT_DOUBLE_EQ(info.getTmsetMaxY(), 90.0);
 
-    const std::vector<GpkgDimension>& dimensionsInfo = tileTableInfo.getDimensions();
+    const std::vector<GpkgDimension>& dimensionsInfo = info.getDimensions();
     EXPECT_EQ(dimensionsInfo[0].getName(), "X");
     EXPECT_EQ(dimensionsInfo[0].getDataType(), "double");
     EXPECT_DOUBLE_EQ(dimensionsInfo[0].getMinimum(), -179.0);
@@ -128,69 +128,69 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
     db.readTileIdsAtLevel(names[0], 3, tilesAt3);
     EXPECT_EQ(tilesAt3.size(), 0u);
 
-    GpkgTile info;
+    GpkgTile tileInfo;
 
     {
-        db.readTile(names[0], tilesAt0[0], true, info);
-        EXPECT_EQ(info.getNumPoints(), 1u);
-        EXPECT_EQ(info.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[0]);
+        db.readTile(names[0], tilesAt0[0], true, tileInfo);
+        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[0]);
     }
 
     {
         // TODO: these two are order-dependent
-        db.readTile(names[0], tilesAt1[0], true, info);
-        EXPECT_EQ(info.getNumPoints(), 1u);
-        EXPECT_EQ(info.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[0]);
+        db.readTile(names[0], tilesAt1[0], true, tileInfo);
+        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[0]);
 
-        db.readTile(names[0], tilesAt1[1], true, info);
-        EXPECT_EQ(info.getNumPoints(), 1u);
-        EXPECT_EQ(info.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[4]);
+        db.readTile(names[0], tilesAt1[1], true, tileInfo);
+        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[4]);
     }
 
     {
         // TODO: these eight are order-dependent
-        db.readTile(names[0], tilesAt2[0], true, info);
-        EXPECT_EQ(info.getNumPoints(), 1u);
-        EXPECT_EQ(info.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[0]);
+        db.readTile(names[0], tilesAt2[0], true, tileInfo);
+        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[0]);
 
-        db.readTile(names[0], tilesAt2[1], true, info);
-        EXPECT_EQ(info.getNumPoints(), 1u);
-        EXPECT_EQ(info.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[2]);
+        db.readTile(names[0], tilesAt2[1], true, tileInfo);
+        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[2]);
 
-        db.readTile(names[0], tilesAt2[2], true, info);
-        EXPECT_EQ(info.getNumPoints(), 1u);
-        EXPECT_EQ(info.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[1]);
+        db.readTile(names[0], tilesAt2[2], true, tileInfo);
+        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[1]);
 
-        db.readTile(names[0], tilesAt2[3], true, info);
-        EXPECT_EQ(info.getNumPoints(), 1u);
-        EXPECT_EQ(info.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[3]);
+        db.readTile(names[0], tilesAt2[3], true, tileInfo);
+        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[3]);
 
-        db.readTile(names[0], tilesAt2[4], true, info);
-        EXPECT_EQ(info.getNumPoints(), 1u);
-        EXPECT_EQ(info.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[4]);
+        db.readTile(names[0], tilesAt2[4], true, tileInfo);
+        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[4]);
 
-        db.readTile(names[0], tilesAt2[5], true, info);
-        EXPECT_EQ(info.getNumPoints(), 1u);
-        EXPECT_EQ(info.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[6]);
+        db.readTile(names[0], tilesAt2[5], true, tileInfo);
+        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[6]);
 
-        db.readTile(names[0], tilesAt2[6], true, info);
-        EXPECT_EQ(info.getNumPoints(), 1u);
-        EXPECT_EQ(info.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[5]);
+        db.readTile(names[0], tilesAt2[6], true, tileInfo);
+        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[5]);
 
-        db.readTile(names[0], tilesAt2[7], true, info);
-        EXPECT_EQ(info.getNumPoints(), 1u);
-        EXPECT_EQ(info.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(info.getPatch().getVector(), actualData[7]);
+        db.readTile(names[0], tilesAt2[7], true, tileInfo);
+        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[7]);
     }
     
     db.close();
@@ -275,7 +275,7 @@ TEST(RialtoDbWriterTest, testWriter)
         GeoPackageReader db(filename, log);
         db.open();
         std::vector<std::string> names;
-        db.readTileTableNames(names);
+        db.readMatrixSetNames(names);
         std::string tileTableName = names[0];
 
         {
@@ -303,7 +303,7 @@ TEST(RialtoDbWriterTest, testWriter)
         options.add("filename", filename);
         //options.add("verbose", LogLevel::Debug);
         BOX3D bounds(0.1, 0.1, -999999, 179.9, 89.9, 999999);
-        options.add("bbox", bounds);
+        options.add("bounds", bounds);
         reader.setOptions(options);
 
         PointTable table;
@@ -358,7 +358,7 @@ TEST(RialtoDbWriterTest, testOscar)
 
         {
             BOX3D bounds1(0.1, 0.1, -999999, 89.9, 89.9, 999999);
-            options.add("bbox", bounds1);
+            options.add("bounds", bounds1);
             reader.setOptions(options);
 
             // go!
@@ -377,8 +377,8 @@ TEST(RialtoDbWriterTest, testOscar)
         {
             BOX3D bounds2(-179.9, -89.9, -999999, -0.1, -0.1, 999999);
             //Options options2;
-            options.remove("bbox");
-            options.add("bbox", bounds2);
+            options.remove("bounds");
+            options.add("bounds", bounds2);
             reader.setOptions(options);
 
             PointTable table2;
@@ -396,8 +396,8 @@ TEST(RialtoDbWriterTest, testOscar)
         // And a third time!
         {
             BOX3D bounds3(50.0, 50.0, -999999, 51.0, 51.0, 999999);
-            options.remove("bbox");
-            options.add("bbox", bounds3);
+            options.remove("bounds");
+            options.add("bounds", bounds3);
             reader.setOptions(options);
 
             PointTable table3;
@@ -462,8 +462,8 @@ TEST(RialtoDbWriterTest, testRandom)
             const double maxz = 999999.0;
 
             BOX3D bounds(minx, miny, minz, maxx, maxy, maxz);
-            options.remove("bbox");
-            options.add("bbox", bounds);
+            options.remove("bounds");
+            options.add("bounds", bounds);
             reader.setOptions(options);
 
 
@@ -581,8 +581,8 @@ TEST(RialtoDbWriterTest, readPerf)
             e_read.start();
 
             BOX3D bounds(minx, miny, minz, maxx, maxy, maxz);
-            options.remove("bbox");
-            options.add("bbox", bounds);
+            options.remove("bounds");
+            options.add("bounds", bounds);
             reader.setOptions(options);
 
             PointTable table;

@@ -65,13 +65,28 @@ public:
     virtual void open() = 0;
     virtual void close() = 0;
 
+    
+    // get info about a specific tile matrix set (including its dimensions)
+    void readMatrixSet(std::string const& name, GpkgMatrixSet& info) const;
+
+    // get list of names all the matrix sets ("files") in the db
+    void readMatrixSetNames(std::vector<std::string>&) const;
+
+    // get list of all the matrix sets ("files") in the db
+    void readMatrixSets(std::vector<GpkgMatrixSet>&) const;
+
     virtual void dumpStats() const {};
 
 protected:
     void internalOpen(bool writable);
     void internalClose();
+    
+    // get info about one of the dimensions of a tile set
+    void readDimensions(std::string const& name, std::vector<GpkgDimension>&) const;
 
     uint32_t querySrsId(const std::string& wkt) const;
+    std::string querySrsWkt(uint32_t srs_id) const;
+
     void verifyTableExists(std::string const& name) const;
 
     LogPtr log() const { return m_log; }
