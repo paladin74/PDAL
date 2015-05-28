@@ -198,6 +198,13 @@ void RialtoTest::createDatabase(pdal::PointTable& table,
     assert(FileUtils::fileExists(filename));
     
     {
+        time_t now;
+        time(&now);
+        char buf[sizeof("yyyy-mm-ddThh:mm:ss.sssZ")+1];
+        // TODO: this produces "ss", not "ss.sss" as the gpkg spec implies is required
+        strftime(buf, sizeof(buf), "%FT%TZ", gmtime(&now));
+        const std::string timestamp(buf);    
+
         pdal::Options readerOptions;
         pdal::BufferReader reader;
         reader.setOptions(readerOptions);
@@ -227,6 +234,9 @@ void RialtoTest::createDatabase(pdal::PointTable& table,
         writerOptions.add("name", "_unnamed_");
         writerOptions.add("numCols", 2);
         writerOptions.add("numRows", 1);
+        writerOptions.add("timestamp", timestamp);
+        writerOptions.add("description", "");
+
         //writerOptions.add("overwrite", true);
         //writerOptions.add("verbose", LogLevel::Debug);
         pdal::Stage* writer = f.createStage("writers.rialtodb");

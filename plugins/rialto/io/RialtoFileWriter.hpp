@@ -54,7 +54,6 @@ public:
 private:
     virtual void writeHeader(MetadataNode tileTableNode,
                              PointLayoutPtr layout,
-                             const std::string& datetime,
                              const SpatialReference& srs);
     virtual void writeTile(PointView*,
                            uint32_t level, uint32_t col, uint32_t row,

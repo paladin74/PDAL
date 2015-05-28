@@ -75,8 +75,10 @@ Notes on Reader and Writer behaviors
 * RialtoDbWriter
   * Options
     * filename - name of database (required)
-    * name - name of table (required)
+    * name - name of table (required), also used as "human-readable identifier"
     * numRows, numCols - grid size at level 0 (required)
+    * description - required
+    * timestamp - date of "last change" in ISO 8601 format (required)
       
 
 OGC GeoPackage Nomenclature
@@ -105,6 +107,6 @@ Other Notes
 TODO
 -----
 * store the actual metadata
-* allow for setting the description, time fields
 * writer should overwrite the existing table (or fail)
 * order-dependent in test case RialtoDbWriterTest
+* make table_name be a unique id, add separate human-readable id

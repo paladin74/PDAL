@@ -100,8 +100,10 @@ void RialtoDbWriter::processOptions(const Options& options)
     m_matrixSetName = options.getValueOrThrow<std::string>("name");
     m_numCols = options.getValueOrThrow<uint32_t>("numCols");
     m_numRows = options.getValueOrThrow<uint32_t>("numRows");
+    m_description = options.getValueOrThrow<std::string>("description");
+    m_timestamp = options.getValueOrThrow<std::string>("timestamp");
 
-    m_assister.setParameters(m_matrixSetName, m_numCols, m_numRows);
+    m_assister.setParameters(m_matrixSetName, m_numCols, m_numRows, m_description, m_timestamp);
 }
 
 
@@ -117,10 +119,9 @@ Options RialtoDbWriter::getDefaultOptions()
 
 void RialtoDbWriterAssister::writeHeader(MetadataNode tileTableNode,
                                          PointLayoutPtr layout,
-                                         const std::string& datetime,
                                          const SpatialReference& srs)
 {
-    const GpkgMatrixSet info(m_matrixSetName, tileTableNode, layout, datetime, srs, m_numColsAtL0, m_numRowsAtL0);
+    const GpkgMatrixSet info(m_matrixSetName, tileTableNode, layout, m_timestamp, srs, m_numColsAtL0, m_numRowsAtL0, m_description);
 
     m_rialtoDb->writeTileTable(info);
 }

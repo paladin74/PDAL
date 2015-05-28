@@ -189,9 +189,10 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
     std::string datetime;
     uint32_t srs_id;
     double data_min_x, data_min_y, data_max_x, data_max_y;
+    std::string description;
     {
         std::ostringstream oss;
-        oss << "SELECT last_change, min_x, min_y, max_x, max_y, srs_id "
+        oss << "SELECT last_change, min_x, min_y, max_x, max_y, srs_id, description "
             << "FROM gpkg_contents WHERE table_name='" << name << "'";
 
         log()->get(LogLevel::Debug) << "SELECT for tile set" << std::endl;
@@ -207,6 +208,7 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
         data_max_x = boost::lexical_cast<double>(r->at(3).data);
         data_max_y = boost::lexical_cast<double>(r->at(4).data);
         srs_id = boost::lexical_cast<uint32_t>(r->at(5).data);
+        description = r->at(6).data;
         assert(!m_sqlite->next());
     }
 
@@ -288,7 +290,7 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
     info.set(datetime, name, maxLevel, numDimensions, wkt,
              data_min_x, data_min_y, data_max_x, data_max_y,
              tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y,
-             numColsAtL0, numRowsAtL0);
+             numColsAtL0, numRowsAtL0, description);
 
     readDimensions(info.getName(), info.getDimensionsRef());
     assert(info.getDimensions().size() == info.getNumDimensions());

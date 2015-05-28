@@ -56,7 +56,6 @@ public:
 private:
     virtual void writeHeader(MetadataNode tileTableNode,
                              PointLayoutPtr layout,
-                             const std::string& datetime,
                              const SpatialReference& srs);
     virtual void writeTile(PointView*,
                            uint32_t level, uint32_t col, uint32_t row,
@@ -91,6 +90,8 @@ private:
     std::string m_matrixSetName;
     uint32_t m_numCols;
     uint32_t m_numRows;
+    std::string m_description;
+    std::string m_timestamp;
     GeoPackageWriter* m_rialtoDb;
 
     RialtoDbWriter& operator=(const RialtoDbWriter&); // not implemented

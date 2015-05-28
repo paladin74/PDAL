@@ -99,8 +99,17 @@ void RialtoFileWriter::processOptions(const Options& options)
     // so we'll use a differently named variable to make it clear
     m_directory = m_filename;
 
+    time_t now;
+    time(&now);
+    char buf[sizeof("yyyy-mm-ddThh:mm:ss.sssZ")+1];
+    // TODO: this produces "ss", not "ss.sss" as the gpkg spec implies is required
+    strftime(buf, sizeof(buf), "%FT%TZ", gmtime(&now));
+    std::string datetime(buf);
+
+    const std::string description("");
+    
     // Cesium requires a 2x1 matrix
-    m_assister.setParameters("unnamed", 2, 1);
+    m_assister.setParameters("unnamed", 2, 1, description, datetime);
 }
 
 
@@ -116,14 +125,13 @@ Options RialtoFileWriter::getDefaultOptions()
 
 void RialtoFileWriterAssister::writeHeader(MetadataNode tileTableNode,
                                            PointLayoutPtr layout,
-                                           const std::string& datetime,
                                            const SpatialReference& srs)
 {    
     // Cesium expects a 2x1 grid in 4326
     assert(m_numColsAtL0 == 2);
     assert(m_numRowsAtL0 == 1);
 
-    const GpkgMatrixSet info(m_matrixSetName, tileTableNode, layout, datetime, srs, m_numColsAtL0, m_numRowsAtL0);
+    const GpkgMatrixSet info(m_matrixSetName, tileTableNode, layout, m_timestamp, srs, m_numColsAtL0, m_numRowsAtL0, m_description);
 
     const std::string filename(m_directory + "/header.json");
     FILE* fp = fopen(filename.c_str(), "wt");

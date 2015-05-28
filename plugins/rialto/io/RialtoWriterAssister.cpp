@@ -42,11 +42,15 @@ namespace rialto
 
 void RialtoWriterAssister::setParameters(const std::string& matrixSetName,
                                          uint32_t numColsAtL0,
-                                         uint32_t numRowsAtL0)
+                                         uint32_t numRowsAtL0,
+                                         const std::string& description,
+                                         const std::string& timestamp)
 {
     m_matrixSetName = matrixSetName;
     m_numColsAtL0 = numColsAtL0;
     m_numRowsAtL0 = numRowsAtL0;
+    m_description = description;
+    m_timestamp = timestamp;
 }
 
 
@@ -57,13 +61,7 @@ void RialtoWriterAssister::ready(PointTableRef table, const SpatialReference& sr
         throw pdal_error("RialtoWriter: \"filters.tiler\" metadata not found");
     }
 
-    time_t now;
-    time(&now);
-    char buf[sizeof("yyyy-mm-ddThh:mm:ss.sssZ")+1];
-    // TODO: this produces "ss", not "ss.sss" as the gpkg spec implies is required
-    strftime(buf, sizeof(buf), "%FT%TZ", gmtime(&now));
-    std::string datetime(buf);
-    writeHeader(m_tileTableNode, table.layout(), datetime, srs);
+    writeHeader(m_tileTableNode, table.layout(), srs);
 
     makePointViewMap();
     

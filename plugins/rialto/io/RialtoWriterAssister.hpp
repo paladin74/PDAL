@@ -47,7 +47,9 @@ class RialtoWriterAssister
 public:
     void setParameters(const std::string& matrixSetName,
                        uint32_t numColsAtL0,
-                       uint32_t numRowsAtL0);
+                       uint32_t numRowsAtL0,
+                       const std::string& description,
+                       const std::string& timestamp);
     
     void write(const PointViewPtr viewPtr);
     void ready(PointTableRef table, const SpatialReference& srs);
@@ -56,7 +58,6 @@ public:
 protected:
     virtual void writeHeader(MetadataNode tileTableNode,
                              PointLayoutPtr layout,
-                             const std::string& datetime,
                              const SpatialReference& srs)=0;
                              
     virtual void writeTile(PointView*,
@@ -69,6 +70,8 @@ protected:
     std::string m_matrixSetName;
     uint32_t m_numColsAtL0;
     uint32_t m_numRowsAtL0;
+    std::string m_description;
+    std::string m_timestamp;
 
 private:    
     void makePointViewMap();
@@ -76,7 +79,7 @@ private:
     std::map<uint32_t, uint32_t> m_pointViewMap; // PV id to array index
     uint32_t* m_tileMetadata;
     uint32_t m_numTiles;
-
+    
     MetadataNode m_tileTableNode;
 };
 

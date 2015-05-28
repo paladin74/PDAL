@@ -174,7 +174,8 @@ public:
                 const std::string& datetime,
                 const SpatialReference& srs,
                 uint32_t numColsAtL0,
-                uint32_t numRowsAtL0);
+                uint32_t numRowsAtL0,
+                const std::string& description);
 
     void set(const std::string& datetime,
              const std::string& name,
@@ -190,7 +191,8 @@ public:
              double tmset_max_x,
              double tmset_max_y,
              uint32_t numColsAtL0,
-             uint32_t numRowsAtL0);
+             uint32_t numRowsAtL0,
+             const std::string& description);
 
     std::string getDateTime() const { return m_datetime; }
     std::string getName() const { return m_name; } // aka filename
@@ -230,6 +232,7 @@ private:
     double m_tmset_max_y;
     uint32_t m_numColsAtL0;
     uint32_t m_numRowsAtL0;
+    std::string m_description;
 };
 
 

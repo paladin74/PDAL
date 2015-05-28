@@ -91,12 +91,14 @@ GpkgMatrixSet::GpkgMatrixSet(const std::string& tileTableName,
                          const std::string& datetime,
                          const SpatialReference& srs,
                          uint32_t numColsAtL0,
-                         uint32_t numRowsAtL0)
+                         uint32_t numRowsAtL0,
+                         const std::string& description)
 {
     m_name = tileTableName;
 
     m_datetime = datetime;
-
+    m_description = description;
+    
     MetadataNode headerNode = tileTableNode.findChild("header");
     assert(headerNode.valid());
     m_maxLevel = getMetadataU32(headerNode, "maxLevel");
@@ -140,7 +142,8 @@ void GpkgMatrixSet::set(const std::string& datetime,
                       double tmset_max_x,
                       double tmset_max_y,
                       uint32_t numColsAtL0,
-                      uint32_t numRowsAtL0)
+                      uint32_t numRowsAtL0,
+                      const std::string& description)
 {
     m_datetime = datetime;
     m_name = name;
@@ -157,6 +160,7 @@ void GpkgMatrixSet::set(const std::string& datetime,
     m_tmset_max_y = tmset_max_y;
     m_numColsAtL0 = numColsAtL0;
     m_numRowsAtL0 = numRowsAtL0;
+    m_description = description;
 }
 
 
