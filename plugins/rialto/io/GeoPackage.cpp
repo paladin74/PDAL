@@ -191,7 +191,7 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
     double data_min_x, data_min_y, data_max_x, data_max_y;
     {
         std::ostringstream oss;
-        oss << "SELECT last_change, data_min_x, data_min_y, data_max_x, data_max_y, srs_id "
+        oss << "SELECT last_change, min_x, min_y, max_x, max_y, srs_id "
             << "FROM gpkg_contents WHERE table_name='" << name << "'";
 
         log()->get(LogLevel::Debug) << "SELECT for tile set" << std::endl;
@@ -212,8 +212,9 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
 
     double tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y;
     {
+        // tile extents, not data extents
         std::ostringstream oss;
-        oss << "SELECT tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y "
+        oss << "SELECT min_x, min_y, max_x, max_y "
             << "FROM gpkg_pctile_matrix_set WHERE table_name='" << name << "'";
 
         log()->get(LogLevel::Debug) << "SELECT for tile set" << std::endl;

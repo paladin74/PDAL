@@ -142,10 +142,11 @@ void GeoPackageWriter::writeTileTable(const GpkgMatrixSet& data)
     const uint32_t srs_id = querySrsId(data.getWkt());
 
     {
+        // note min_x, etc, is the bbox of the DATA and not the tile matrix set
         const std::string sql =
             "INSERT INTO gpkg_contents"
             " (table_name, data_type, identifier, description, last_change, srs_id,"
-            " data_min_x, data_min_y, data_max_x, data_max_y)"
+            " min_x, min_y, max_x, max_y)"
             " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         records rs;
@@ -168,10 +169,11 @@ void GeoPackageWriter::writeTileTable(const GpkgMatrixSet& data)
     }
 
     {
+        // min_x, etc, is bbox of tile matrix (not data)
         const std::string sql =
             "INSERT INTO gpkg_pctile_matrix_set"
             " (table_name, srs_id,"
-            " tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y)"
+            " min_x, min_y, max_x, max_y)"
             " VALUES (?, ?, ?, ?, ?, ?)";
 
         records rs;

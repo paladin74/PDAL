@@ -171,10 +171,10 @@ void GeoPackageManager::createTableGpkgContents()
         "identifier TEXT,"
         "description TEXT,"
         "last_change DATETIME NOT NULL,"
-        "data_min_x DOUBLE NOT NULL," // data extents
-        "data_min_y DOUBLE NOT NULL,"
-        "data_max_x DOUBLE NOT NULL,"
-        "data_max_y DOUBLE NOT NULL,"
+        "min_x DOUBLE NOT NULL," // data extents
+        "min_y DOUBLE NOT NULL,"
+        "max_x DOUBLE NOT NULL,"
+        "max_y DOUBLE NOT NULL,"
         "srs_id INTEGER,"
         "FOREIGN KEY(srs_id) REFERENCES gpkg_spatial_ref_sys(srs_id)"
         ")";
@@ -194,10 +194,10 @@ void GeoPackageManager::createTableGpkgPctileMatrixSet()
         "CREATE TABLE gpkg_pctile_matrix_set("
         "table_name TEXT PRIMARY KEY NOT NULL,"
         "srs_id INTEGER NOT NULL,"
-        "tmset_min_x DOUBLE NOT NULL," // tile extents
-        "tmset_min_y DOUBLE NOT NULL,"
-        "tmset_max_x DOUBLE NOT NULL,"
-        "tmset_max_y DOUBLE NOT NULL,"
+        "min_x DOUBLE NOT NULL," // tile extents
+        "min_y DOUBLE NOT NULL,"
+        "max_x DOUBLE NOT NULL,"
+        "max_y DOUBLE NOT NULL,"
         "FOREIGN KEY(table_name) REFERENCES gpkg_contents(table_name)"
         "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_metadata_reference(table_name),"
