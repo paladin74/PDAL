@@ -157,12 +157,6 @@ private:
 };
 
 
-// Rialto has some hard-coded restrictions:
-//   we always use EPSG:4326
-//   we always start with two tiles at the root
-//   we always cover the whole globe at the root
-//   we always do power-of-two reductions
-//   we store all levels between 0 and max, inclusive
 class GpkgMatrixSet
 {
 public:
