@@ -416,8 +416,10 @@ TEST(RialtoDbWriterTest, testOscar)
 
 TEST(RialtoDbWriterTest, testRandom)
 {
-    static const int NUM_POINTS = 100 * 1000;
-    static const int NUM_QUERIES = 200;
+    static const int K = 1000;
+    static const int M = 1000 * K;
+    static const int NUM_POINTS = 100 * K;
+    static const int NUM_QUERIES = 100;
 
     const std::string filename(Support::temppath("rialto3.gpkg"));
     FileUtils::deleteFile(filename);
@@ -498,8 +500,9 @@ TEST(RialtoDbWriterTest, writePerf)
 
     e_all.start();
 
-    static const int M = 1000 * 1000;
-    static const int NUM_POINTS = 1 * M;
+    static const int K = 1000;
+    static const int M = 1000 * K;
+    static const int NUM_POINTS = 250 * K;
 
     const std::string filename(Support::temppath("writeperf.gpkg"));
     FileUtils::deleteFile(filename);
@@ -535,14 +538,15 @@ TEST(RialtoDbWriterTest, readPerf)
 
     e_all.start();
 
-    static const int M = 1000 * 1000;
-    static const int NUM_POINTS = 40 * M;
-    static const int NUM_QUERIES = 200;
+    static const int K = 1000;
+    static const int M = 1000 * K;
+    static const int NUM_POINTS = 250 * K;
+    static const int NUM_QUERIES = 25;
 
     const std::string filename(Support::temppath("readperf.gpkg"));
     FileUtils::deleteFile(filename);
 
-    const uint32_t maxLevel = 1;
+    const uint32_t maxLevel = 3;
 
     {
         PointTable table;
