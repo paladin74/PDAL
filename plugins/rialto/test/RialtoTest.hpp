@@ -44,6 +44,7 @@
 #include <stats/StatsFilter.hpp>
 
 #include <../plugins/rialto/io/GeoPackage.hpp>
+#include <../plugins/rialto/io/GeoPackageCommon.hpp>
 #include <../plugins/rialto/io/GeoPackageManager.hpp>
 #include <../plugins/rialto/io/GeoPackageReader.hpp>
 #include <../plugins/rialto/io/GeoPackageWriter.hpp>
@@ -75,7 +76,9 @@ public:
                                uint32_t maxLevel);
 
     static void verifyPointToData(pdal::PointViewPtr view, pdal::PointId idx, const Data& data);
-    static void verifyPointFromBuffer(std::vector<unsigned char> const& buf,
+    static void verifyPointFromBuffer(std::vector<unsigned char> const&,
+                                      const Data& expectedData);
+    static void verifyPointFromBuffer(const GpkgTile& tileInfo,
                                       const Data& expectedData);
     static void verifyPointsInBounds(pdal::PointViewPtr view,
                                      double minx, double miny, double maxx, double maxy);
@@ -285,6 +288,17 @@ void RialtoTest::verifyPointFromBuffer(std::vector<unsigned char> const& vec,
     EXPECT_EQ(u.s.x, expectedData.x);
     EXPECT_EQ(u.s.y, expectedData.y);
     EXPECT_EQ(u.s.z, expectedData.z);
+}
+
+
+void RialtoTest::verifyPointFromBuffer(const GpkgTile& tileInfo,
+                                       const RialtoTest::Data& expectedData)
+{
+    EXPECT_EQ(tileInfo.getNumPoints(), 1u);
+    EXPECT_EQ(tileInfo.getPatch().size(), 24u);
+
+    std::vector<unsigned char> const& vec = tileInfo.getPatch().getVector();
+    verifyPointFromBuffer(vec, expectedData);
 }
 
 

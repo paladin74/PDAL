@@ -108,5 +108,4 @@ TODO
 -----
 * store the actual metadata
 * writer should overwrite the existing table (or fail)
-* order-dependent in test case RialtoDbWriterTest
 * make table_name be a unique id, add separate human-readable id

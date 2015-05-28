@@ -129,67 +129,43 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
 
     GpkgTile tileInfo;
 
+    db.readTile(names[0], tilesAt0[0], true, tileInfo);
+    RialtoTest::verifyPointFromBuffer(tileInfo, actualData[0]);
+
+    for (int i=0; i<2; i++)
     {
-        db.readTile(names[0], tilesAt0[0], true, tileInfo);
-        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
-        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[0]);
+        db.readTile(names[0], tilesAt1[i], true, tileInfo);
+        const uint32_t col = tileInfo.getColumn();
+        const uint32_t row = tileInfo.getRow();
+        printf("==%d  %d==\n", col, row);
+        
+        int idx = -1;
+        if (col==0 && row==0) idx = 0;
+        if (col==2 && row==0) idx = 4;
+        EXPECT_NE(idx, -1);
+        
+        RialtoTest::verifyPointFromBuffer(tileInfo, actualData[idx]);
     }
 
+    for (int i=0; i<8; i++)
     {
-        // TODO: these two are order-dependent
-        db.readTile(names[0], tilesAt1[0], true, tileInfo);
-        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
-        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[0]);
-
-        db.readTile(names[0], tilesAt1[1], true, tileInfo);
-        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
-        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[4]);
-    }
-
-    {
-        // TODO: these eight are order-dependent
-        db.readTile(names[0], tilesAt2[0], true, tileInfo);
-        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
-        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[0]);
-
-        db.readTile(names[0], tilesAt2[1], true, tileInfo);
-        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
-        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[2]);
-
-        db.readTile(names[0], tilesAt2[2], true, tileInfo);
-        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
-        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[1]);
-
-        db.readTile(names[0], tilesAt2[3], true, tileInfo);
-        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
-        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[3]);
-
-        db.readTile(names[0], tilesAt2[4], true, tileInfo);
-        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
-        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[4]);
-
-        db.readTile(names[0], tilesAt2[5], true, tileInfo);
-        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
-        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[6]);
-
-        db.readTile(names[0], tilesAt2[6], true, tileInfo);
-        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
-        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[5]);
-
-        db.readTile(names[0], tilesAt2[7], true, tileInfo);
-        EXPECT_EQ(tileInfo.getNumPoints(), 1u);
-        EXPECT_EQ(tileInfo.getPatch().size(), 24u);
-        RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[7]);
+        db.readTile(names[0], tilesAt2[i], true, tileInfo);
+    
+        const uint32_t col = tileInfo.getColumn();
+        const uint32_t row = tileInfo.getRow();
+        printf("==%d  %d==\n", col, row);
+        int idx = -1;
+        if (col==0 && row==0) idx = 0;
+        if (col==0 && row==3) idx = 2;
+        if (col==3 && row==0) idx = 1;
+        if (col==3 && row==3) idx = 3;
+        if (col==5 && row==1) idx = 4;
+        if (col==5 && row==2) idx = 6;
+        if (col==6 && row==1) idx = 5;
+        if (col==6 && row==2) idx = 7;
+        EXPECT_NE(idx, -1);
+        
+        RialtoTest::verifyPointFromBuffer(tileInfo, actualData[idx]);
     }
 
     db.close();
