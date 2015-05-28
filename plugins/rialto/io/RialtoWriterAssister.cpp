@@ -107,6 +107,7 @@ void RialtoWriterAssister::makePointViewMap()
     std::string b64 = tilesNode2.value();
     std::vector<uint8_t> a = Utils::base64_decode(b64);
 
+    // for details on this blob of five uint32s, see TileSet::run()
     m_tileMetadata = new uint32_t[m_numTiles*5];
     memcpy((unsigned char*)m_tileMetadata, a.data(), m_numTiles*5*4);
     for (uint32_t i=0; i<m_numTiles*5; i+=5)

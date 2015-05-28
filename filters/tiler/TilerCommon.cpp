@@ -146,6 +146,26 @@ void TileSet::run(PointViewPtr sourceView, PointViewSet* outputSet)
     setHeaderMetadata();
     setStatisticsMetadata();
 
+    // Every tile has an associated PointView. Downstream from this filter,
+    // the tile writer will be given a set of point views to write out, but it
+    // has no way of knowing which point view corresponds to which tile (and
+    // vice versa). So we stash the needed info into a metadata field.
+    // 
+    // We store the data as a big blob, though, to avoid the overhead of
+    // converting each of the data items to and from a string.
+    //
+    // The data structure serialized into the metadata is just a contiguous
+    // array of items, each item containing 5 uint32s:
+    //   - the tile's level
+    //   - the tile's column
+    //   - the tile's row
+    //   - the tile's mask
+    //   - the id of tile's associated point view
+    //
+    // This is really kludgy, but there's no precedent for efficiently passing
+    // large chunks of info between stages in any other way. Indeed, this very
+    // problem argues for putting the tile cutting filter code directly into
+    // the tile writer.
     {
         uint32_t* data = new uint32_t[m_tileId*5]; // level, col, row, mask, pv id
 

@@ -104,9 +104,7 @@ Other Notes
 
 TODO
 -----
-* fix messy include paths
 * store the actual metadata
 * allow for setting the description, time fields
 * writer should overwrite the existing table (or fail)
-* document/isolate the point-view-map thing
 * order-dependent in test case RialtoDbWriterTest
