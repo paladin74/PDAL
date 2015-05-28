@@ -55,7 +55,7 @@ public:
         m_millis(0.0),
         m_start(0)
     {}
-        
+
     ~Event()
     {
         if (m_start != 0)
@@ -66,13 +66,13 @@ public:
         }
     }
 
-    void start()
+    void start() const
     {
         assert(m_start == 0);
         m_start = timerStart();
     }
 
-    void stop()
+    void stop() const
     {
         assert(m_start != 0);
         ++m_count;
@@ -83,19 +83,19 @@ public:
 
     void dump() const
     {
-        std::cout << m_name << ":";
-        
+        std::cout << "    " << m_name << ":";
+
         if (m_count)
         {
-            std::cout << "  total=" << m_millis << "ms"
-                      << "  average=" << m_millis/(double)m_count << "ms"
+            std::cout << "  total=" << (int)m_millis << "ms"
+                      << "  average=" << (int)(m_millis/(double)m_count) << "ms"
                       << "  (" << m_count << " events)";
         }
         else
         {
             std::cout << " -";
         }
-        
+
         std::cout << std::endl;
     }
 
@@ -106,7 +106,7 @@ public:
     {
          return std::clock();
     }
-    
+
     static double timerStop(clock_t start)
     {
         clock_t stop = std::clock();
@@ -116,9 +116,12 @@ public:
 
 private:
      const std::string m_name;
-     uint32_t m_count;
-     double m_millis;
-     clock_t m_start;
+
+     // these are mutable so that start() and stop() can be const,
+     // which we want because we want to do perf checks on const functions
+     mutable uint32_t m_count;
+     mutable double m_millis;
+     mutable clock_t m_start;
 };
 
 } // namespace rialto

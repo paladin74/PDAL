@@ -47,7 +47,7 @@ namespace pdal
 
 namespace rialto
 {
-    
+
 class GpkgMatrixSet;
 class GpkgTile;
 class GpkgDimension;
@@ -88,7 +88,7 @@ public:
      bool queryForTiles_step(GpkgTile& tileInfo);
      bool queryForTiles_next();
 
-     virtual void dumpStats() const;
+     virtual void childDumpStats() const;
 
      // fills in the dimensions of an otherwise empty layout with
      // the dimension information from the tile set
@@ -96,7 +96,7 @@ public:
 
 private:
     int m_srid;
-    
+
     mutable Event e_tilesRead;
     mutable Event e_tileTablesRead;
     mutable Event e_queries;

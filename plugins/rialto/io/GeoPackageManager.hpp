@@ -47,7 +47,7 @@ namespace pdal
 
 namespace rialto
 {
-    
+
 class GpkgMatrixSet;
 class GpkgTile;
 class GpkgDimension;
@@ -64,7 +64,9 @@ public:
     virtual void open();
     virtual void close();
 
-private:    
+    virtual void childDumpStats() const;
+
+private:
     void createGpkgId();
     void createTableGpkgSpatialRefSys();
     void createTableGpkgContents();
@@ -74,6 +76,9 @@ private:
     void createTableGpkgMetadataReference();
     void createTableGpkgExtensions();
     void createTablePctilesDimensionSet();
+
+    Event e_creationOpen;
+    Event e_creationClose;
 
     GeoPackageManager& operator=(const GeoPackageManager&); // not implemented
     GeoPackageManager(const GeoPackageManager&); // not implemented

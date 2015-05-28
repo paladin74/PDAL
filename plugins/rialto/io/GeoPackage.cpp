@@ -48,7 +48,10 @@ namespace rialto
 
 GeoPackage::GeoPackage(const std::string& connection, LogPtr log) :
     m_connection(connection),
-    m_log(log)
+    m_log(log),
+    e_readMatrixSet("readMatrixSet"),
+    e_srsQueries("srsQueries")
+
 {
     //m_log->setLevel(LogLevel::Debug);
 }
@@ -89,8 +92,6 @@ void GeoPackage::internalClose()
     }
 
     m_sqlite.reset();
-
-    dumpStats();
 }
 
 
@@ -101,16 +102,23 @@ uint32_t GeoPackage::querySrsId(const std::string& wkt) const
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
 
+    e_srsQueries.start();
+
     // TODO: how better to look up SRS than text match of WKT?
-    
+
     std::ostringstream oss;
     oss << "SELECT srs_id FROM gpkg_spatial_ref_sys"
         << " WHERE definition='" << wkt << "'";
 
     m_sqlite->query(oss.str());
 
+    e_srsQueries.stop();
+
     const row* r = m_sqlite->get();
-    if (!r) return 0;
+    if (!r)
+    {
+        return 0;
+    }
 
     // take the first one, ignore any others
     const uint32_t srs_id = boost::lexical_cast<uint32_t>(r->at(0).data);
@@ -121,6 +129,8 @@ uint32_t GeoPackage::querySrsId(const std::string& wkt) const
 
 std::string GeoPackage::querySrsWkt(uint32_t srs_id) const
 {
+    e_srsQueries.start();
+
     std::ostringstream oss;
     oss << "SELECT definition "
         << "FROM gpkg_spatial_ref_sys WHERE srs_id=" << srs_id;
@@ -134,6 +144,8 @@ std::string GeoPackage::querySrsWkt(uint32_t srs_id) const
     assert(r);
     const std::string wkt = r->at(0).data;
     assert(!m_sqlite->next());
+
+    e_srsQueries.stop();
     return wkt;
 }
 
@@ -161,7 +173,7 @@ void GeoPackage::beginTransaction()
 
 void GeoPackage::commitTransaction()
 {
-    m_sqlite->commit();    
+    m_sqlite->commit();
 }
 
 
@@ -171,6 +183,8 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
     {
         throw pdal_error("RialtoDB: invalid state (session does exist)");
     }
+
+    e_readMatrixSet.start();
 
     std::string datetime;
     uint32_t srs_id;
@@ -229,11 +243,11 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
         // should get exactly one row back
         const row* r = m_sqlite->get();
         assert(r);
-        
+
         maxLevel = boost::lexical_cast<uint32_t>(r->at(0).data);
         assert(!m_sqlite->next());
     }
-    
+
     uint32_t numDimensions;
     {
         std::ostringstream oss;
@@ -269,7 +283,7 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
     }
     assert(numColsAtL0==2);
     assert(numRowsAtL0==1);
-    
+
     info.set(datetime, name, maxLevel, numDimensions, wkt,
              data_min_x, data_min_y, data_max_x, data_max_y,
              tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y,
@@ -277,6 +291,8 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
 
     readDimensions(info.getName(), info.getDimensionsRef());
     assert(info.getDimensions().size() == info.getNumDimensions());
+
+    e_readMatrixSet.stop();
 }
 
 
@@ -318,9 +334,9 @@ void GeoPackage::readMatrixSets(std::vector<GpkgMatrixSet>& infos) const
     // first get all the table names
     std::vector<std::string> names;
     readMatrixSetNames(names);
-    
+
     infos.resize(names.size());
-    
+
     // now, get the info for each table
     for (uint32_t i=0; i<names.size(); i++)
     {
@@ -366,6 +382,14 @@ void GeoPackage::readDimensions(std::string const& name, std::vector<GpkgDimensi
 
         dimensionsInfo.push_back(info);
     } while (m_sqlite->next());
+}
+
+
+void GeoPackage::dumpStats() const
+{
+    childDumpStats();
+    e_srsQueries.dump();
+    e_readMatrixSet.dump();
 }
 
 

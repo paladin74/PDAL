@@ -78,6 +78,7 @@ void GeoPackageReader::open()
 void GeoPackageReader::close()
 {
     internalClose();
+    dumpStats();
 }
 
 
@@ -191,10 +192,10 @@ void GeoPackageReader::queryForTileIds(std::string const& name,
 
     GpkgMatrixSet info;
     readMatrixSet(name, info); // TODO: should cache this
-    
-    const tilercommon::TileMatrixMath tmm(info.getTmsetMinX(), info.getTmsetMinY(), 
+
+    const tilercommon::TileMatrixMath tmm(info.getTmsetMinX(), info.getTmsetMinY(),
                                           info.getTmsetMaxX(), info.getTmsetMaxY(),
-                                          info.getNumColsAtL0(), info.getNumRowsAtL0());                                          
+                                          info.getNumColsAtL0(), info.getNumRowsAtL0());
     uint32_t mincol, minrow, maxcol, maxrow;
     // we use mincol/maxrow and maxcol/minrow because the tile matrix has (0,0) at upper-left
     tmm.getTileOfPoint(minx, miny, level, mincol, minrow);
@@ -246,13 +247,13 @@ void GeoPackageReader::queryForTiles_begin(std::string const& name,
 
     assert(minx <= maxx);
     assert(miny <= maxy);
-    
+
     GpkgMatrixSet info;
     readMatrixSet(name, info); // TODO: should cache this
 
-    const tilercommon::TileMatrixMath tmm(info.getTmsetMinX(), info.getTmsetMinY(), 
+    const tilercommon::TileMatrixMath tmm(info.getTmsetMinX(), info.getTmsetMinY(),
                                           info.getTmsetMaxX(), info.getTmsetMaxY(),
-                                          info.getNumColsAtL0(), info.getNumRowsAtL0());                                          
+                                          info.getNumColsAtL0(), info.getNumRowsAtL0());
     uint32_t mincol, minrow, maxcol, maxrow;
     // we use mincol/maxrow and maxcol/minrow because the tile matrix has (0,0) at upper-left
     tmm.getTileOfPoint(minx, miny, level, mincol, maxrow);
@@ -314,20 +315,26 @@ bool GeoPackageReader::queryForTiles_next()
 
 
 
-void GeoPackageReader::dumpStats() const
+void GeoPackageReader::childDumpStats() const
 {
+    std::cout << "GeoPackageReader stats" << std::endl;
+
     e_tilesRead.dump();
     e_tileTablesRead.dump();
     e_queries.dump();
 
+    std::cout << "    pointsRead: ";
+
     if (m_numPointsRead)
     {
-        printf("pointsRead: %u\n", m_numPointsRead);
+        std::cout << m_numPointsRead;
     }
     else
     {
-        printf("pointsRead: -\n");
+        std::cout << "-";
     }
+
+    std::cout << std::endl;
 }
 
 

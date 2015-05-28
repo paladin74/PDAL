@@ -62,7 +62,7 @@ using namespace rialto;
 static bool testP2T(double x, double y, uint32_t level, uint32_t expected_col, uint32_t expected_row)
 {
     uint32_t actual_col, actual_row;
-    
+
     const tilercommon::TileMatrixMath tmm(-180.0, -90.0, 180.0, 90.0, 2, 1);
     tmm.getTileOfPoint(x, y, level, actual_col, actual_row);
 
@@ -191,7 +191,7 @@ void verifyDatabase(const std::string& filename, RialtoTest::Data* actualData)
         EXPECT_EQ(tileInfo.getPatch().size(), 24u);
         RialtoTest::verifyPointFromBuffer(tileInfo.getPatch().getVector(), actualData[7]);
     }
-    
+
     db.close();
 }
 
@@ -292,10 +292,10 @@ TEST(RialtoDbWriterTest, testWriter)
             EXPECT_EQ(ids[0], 8u);
             EXPECT_EQ(ids[1], 9u);
         }
-        
+
         db.close();
     }
-    
+
     {
         RialtoDbReader reader;
         Options options;
@@ -493,16 +493,16 @@ TEST(RialtoDbWriterTest, testRandom)
 
 TEST(RialtoDbWriterTest, writePerf)
 {
-    Event e_all("allTests");
-    Event e_write("writePart");
+    Event e_all("* WritePerf");
+    Event e_write("* write_part");
+
+    e_all.start();
 
     static const int M = 1000 * 1000;
     static const int NUM_POINTS = 1 * M;
 
     const std::string filename(Support::temppath("writeperf.gpkg"));
     FileUtils::deleteFile(filename);
-
-    e_all.start();
 
     RialtoTest::Data* actualData;
     const uint32_t maxLevel = 11;
@@ -530,17 +530,19 @@ TEST(RialtoDbWriterTest, writePerf)
 
 TEST(RialtoDbWriterTest, readPerf)
 {
-    Event e_all("allTests");
-    Event e_read("readPart");
+    Event e_all("* ReadPerf");
+    Event e_read("* read_part");
+
+    e_all.start();
 
     static const int M = 1000 * 1000;
-    static const int NUM_POINTS = 2 * M;
-    static const int NUM_QUERIES = 100;
+    static const int NUM_POINTS = 40 * M;
+    static const int NUM_QUERIES = 200;
 
     const std::string filename(Support::temppath("readperf.gpkg"));
     FileUtils::deleteFile(filename);
 
-    const uint32_t maxLevel = 7;
+    const uint32_t maxLevel = 1;
 
     {
         PointTable table;
@@ -549,8 +551,6 @@ TEST(RialtoDbWriterTest, readPerf)
         RialtoTest::createDatabase(table, inputView, filename, maxLevel);
         delete[] actualData;
     }
-
-    e_all.start();
 
     // now read from it
     {

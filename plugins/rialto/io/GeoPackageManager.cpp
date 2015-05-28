@@ -46,7 +46,9 @@ namespace rialto
 {
 
 GeoPackageManager::GeoPackageManager(const std::string& connection, LogPtr log) :
-    GeoPackage(connection, log)
+    GeoPackage(connection, log),
+    e_creationOpen("creationOpen"),
+    e_creationClose("creationClose")
 {
 }
 
@@ -58,8 +60,10 @@ GeoPackageManager::~GeoPackageManager()
 
 void GeoPackageManager::open()
 {
+    e_creationOpen.start();
+
     internalOpen(true);
-    
+
     createGpkgId();
     createTableGpkgSpatialRefSys();
     createTableGpkgContents();
@@ -69,18 +73,25 @@ void GeoPackageManager::open()
     createTableGpkgMetadataReference();
     createTableGpkgExtensions();
     createTablePctilesDimensionSet();
+
+    e_creationOpen.stop();
 }
+
 
 void GeoPackageManager::close()
 {
+    e_creationClose.start();
+
     internalClose();
+
+    e_creationClose.stop();
+
+    dumpStats();
 }
 
 
 void GeoPackageManager::createGpkgId()
 {
-    std::ostringstream oss1;
-
     const std::string sql("PRAGMA application_id=1196437808");
 
     m_sqlite->execute(sql);
@@ -322,6 +333,14 @@ void GeoPackageManager::createTablePctilesDimensionSet()
         ")";
 
     m_sqlite->execute(sql);
+}
+
+
+void GeoPackageManager::childDumpStats() const
+{
+    std::cout << "GeoPackageManager stats" << std::endl;
+    e_creationOpen.dump();
+    e_creationClose.dump();
 }
 
 

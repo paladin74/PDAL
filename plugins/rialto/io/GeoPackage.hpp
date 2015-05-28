@@ -46,7 +46,7 @@ namespace pdal
 
 namespace rialto
 {
-    
+
 class GpkgMatrixSet;
 class GpkgTile;
 class GpkgDimension;
@@ -65,7 +65,6 @@ public:
     virtual void open() = 0;
     virtual void close() = 0;
 
-    
     // get info about a specific tile matrix set (including its dimensions)
     void readMatrixSet(std::string const& name, GpkgMatrixSet& info) const;
 
@@ -75,14 +74,16 @@ public:
     // get list of all the matrix sets ("files") in the db
     void readMatrixSets(std::vector<GpkgMatrixSet>&) const;
 
-    virtual void dumpStats() const {};
+    virtual void dumpStats() const;
 
     bool doesTableExist(std::string const& name) const;
-    
+
 protected:
     void internalOpen(bool writable);
     void internalClose();
-    
+
+    virtual void childDumpStats() const = 0;
+
     // get info about one of the dimensions of a tile set
     void readDimensions(std::string const& name, std::vector<GpkgDimension>&) const;
 
@@ -98,7 +99,10 @@ protected:
 private:
     std::string m_connection;
     LogPtr m_log;
-    
+
+    Event e_readMatrixSet;
+    Event e_srsQueries;
+
     GeoPackage& operator=(const GeoPackage&); // not implemented
     GeoPackage(const GeoPackage&); // not implemented
 };

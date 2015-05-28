@@ -80,6 +80,7 @@ void GeoPackageWriter::open()
 void GeoPackageWriter::close()
 {
     internalClose();
+    dumpStats();
 }
 
 
@@ -189,7 +190,7 @@ void GeoPackageWriter::writeTileTable(const GpkgMatrixSet& data)
     }
 
     {
-        const tilercommon::TileMatrixMath tmm(data.getTmsetMinX(), data.getTmsetMinY(), 
+        const tilercommon::TileMatrixMath tmm(data.getTmsetMinX(), data.getTmsetMinY(),
             data.getTmsetMaxX(), data.getTmsetMaxY(),
             data.getNumColsAtL0(), data.getNumRowsAtL0());
 
@@ -218,7 +219,7 @@ void GeoPackageWriter::writeTileTable(const GpkgMatrixSet& data)
     }
 
     writeDimensions(data);
-    
+
     writeMetadata(data);
 
     e_tileTablesWritten.stop();
@@ -351,19 +352,25 @@ void GeoPackageWriter::writeTile(const std::string& tileTableName, const GpkgTil
 }
 
 
-void GeoPackageWriter::dumpStats() const
+void GeoPackageWriter::childDumpStats() const
 {
+    std::cout << "GeoPackageWriter stats" << std::endl;
+
     e_tilesWritten.dump();
     e_tileTablesWritten.dump();
 
+    std::cout << "    pointsWritten: ";
+
     if (m_numPointsWritten)
     {
-        printf("pointsWritten: %u\n", m_numPointsWritten);
+        std::cout << m_numPointsWritten;
     }
     else
     {
-      printf("pointsWritten: -\n");
+        std::cout << "-";
     }
+
+    std::cout << std::endl;
 }
 
 

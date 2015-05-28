@@ -47,7 +47,7 @@ namespace pdal
 
 namespace rialto
 {
-    
+
 class GpkgMatrixSet;
 class GpkgTile;
 class GpkgDimension;
@@ -72,10 +72,9 @@ public:
     // returns id of new tile
     void writeTile(const std::string& tileTableName, const GpkgTile& data);
 
+    virtual void childDumpStats() const;
 
-    virtual void dumpStats() const;
-
-private:    
+private:
     void createTableGpkgPctile(const std::string& table_name);
 
     void writeDimensions(const GpkgMatrixSet&);
@@ -83,7 +82,7 @@ private:
 
     int m_srid;
     bool m_needsIndexing;
-    
+
     mutable Event e_tilesWritten;
     mutable Event e_tileTablesWritten;
     mutable Event e_queries;
