@@ -71,3 +71,14 @@ if(BUILD_RIALTO_TESTS)
         LINK_WITH ${dbreader_libname} ${dbwriter_libname}
     )
 endif()
+
+install(DIRECTORY io/
+  DESTINATION "${PDAL_INCLUDE_INSTALL_DIR}/plugins/rialto"
+  FILES_MATCHING
+    PATTERN "Event.hpp"
+    PATTERN "GeoPackageCommon.hpp"
+    PATTERN "GeoPackageManager.hpp"
+    PATTERN "RialtoDbReader.hpp"
+    PATTERN "RialtoDbWriter.hpp"
+    PATTERN "RialtoWriterAssister.hpp"
+    PATTERN "RialtoFileWriter.hpp")

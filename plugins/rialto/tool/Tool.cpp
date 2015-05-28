@@ -35,16 +35,17 @@
 #include <pdal/pdal.hpp>
 #include <pdal/util/Bounds.hpp>
 #include <pdal/BufferReader.hpp>
-#include <../io/null/NullWriter.hpp>
-#include <../io/faux/FauxReader.hpp>
-#include <../io/las/LasReader.hpp>
-#include <../io/las/LasWriter.hpp>
-#include <../filters/tiler/TilerFilter.hpp>
-#include <../filters/stats/StatsFilter.hpp>
-#include <../filters/reprojection/ReprojectionFilter.hpp>
-#include <../plugins/rialto/io/RialtoDbReader.hpp>
-#include <../plugins/rialto/io/RialtoDbWriter.hpp>
-#include <../plugins/rialto/io/RialtoFileWriter.hpp>
+#include <pdal/NullWriter.hpp>
+#include <pdal/FauxReader.hpp>
+#include <pdal/LasReader.hpp>
+#include <pdal/LasWriter.hpp>
+#include <pdal/TilerFilter.hpp>
+#include <pdal/StatsFilter.hpp>
+#include <pdal/ReprojectionFilter.hpp>
+#include <pdal/plugins/rialto/GeoPackageCommon.hpp>
+#include <pdal/plugins/rialto/RialtoDbReader.hpp>
+#include <pdal/plugins/rialto/RialtoDbWriter.hpp>
+#include <pdal/plugins/rialto/RialtoFileWriter.hpp>
 
 #include "Tool.hpp"
 
@@ -238,6 +239,8 @@ Stage* Tool::createReader(const char* name, FileType type, const BOX3D& rBounds,
             assert(0);
             break;
     }
+
+    ((pdal::rialto::RialtoDbReader*)reader)->getMatrixSet().getName();
 
     reader->setOptions(opts);
     return reader;

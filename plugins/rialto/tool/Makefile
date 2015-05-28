@@ -1,6 +1,6 @@
 
 
-PDAL_HOME=$(HOME)/work/dev/PDAL
+PDAL_HOME=$(HOME)/work/dev/install/pdal
 PDAL_INC=$(PDAL_HOME)/include
 PDAL_LIB=$(PDAL_HOME)/lib
 
