@@ -325,6 +325,24 @@ TEST(TilerTest, test_tiler_matrix_math_three)
 
 }
 
+TEST(TilerTest, test_tiler_matrix_rect_contains_rect)
+{
+    using namespace tilercommon;
+    
+    // A completely contains B
+    EXPECT_TRUE(TileMatrixMath::rectContainsRect(1.0, 1.0, 2.0, 2.0, 1.4, 1.4, 1.6, 1.6));
+    
+    // A is completely outside B
+    EXPECT_FALSE(TileMatrixMath::rectContainsRect(1.4, 1.4, 1.6, 1.6, 1.0, 1.0, 2.0, 2.0));
+    
+    // A completely contains B only along x-axis
+    EXPECT_FALSE(TileMatrixMath::rectContainsRect(1.0, 1.4, 2.0, 1.6, 1.4, 1.0, 1.6, 2.0));
+
+    // A completely contains B only along y-axis
+    EXPECT_FALSE(TileMatrixMath::rectContainsRect(1.4, 1.0, 1.6, 2.0, 1.0, 1.4, 2.0, 1.6));
+}
+
+
 const struct Data {
     double x;
     double y;

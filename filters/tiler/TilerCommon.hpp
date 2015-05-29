@@ -200,6 +200,16 @@ public:
         return QuadNE;
     }
 
+    // return true iff rect1 completely contains rect2
+    static bool rectContainsRect(double minx1, double miny1,
+                                 double maxx1, double maxy1,
+                                 double minx2, double miny2,
+                                 double maxx2, double maxy2)
+    {
+        return (minx1 <= minx2 && maxx2 <= maxx1) &&
+               (miny1 <= miny2 && maxy2 <= maxy1);
+    }
+    
 private:
     // computes 2^n
     //

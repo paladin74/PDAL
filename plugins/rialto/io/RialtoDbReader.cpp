@@ -35,6 +35,7 @@
 #include "RialtoDbReader.hpp"
 #include "GeoPackageReader.hpp"
 #include "GeoPackageCommon.hpp"
+#include <../filters/tiler/TilerCommon.hpp>
 
 namespace pdal
 {
@@ -172,16 +173,20 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t /*not used*/
     
     log()->get(LogLevel::Debug) << "RialtoDbReader::read()" << std::endl;
 
+    const tilercommon::TileMatrixMath tmm(m_matrixSet->getTmsetMinX(), m_matrixSet->getTmsetMinY(),
+                                          m_matrixSet->getTmsetMaxX(), m_matrixSet->getTmsetMaxY(),
+                                          m_matrixSet->getNumColsAtL0(), m_matrixSet->getNumRowsAtL0());
+
     setQueryParams();
     
-    const double minx = m_queryBox.minx;
-    const double miny = m_queryBox.miny;
-    const double maxx = m_queryBox.maxx;
-    const double maxy = m_queryBox.maxy;
+    const double qMinX = m_queryBox.minx;
+    const double qMinY = m_queryBox.miny;
+    const double qMaxX = m_queryBox.maxx;
+    const double qMaxY = m_queryBox.maxy;
 
     const uint32_t level = m_queryLevel;
 
-    m_db->queryForTiles_begin(m_matrixSetName, minx, miny, maxx, maxy, level);
+    m_db->queryForTiles_begin(m_matrixSetName, qMinX, qMinY, qMaxX, qMaxY, level);
 
     GpkgTile info;
 
@@ -189,8 +194,16 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t /*not used*/
         bool ok = m_db->queryForTiles_step(info);
         if (!ok) break;
 
+        // if this tile is entirely inside the query box, then
+        // we won't need to check each point
+        double tileMinX, tileMinY, tileMaxX, tileMaxY;
+        tmm.getTileBounds(info.getColumn(), info.getRow(), info.getLevel(),
+                          tileMinX, tileMinY, tileMaxX, tileMaxY);
+        const bool allPointsGood =
+            tmm.rectContainsRect(qMinX, qMinY, qMaxX, qMaxY,
+                                 tileMinX, tileMinY, tileMaxX, tileMaxY);
+        
         log()->get(LogLevel::Debug) << "  got some points: " << info.getNumPoints() << std::endl;
-
 
         PointViewPtr tempView = view->makeNew();
 
@@ -199,7 +212,7 @@ point_count_t RialtoDbReader::read(PointViewPtr view, point_count_t /*not used*/
         for (uint32_t i=0; i<tempView->size(); i++) {
             const double x = tempView->getFieldAs<double>(Dimension::Id::X, i);
             const double y = tempView->getFieldAs<double>(Dimension::Id::Y, i);
-            if (x >= minx && x <= maxx && y >= miny && y <= maxy)
+            if (allPointsGood || (x >= qMinX && x <= qMaxX && y >= qMinY && y <= qMaxY))
             {
                 view->appendPoint(*tempView, i);
             }
