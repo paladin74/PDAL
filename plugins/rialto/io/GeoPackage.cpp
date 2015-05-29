@@ -199,9 +199,14 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
 
         m_sqlite->query(oss.str());
 
-        // should get exactly one row back
+        // should get exactly one row back: if not, it's a programmer error
         const row* r = m_sqlite->get();
-        assert(r);
+        if (!r)
+        {
+            e_readMatrixSet.stop();
+            throw pdal_error("Requested matrix set does not exist");
+        }
+
         datetime = r->at(0).data;
         data_min_x = boost::lexical_cast<double>(r->at(1).data);
         data_min_y = boost::lexical_cast<double>(r->at(2).data);

@@ -304,13 +304,14 @@ TEST(RialtoDbWriterTest, existing_table_name)
     const std::string filename(Support::temppath("samename.gpkg"));
     FileUtils::deleteFile(filename);
 
+    const std::string tableName("mynicetable");
     
     {
         PointTable table;
         PointViewPtr view(new PointView(table));
         RialtoTest::Data* actualData = RialtoTest::randomDataInit(table, view, 100, true);
 
-        RialtoTest::createDatabase(table, view, filename, 2);
+        RialtoTest::createDatabase(table, view, filename, 2, tableName);
         EXPECT_TRUE(FileUtils::fileExists(filename));
 
         delete[] actualData;
@@ -321,7 +322,7 @@ TEST(RialtoDbWriterTest, existing_table_name)
         PointViewPtr view(new PointView(table));
         RialtoTest::Data* actualData = RialtoTest::randomDataInit(table, view, 100, true);
 
-        EXPECT_THROW(RialtoTest::populateDatabase(table, view, filename, 2), pdal::pdal_error);
+        EXPECT_THROW(RialtoTest::populateDatabase(table, view, filename, 2, tableName), pdal::pdal_error);
         EXPECT_TRUE(FileUtils::fileExists(filename));
         
         delete[] actualData;
@@ -331,7 +332,7 @@ TEST(RialtoDbWriterTest, existing_table_name)
         LogPtr log(new Log("rialtodbwritertest", "stdout"));
         GeoPackageManager db(filename, log);
         db.open();
-        db.dropMatrixSet("_unnamed_");
+        db.dropMatrixSet(tableName);
         db.close();
     }
 
@@ -339,10 +340,111 @@ TEST(RialtoDbWriterTest, existing_table_name)
         PointTable table;
         PointViewPtr view(new PointView(table));
         RialtoTest::Data* actualData = RialtoTest::randomDataInit(table, view, 100, true);
-        RialtoTest::populateDatabase(table, view, filename, 2);
+        RialtoTest::populateDatabase(table, view, filename, 2, tableName);
         EXPECT_TRUE(FileUtils::fileExists(filename));
         delete[] actualData;
     }    
+}
+
+
+TEST(RialtoDbWriterTest, two_tables)
+{
+    LogPtr log(new Log("rialtodbwritertest", "stdout"));
+
+    const std::string filename(Support::temppath("twotables.gpkg"));
+    FileUtils::deleteFile(filename);
+    
+    {
+        GeoPackageManager db(filename, log);
+        db.open();
+        db.close();
+    }
+
+    {
+        PointTable table;
+        PointViewPtr view(new PointView(table));
+        RialtoTest::Data* actualData = RialtoTest::randomDataInit(table, view, 100, true);
+
+        RialtoTest::populateDatabase(table, view, filename, 5, "myfirsttable");
+        EXPECT_TRUE(FileUtils::fileExists(filename));
+        
+        delete[] actualData;
+    }
+    
+    {
+        PointTable table;
+        PointViewPtr view(new PointView(table));
+        RialtoTest::Data* actualData = RialtoTest::randomDataInit(table, view, 100, false);
+
+        RialtoTest::populateDatabase(table, view, filename, 7, "mysecondtable");
+        EXPECT_TRUE(FileUtils::fileExists(filename));
+        
+        delete[] actualData;
+    }
+
+    {
+        GeoPackageReader db(filename, log);
+        db.open();
+        
+        std::vector<std::string> names;
+        db.readMatrixSetNames(names);
+        EXPECT_EQ(names.size(), 2u);
+
+        db.close();
+    }
+    
+    {
+        RialtoDbReader reader;
+        Options options;
+        options.add("filename", filename);
+        options.add("name", "mysecondtable");
+        reader.setOptions(options);
+
+        PointTable table;
+        reader.prepare(table);
+
+        const GpkgMatrixSet& info = reader.getMatrixSet();
+        EXPECT_EQ(7u, info.getMaxLevel());
+    }
+
+    /*{
+        RialtoDbReader reader;
+        Options options;
+        options.add("filename", filename);
+        // no "name" option set!
+        reader.setOptions(options);
+        
+        PointTable table;
+        reader.prepare(table);
+
+        const GpkgMatrixSet& info = reader.getMatrixSet();
+        EXPECT_EQ(5u, info.getMaxLevel());
+    }*/
+
+    {
+        RialtoDbReader reader;
+        Options options;
+        options.add("filename", filename);
+        options.add("name", "myfirsttable");
+        reader.setOptions(options);
+        
+        PointTable table;
+        reader.prepare(table);
+
+        const GpkgMatrixSet& info = reader.getMatrixSet();
+        EXPECT_EQ(5u, info.getMaxLevel());
+    }
+
+    {
+        RialtoDbReader reader;
+        Options options;
+        options.add("filename", filename);
+        options.add("name", "mythirdtable");
+        reader.setOptions(options);
+        
+        PointTable table;
+        EXPECT_THROW(reader.prepare(table), pdal_error);
+    }
 }
 
 

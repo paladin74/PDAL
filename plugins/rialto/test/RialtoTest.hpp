@@ -73,12 +73,14 @@ public:
     static void populateDatabase(pdal::PointTable& table,
                                pdal::PointViewPtr view,
                                const std::string& filename,
-                               uint32_t maxLevel);
+                               uint32_t maxLevel,
+                               const std::string& tableName);
 
     static void createDatabase(pdal::PointTable& table,
                                pdal::PointViewPtr view,
                                const std::string& filename,
-                               uint32_t maxLevel);
+                               uint32_t maxLevel,
+                               const std::string& tableName="_unnamed_");
 
     static void verifyPointToData(pdal::PointViewPtr view, pdal::PointId idx, const Data& data);
     static void verifyPointFromBuffer(std::vector<unsigned char> const&,
@@ -121,6 +123,8 @@ RialtoTest::Data* RialtoTest::sampleDataInit(pdal::PointTable& table, pdal::Poin
 
 RialtoTest::Data* RialtoTest::randomDataInit(pdal::PointTable& table, pdal::PointViewPtr view, uint32_t numPoints, bool global)
 {
+    Utils::random_seed(17);
+    
     Data* data = new Data[numPoints];
     
     table.layout()->registerDim(Dimension::Id::X);
@@ -194,7 +198,8 @@ void RialtoTest::createTileFiles(pdal::PointTable& table, pdal::PointViewPtr vie
 void RialtoTest::populateDatabase(pdal::PointTable& table,
                                 pdal::PointViewPtr view,
                                 const std::string& filename,
-                                uint32_t maxLevel)
+                                uint32_t maxLevel,
+                                const std::string& tableName)
 {    
     assert(FileUtils::fileExists(filename));
     
@@ -232,7 +237,7 @@ void RialtoTest::populateDatabase(pdal::PointTable& table,
         pdal::StageFactory f;
         pdal::Options writerOptions;
         writerOptions.add("filename", filename);
-        writerOptions.add("name", "_unnamed_");
+        writerOptions.add("name", tableName);
         writerOptions.add("numCols", 2);
         writerOptions.add("numRows", 1);
         writerOptions.add("timestamp", timestamp);
@@ -257,7 +262,8 @@ void RialtoTest::populateDatabase(pdal::PointTable& table,
 void RialtoTest::createDatabase(pdal::PointTable& table,
                                 pdal::PointViewPtr view,
                                 const std::string& filename,
-                                uint32_t maxLevel)
+                                uint32_t maxLevel,
+                                const std::string& tableName)
 {    
     assert(!FileUtils::fileExists(filename));
     {
@@ -268,7 +274,7 @@ void RialtoTest::createDatabase(pdal::PointTable& table,
     }
     assert(FileUtils::fileExists(filename));
 
-    populateDatabase(table, view, filename, maxLevel);
+    populateDatabase(table, view, filename, maxLevel, tableName);
 }
 
 
