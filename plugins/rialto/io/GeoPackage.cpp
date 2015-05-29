@@ -287,10 +287,42 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
     assert(numColsAtL0==2);
     assert(numRowsAtL0==1);
 
+    uint32_t fileId;
+    {
+        // TODO: should be a JOIN, just one query
+        
+        std::ostringstream oss1;
+        oss1 << "SELECT md_file_id FROM gpkg_metadata_reference"
+            << " WHERE table_name='" << name << "'";
+
+        m_sqlite->query(oss1.str());
+
+        // should get exactly one row back
+        const row* r = m_sqlite->get();
+        assert(r);
+        fileId = boost::lexical_cast<uint32_t>(r->at(0).data);
+        assert(!m_sqlite->next());
+    }
+    
+    std::string lasMetadata;
+    {
+        std::ostringstream oss2;
+        oss2 << "SELECT metadata FROM gpkg_metadata"
+            << " WHERE id=" << fileId;
+
+        m_sqlite->query(oss2.str());
+
+        // should get exactly one row back
+        const row* r = m_sqlite->get();
+        assert(r);
+        lasMetadata = r->at(0).data;
+        assert(!m_sqlite->next());
+    }
+    
     info.set(datetime, name, maxLevel, numDimensions, wkt,
              data_min_x, data_min_y, data_max_x, data_max_y,
              tmset_min_x, tmset_min_y, tmset_max_x, tmset_max_y,
-             numColsAtL0, numRowsAtL0, description);
+             numColsAtL0, numRowsAtL0, description, lasMetadata);
 
     readDimensions(info.getName(), info.getDimensionsRef());
     assert(info.getDimensions().size() == info.getNumDimensions());

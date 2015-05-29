@@ -123,9 +123,12 @@ Options RialtoDbWriter::getDefaultOptions()
 
 void RialtoDbWriterAssister::writeHeader(MetadataNode tileTableNode,
                                          PointLayoutPtr layout,
-                                         const SpatialReference& srs)
-{
-    const GpkgMatrixSet info(m_matrixSetName, tileTableNode, layout, m_timestamp, srs, m_numColsAtL0, m_numRowsAtL0, m_description);
+                                         const SpatialReference& srs,
+                                         const std::string& lasMetadata)
+{    
+    const GpkgMatrixSet info(m_matrixSetName, tileTableNode, layout, m_timestamp, srs,
+                             m_numColsAtL0, m_numRowsAtL0, m_description,
+                             lasMetadata);
 
     m_rialtoDb->writeTileTable(info);
 }

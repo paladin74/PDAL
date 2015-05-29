@@ -92,12 +92,14 @@ GpkgMatrixSet::GpkgMatrixSet(const std::string& tileTableName,
                          const SpatialReference& srs,
                          uint32_t numColsAtL0,
                          uint32_t numRowsAtL0,
-                         const std::string& description)
+                         const std::string& description,
+                         const std::string& lasMetadata)
 {
     m_name = tileTableName;
 
     m_datetime = datetime;
     m_description = description;
+    m_lasMetadata = lasMetadata;
     
     MetadataNode headerNode = tileTableNode.findChild("header");
     assert(headerNode.valid());
@@ -143,7 +145,8 @@ void GpkgMatrixSet::set(const std::string& datetime,
                       double tmset_max_y,
                       uint32_t numColsAtL0,
                       uint32_t numRowsAtL0,
-                      const std::string& description)
+                      const std::string& description,
+                      const std::string& lasMetadata)
 {
     m_datetime = datetime;
     m_name = name;
@@ -161,6 +164,7 @@ void GpkgMatrixSet::set(const std::string& datetime,
     m_numColsAtL0 = numColsAtL0;
     m_numRowsAtL0 = numRowsAtL0;
     m_description = description;
+    m_lasMetadata = lasMetadata;
 }
 
 

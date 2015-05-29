@@ -125,13 +125,16 @@ Options RialtoFileWriter::getDefaultOptions()
 
 void RialtoFileWriterAssister::writeHeader(MetadataNode tileTableNode,
                                            PointLayoutPtr layout,
-                                           const SpatialReference& srs)
+                                           const SpatialReference& srs,
+                                           const std::string& lasMetadata)
 {    
     // Cesium expects a 2x1 grid in 4326
     assert(m_numColsAtL0 == 2);
     assert(m_numRowsAtL0 == 1);
 
-    const GpkgMatrixSet info(m_matrixSetName, tileTableNode, layout, m_timestamp, srs, m_numColsAtL0, m_numRowsAtL0, m_description);
+    const GpkgMatrixSet info(m_matrixSetName, tileTableNode, layout, m_timestamp, srs,
+                             m_numColsAtL0, m_numRowsAtL0, m_description,
+                             lasMetadata);
 
     const std::string filename(m_directory + "/header.json");
     FILE* fp = fopen(filename.c_str(), "wt");

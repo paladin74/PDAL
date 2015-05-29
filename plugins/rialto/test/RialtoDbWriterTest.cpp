@@ -41,6 +41,7 @@
 #include <pdal/util/FileUtils.hpp>
 
 #include <pdal/BufferReader.hpp>
+#include <../io/las/LasReader.hpp>
 #include <tiler/TilerFilter.hpp>
 #include <crop/CropFilter.hpp>
 #include <stats/StatsFilter.hpp>
@@ -342,6 +343,85 @@ TEST(RialtoDbWriterTest, existing_table_name)
         EXPECT_TRUE(FileUtils::fileExists(filename));
         delete[] actualData;
     }    
+}
+
+
+TEST(RialtoDbWriterTest, las_metadata)
+{
+    LogPtr log(new Log("rialtodbwritertest", "stdout"));
+
+    const std::string filename(Support::temppath("metadata.gpkg"));
+    FileUtils::deleteFile(filename);
+    
+    {
+        GeoPackageManager db(filename, log);
+        db.open();
+        db.close();
+    }
+    
+    assert(FileUtils::fileExists(filename));
+    {
+        Options ops;
+        ops.add("filename", Support::datapath("las/epsg_4326.las"));
+        LasReader reader;
+        reader.setOptions(ops);
+
+        Options statsOptions;
+        StatsFilter stats;
+        stats.setOptions(statsOptions);
+        stats.setInput(reader);
+
+        Options tilerOptions;
+        tilerOptions.add("maxLevel", 2);
+        tilerOptions.add("numCols", 2);
+        tilerOptions.add("numRows", 1);
+        tilerOptions.add("minx", -180.0);
+        tilerOptions.add("miny", -90.0);
+        tilerOptions.add("maxx", 180.0);
+        tilerOptions.add("maxy", 90.0);
+        TilerFilter tiler;
+        tiler.setOptions(tilerOptions);
+        tiler.setInput(stats);
+
+        Options writerOptions;
+        writerOptions.add("filename", filename);
+        writerOptions.add("name", "mytablename");
+        writerOptions.add("numCols", 2);
+        writerOptions.add("numRows", 1);
+        writerOptions.add("timestamp", "mytimestamp");
+        writerOptions.add("description", "mydescription");
+
+        //writerOptions.add("overwrite", true);
+        //writerOptions.add("verbose", LogLevel::Debug);
+        StageFactory f;
+        std::unique_ptr<Stage> writer(f.createStage("writers.rialtodb"));
+        writer->setOptions(writerOptions);
+        writer->setInput(tiler);
+
+        // execution
+        PointTable table;
+        PointViewPtr view(new PointView(table));
+        writer->prepare(table);
+        PointViewSet outputViews = writer->execute(table);
+    }
+
+    // now verify we can read it back
+    
+    {
+        GeoPackageReader db(filename, log);
+        db.open();
+        
+        std::vector<std::string> names;
+        db.readMatrixSetNames(names);
+        EXPECT_EQ(names.size(), 1u);
+
+        GpkgMatrixSet info;
+        db.readMatrixSet(names[0], info);
+        EXPECT_EQ("LAS: 1.2, Project: 00000000-0000-0000-0000-000000000000",
+                  info.getLasMetadata());
+
+        db.close();
+    }
 }
 
 

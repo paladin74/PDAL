@@ -58,7 +58,8 @@ public:
 protected:
     virtual void writeHeader(MetadataNode tileTableNode,
                              PointLayoutPtr layout,
-                             const SpatialReference& srs)=0;
+                             const SpatialReference& srs,
+                             const std::string& lasMetadata)=0;
                              
     virtual void writeTile(PointView*,
                            uint32_t level, uint32_t col, uint32_t row,

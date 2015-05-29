@@ -155,7 +155,7 @@ void GeoPackageWriter::writeTileTable(const GpkgMatrixSet& data)
         r.push_back(column(data.getName())); // table_name
         r.push_back(column("pctiles")); // data_type
         r.push_back(column(data.getName())); // identifier
-        r.push_back(column(data.getName())); // description
+        r.push_back(column(data.getDescription())); // description
         r.push_back(column(data.getDateTime())); // last_change
         r.push_back(column(srs_id));
         r.push_back(column(data.getDataMinX()));
@@ -237,14 +237,14 @@ void GeoPackageWriter::writeMetadata(const GpkgMatrixSet& data)
             "INSERT INTO gpkg_metadata"
             " (md_scope, md_standard_uri, mime_type, metadata)"
             " VALUES (?, ?, ?, ?)";
-
+            
         records rs;
         row r;
 
         r.push_back(column("dataset"));
         r.push_back(column("LAS"));
-        r.push_back(column("text/xml"));
-        r.push_back(column("...data..."));
+        r.push_back(column("text/plain"));
+        r.push_back(column(data.getLasMetadata()));
 
         rs.push_back(r);
 

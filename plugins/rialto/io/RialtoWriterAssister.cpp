@@ -61,7 +61,23 @@ void RialtoWriterAssister::ready(PointTableRef table, const SpatialReference& sr
         throw pdal_error("RialtoWriter: \"filters.tiler\" metadata not found");
     }
 
-    writeHeader(m_tileTableNode, table.layout(), srs);
+    std::string lasMinorVersion("?");
+    std::string lasMajorVersion("?");
+    std::string lasProject("none");
+    MetadataNode lasNode = table.metadata().findChild("readers.las");    
+    if (lasNode.valid())
+    {
+        lasMinorVersion = lasNode.findChild("minor_version").value();
+        lasMajorVersion = lasNode.findChild("major_version").value();
+        lasProject = lasNode.findChild("project_id").value();
+    }
+    std::ostringstream oss;
+    oss << "LAS: " << lasMajorVersion
+        << "." << lasMinorVersion
+        << ", Project: " << lasProject;
+    std::string lasMetadata = oss.str();
+    
+    writeHeader(m_tileTableNode, table.layout(), srs, lasMetadata);
 
     makePointViewMap();
     

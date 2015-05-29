@@ -169,7 +169,8 @@ public:
                 const SpatialReference& srs,
                 uint32_t numColsAtL0,
                 uint32_t numRowsAtL0,
-                const std::string& description);
+                const std::string& description,
+                const std::string& lasMetadata);
 
     void set(const std::string& datetime,
              const std::string& name,
@@ -186,7 +187,8 @@ public:
              double tmset_max_y,
              uint32_t numColsAtL0,
              uint32_t numRowsAtL0,
-             const std::string& description);
+             const std::string& description,
+             const std::string& lasMetadata);
 
     std::string getDateTime() const { return m_datetime; }
     std::string getName() const { return m_name; } // aka filename
@@ -195,7 +197,9 @@ public:
     const std::vector<GpkgDimension>& getDimensions() const { return m_dimensions; };
     std::vector<GpkgDimension>& getDimensionsRef() { return m_dimensions; };
     const std::string getWkt() const { return m_wkt; }
-    
+    const std::string getDescription() const { return m_description; }
+    const std::string getLasMetadata() const { return m_lasMetadata; }
+
     double getDataMinX() const { return m_data_min_x; } // data extents
     double getDataMinY() const { return m_data_min_y; }
     double getDataMaxX() const { return m_data_max_x; }
@@ -227,6 +231,7 @@ private:
     uint32_t m_numColsAtL0;
     uint32_t m_numRowsAtL0;
     std::string m_description;
+    std::string m_lasMetadata;
 };
 
 
