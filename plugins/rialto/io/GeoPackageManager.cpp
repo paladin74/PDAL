@@ -64,15 +64,18 @@ void GeoPackageManager::open()
 
     internalOpen(true);
 
-    createGpkgId();
-    createTableGpkgSpatialRefSys();
-    createTableGpkgContents();
-    createTableGpkgPctileMatrixSet();
-    createTableGpkgPctileMatrix();
-    createTableGpkgMetadata();
-    createTableGpkgMetadataReference();
-    createTableGpkgExtensions();
-    createTablePctilesDimensionSet();
+    if (!doesTableExist("gpkg_contents"))
+    {
+        createGpkgId();
+        createTableGpkgSpatialRefSys();
+        createTableGpkgContents();
+        createTableGpkgPctileMatrixSet();
+        createTableGpkgPctileMatrix();
+        createTableGpkgMetadata();
+        createTableGpkgMetadataReference();
+        createTableGpkgExtensions();
+        createTablePctilesDimensionSet();
+    }
 
     e_creationOpen.stop();
 }
@@ -343,6 +346,31 @@ void GeoPackageManager::childDumpStats() const
     e_creationClose.dump();
 }
 
+
+void GeoPackageManager::dropMatrixSet(const std::string& matrixSetName)
+{
+    // drops the matrix set table and all referencesto it  in the gpkg tables
+    
+    const std::vector<const std::string> tables {
+        "gpkg_contents",
+        "pctiles_dimension_set",
+        "gpkg_pctile_matrix",
+        "gpkg_pctile_matrix_set",
+        "gpkg_metadata_reference",
+        "gpkg_extensions"
+    };
+    
+    for (auto table: tables) 
+    {
+        std::ostringstream oss2;
+        oss2 << "DELETE FROM " << table << " WHERE table_name='" << matrixSetName << "'";
+        m_sqlite->execute(oss2.str());
+    }
+
+    std::ostringstream oss;
+    oss << "DROP TABLE IF EXISTS  " << matrixSetName;
+    m_sqlite->execute(oss.str());    
+}
 
 } // namespace rialto
 } // namespace pdal

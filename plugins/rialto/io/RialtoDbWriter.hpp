@@ -86,7 +86,6 @@ private:
 
     RialtoDbWriterAssister m_assister;
 
-    std::string m_connection;
     std::string m_matrixSetName;
     uint32_t m_numCols;
     uint32_t m_numRows;

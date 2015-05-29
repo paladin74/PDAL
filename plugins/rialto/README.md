@@ -102,10 +102,3 @@ Other Notes
 -----------
 
 * The file extension to use is ".gpkg".
-
-
-TODO
------
-* store the actual metadata
-* writer should overwrite the existing table (or fail)
-* make table_name be a unique id, add separate human-readable id

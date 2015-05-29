@@ -55,11 +55,16 @@ void RialtoDbWriter::ready(PointTableRef table)
 {
     log()->get(LogLevel::Debug) << "RialtoDbWriter::localStart()" << std::endl;
 
-    assert(FileUtils::fileExists(m_connection));
+    assert(FileUtils::fileExists(m_filename));
 
-    m_rialtoDb = new GeoPackageWriter(m_connection, log());
+    m_rialtoDb = new GeoPackageWriter(m_filename, log());
     m_rialtoDb->open();
 
+    if (m_rialtoDb->doesTableExist(m_matrixSetName))
+    {
+        throw pdal_error("point cloud table already exists in database: " + m_matrixSetName);
+    }
+    
     m_assister.m_rialtoDb = m_rialtoDb;
 
     const SpatialReference& srs = getSpatialReference().empty() ?
@@ -96,7 +101,6 @@ std::string RialtoDbWriter::getName() const
 
 void RialtoDbWriter::processOptions(const Options& options)
 {
-    m_connection = options.getValueOrThrow<std::string>("filename");
     m_matrixSetName = options.getValueOrThrow<std::string>("name");
     m_numCols = options.getValueOrThrow<uint32_t>("numCols");
     m_numRows = options.getValueOrThrow<uint32_t>("numRows");

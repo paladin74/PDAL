@@ -298,6 +298,53 @@ TEST(RialtoDbWriterTest, testWriter)
 }
 
 
+TEST(RialtoDbWriterTest, existing_table_name)
+{
+    const std::string filename(Support::temppath("samename.gpkg"));
+    FileUtils::deleteFile(filename);
+
+    
+    {
+        PointTable table;
+        PointViewPtr view(new PointView(table));
+        RialtoTest::Data* actualData = RialtoTest::randomDataInit(table, view, 100, true);
+
+        RialtoTest::createDatabase(table, view, filename, 2);
+        EXPECT_TRUE(FileUtils::fileExists(filename));
+
+        delete[] actualData;
+    }
+
+    {
+        PointTable table;
+        PointViewPtr view(new PointView(table));
+        RialtoTest::Data* actualData = RialtoTest::randomDataInit(table, view, 100, true);
+
+        EXPECT_THROW(RialtoTest::populateDatabase(table, view, filename, 2), pdal::pdal_error);
+        EXPECT_TRUE(FileUtils::fileExists(filename));
+        
+        delete[] actualData;
+    }
+    
+    {
+        LogPtr log(new Log("rialtodbwritertest", "stdout"));
+        GeoPackageManager db(filename, log);
+        db.open();
+        db.dropMatrixSet("_unnamed_");
+        db.close();
+    }
+
+    {
+        PointTable table;
+        PointViewPtr view(new PointView(table));
+        RialtoTest::Data* actualData = RialtoTest::randomDataInit(table, view, 100, true);
+        RialtoTest::populateDatabase(table, view, filename, 2);
+        EXPECT_TRUE(FileUtils::fileExists(filename));
+        delete[] actualData;
+    }    
+}
+
+
 TEST(RialtoDbWriterTest, testOscar)
 {
     const std::string filename(Support::temppath("oscar.gpkg"));

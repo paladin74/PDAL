@@ -66,6 +66,8 @@ public:
 
     virtual void childDumpStats() const;
 
+    void dropMatrixSet(const std::string& matrixSetName);
+    
 private:
     void createGpkgId();
     void createTableGpkgSpatialRefSys();

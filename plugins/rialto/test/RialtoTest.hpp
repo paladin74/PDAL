@@ -70,6 +70,11 @@ public:
     
     static void createTileFiles(pdal::PointTable& table, pdal::PointViewPtr view, const std::string& filename);
 
+    static void populateDatabase(pdal::PointTable& table,
+                               pdal::PointViewPtr view,
+                               const std::string& filename,
+                               uint32_t maxLevel);
+
     static void createDatabase(pdal::PointTable& table,
                                pdal::PointViewPtr view,
                                const std::string& filename,
@@ -186,18 +191,11 @@ void RialtoTest::createTileFiles(pdal::PointTable& table, pdal::PointViewPtr vie
 }
 
 
-void RialtoTest::createDatabase(pdal::PointTable& table,
+void RialtoTest::populateDatabase(pdal::PointTable& table,
                                 pdal::PointViewPtr view,
                                 const std::string& filename,
                                 uint32_t maxLevel)
 {    
-    assert(!FileUtils::fileExists(filename));
-    {
-        LogPtr log(new Log("rialtodbwritertest", "stdout"));
-        GeoPackageManager db(filename, log);
-        db.open();
-        db.close();
-    }
     assert(FileUtils::fileExists(filename));
     
     {
@@ -253,6 +251,24 @@ void RialtoTest::createDatabase(pdal::PointTable& table,
     }
     
     assert(FileUtils::fileExists(filename));
+}
+
+
+void RialtoTest::createDatabase(pdal::PointTable& table,
+                                pdal::PointViewPtr view,
+                                const std::string& filename,
+                                uint32_t maxLevel)
+{    
+    assert(!FileUtils::fileExists(filename));
+    {
+        LogPtr log(new Log("rialtodbwritertest", "stdout"));
+        GeoPackageManager db(filename, log);
+        db.open();
+        db.close();
+    }
+    assert(FileUtils::fileExists(filename));
+
+    populateDatabase(table, view, filename, maxLevel);
 }
 
 
