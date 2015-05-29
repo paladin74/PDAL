@@ -260,7 +260,7 @@ void GeoPackage::readMatrixSet(std::string const& name, GpkgMatrixSet& info) con
     {
         std::ostringstream oss;
         oss << "SELECT COUNT(table_name) "
-            << "FROM pctiles_dimension_set WHERE table_name='" << name << "'";
+            << "FROM gpkg_pctile_dimension_set WHERE table_name='" << name << "'";
 
         m_sqlite->query(oss.str());
 
@@ -397,7 +397,7 @@ void GeoPackage::readDimensions(std::string const& name, std::vector<GpkgDimensi
 
     std::ostringstream oss;
     oss << "SELECT ordinal_position, dimension_name, data_type, description, minimum, mean, maximum "
-        << "FROM pctiles_dimension_set WHERE table_name='" << name << "'";
+        << "FROM gpkg_pctile_dimension_set WHERE table_name='" << name << "'";
 
     m_sqlite->query(oss.str());
 

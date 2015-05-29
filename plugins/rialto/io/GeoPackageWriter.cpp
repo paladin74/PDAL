@@ -74,6 +74,7 @@ void GeoPackageWriter::open()
     verifyTableExists("gpkg_extensions");
     verifyTableExists("gpkg_metadata");
     verifyTableExists("gpkg_metadata_reference");
+    verifyTableExists("gpkg_pctile_dimension_set");
 }
 
 
@@ -285,7 +286,7 @@ void GeoPackageWriter::writeDimensions(const GpkgMatrixSet& data)
     }
 
     const std::string sql =
-        "INSERT INTO pctiles_dimension_set"
+        "INSERT INTO gpkg_pctile_dimension_set"
         " (table_name, dimension_name, data_type, ordinal_position, description,"
         " minimum, mean, maximum)"
         " VALUES (?, ?, ?, ?, ?, ?, ?, ?)";

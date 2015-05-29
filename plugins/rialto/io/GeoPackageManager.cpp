@@ -205,7 +205,7 @@ void GeoPackageManager::createTableGpkgPctileMatrixSet()
         "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_metadata_reference(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(table_name),"
-        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(pctiles_dimension_set)"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(gpkg_pctile_dimension_set)"
         ")";
 
     m_sqlite->execute(sql);
@@ -229,7 +229,7 @@ void GeoPackageManager::createTableGpkgPctileMatrix()
         "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix_set(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_metadata_reference(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(table_name),"
-        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(pctiles_dimension_set)"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(gpkg_pctile_dimension_set)"
         ")";
 
     m_sqlite->execute(sql);
@@ -275,7 +275,7 @@ void GeoPackageManager::createTableGpkgMetadataReference()
         "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix_set(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(table_name),"
-        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(pctiles_dimension_set),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(gpkg_pctile_dimension_set),"
         "FOREIGN KEY(md_file_id) REFERENCES gpkg_metadata(id),"
         "FOREIGN KEY(md_parent_id) REFERENCES gpkg_metadata(id)"
         ")";
@@ -302,7 +302,7 @@ void GeoPackageManager::createTableGpkgExtensions()
         "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_pctile_matrix_set(table_name),"
         "FOREIGN KEY(table_name) REFERENCES gpkg_metadata_reference(table_name),"
-        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(pctiles_dimension_set),"
+        "FOREIGN KEY(table_name) REFERENCES gpkg_extensions(gpkg_pctile_dimension_set),"
         "UNIQUE(table_name, column_name, extension_name)"
         ")";
 
@@ -312,13 +312,13 @@ void GeoPackageManager::createTableGpkgExtensions()
 
 void GeoPackageManager::createTablePctilesDimensionSet()
 {
-    if (m_sqlite->doesTableExist("pctiles_dimension_set"))
+    if (m_sqlite->doesTableExist("gpkg_pctile_dimension_set"))
     {
-        throw pdal_error("RialtoDB: invalid state (table 'pctiles_dimension_set' already exists)");
+        throw pdal_error("RialtoDB: invalid state (table 'gpkg_pctile_dimension_set' already exists)");
     }
 
     const std::string sql =
-        "CREATE TABLE pctiles_dimension_set("
+        "CREATE TABLE gpkg_pctile_dimension_set("
         "table_name TEXT NOT NULL,"
         "ordinal_position INTEGER NOT NULL,"
         "dimension_name TEXT NOT NULL,"
@@ -353,7 +353,7 @@ void GeoPackageManager::dropMatrixSet(const std::string& matrixSetName)
     
     const std::vector<const std::string> tables {
         "gpkg_contents",
-        "pctiles_dimension_set",
+        "gpkg_pctile_dimension_set",
         "gpkg_pctile_matrix",
         "gpkg_pctile_matrix_set",
         "gpkg_metadata_reference",
